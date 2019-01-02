@@ -272,6 +272,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
+        GetWindowRect(hWnd, &rc);
+        if (hiden)
+        {
+            rc.left -= border.left;
+            rc.top -= border.top;
+            rc.right += border.right;
+            rc.bottom += border.bottom;
+        }
+        _header->rect.left = rc.left;
+        _header->rect.right = rc.right;
+        _header->rect.top = rc.top;
+        _header->rect.bottom = rc.bottom;
 		PostQuitMessage(0);
 		break;
     case WM_NCHITTEST:
@@ -343,6 +355,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnFindText(hWnd, message, wParam, lParam);
             }
         }
+        break;
+    case WM_MOUSEWHEEL:
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+        {
+            OnPrevPage(hWnd, message, wParam, lParam);
+        }
+        else
+        {
+            OnNextPage(hWnd, message, wParam, lParam);
+        }
+        break;
+    case WM_ERASEBKGND:
+        if (!_Text)
+            DefWindowProc(hWnd, message, wParam, lParam);
         break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -625,20 +651,24 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnPaint(HWND hWnd, HDC hdc)
 {
-    // set font
-    HFONT hFont = CreateFontIndirect(&_header->font);
-    SelectObject(hdc, hFont);
-    SetTextColor(hdc, _header->font_color);
-    DeleteObject(hFont);
-
-    // set bk color
     RECT rc;
     GetClientRectExceptStatusBar(hWnd, &rc);
+
+    // memory dc
+    HDC memdc = CreateCompatibleDC(hdc);
+    HBITMAP hBmp = CreateCompatibleBitmap(hdc, rc.right-rc.left, rc.bottom-rc.top);
+    SelectObject(memdc, hBmp);
+
+    // set font
+    HFONT hFont = CreateFontIndirect(&_header->font);
+    SelectObject(memdc, hFont);
+    SetTextColor(memdc, _header->font_color);
+
+    // set bk color
     HBRUSH hBrush = CreateSolidBrush(_header->bk_color);
-    SelectObject(hdc, hBrush);
-    FillRect(hdc, &rc, hBrush);
-    SetBkMode(hdc, TRANSPARENT);
-    DeleteObject(hBrush);
+    SelectObject(memdc, hBrush);
+    FillRect(memdc, &rc, hBrush);
+    SetBkMode(memdc, TRANSPARENT);
 
     if (!_Text)
         return 0;
@@ -652,13 +682,13 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
         {
             _item->index = pageInfo.top();
             pageInfo.pop();
-            _CurPageCount = CalcCount(hWnd, hdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
+            _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
         }
         else
         {
             int count = 0;
             int temp = 0;
-            count = ReCalcCount(hWnd, hdc, 20, _Text+_item->index-1, _item->index, FALSE);
+            count = ReCalcCount(hWnd, memdc, 20, _Text+_item->index-1, _item->index, FALSE);
             if (_item->index <= count)
             {
                 _item->index = 0;
@@ -666,23 +696,29 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
             else
             {
                 //try to draw
-                temp = CalcCount(hWnd, hdc, 20, _Text+_item->index-count, _TextLen-_item->index+count, FALSE);
+                temp = CalcCount(hWnd, memdc, 20, _Text+_item->index-count, _TextLen-_item->index+count, FALSE);
                 if (temp < count)
                 {
                     count = temp;
                 }
                 _item->index -= count;
             }
-            _CurPageCount = CalcCount(hWnd, hdc, 20, _Text+_item->index, _item->index == 0 ? _TextLen : count, TRUE);
+            _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _item->index == 0 ? _TextLen : count, TRUE);
         }
         _bPrevOrNext = FALSE;
     }
     // next page
     else
     {
-        _CurPageCount = CalcCount(hWnd, hdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
+        _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
     }
 
+    BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
+
+    DeleteObject(hBmp);
+    DeleteObject(hFont);
+    DeleteObject(hBrush);
+    DeleteDC(memdc);
     UpdateProgess();
     return 0;
 }
@@ -694,10 +730,10 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (rc.right - rc.left != _header->rect.right - _header->rect.left
         || rc.bottom - rc.top != _header->rect.bottom - _header->rect.top)
     {
-        _header->rect.left = rc.left;
-        _header->rect.right = rc.right;
-        _header->rect.top = rc.top;
-        _header->rect.bottom = rc.bottom;
+        //_header->rect.left = rc.left;
+        //_header->rect.right = rc.right;
+        //_header->rect.top = rc.top;
+        //_header->rect.bottom = rc.bottom;
         _Cache.reset_page_info();
     }
     SendMessage(_hWndStatus, message, wParam, lParam);
@@ -706,16 +742,16 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnMove(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT rc;
-    GetWindowRect(hWnd, &rc);
-    if (rc.left != _header->rect.left
-        || rc.top != _header->rect.top)
-    {
-        _header->rect.left = rc.left;
-        _header->rect.right = rc.right;
-        _header->rect.top = rc.top;
-        _header->rect.bottom = rc.bottom;
-    }
+    //RECT rc;
+    //GetWindowRect(hWnd, &rc);
+    //if (rc.left != _header->rect.left
+    //    || rc.top != _header->rect.top)
+    //{
+    //    _header->rect.left = rc.left;
+    //    _header->rect.right = rc.right;
+    //    _header->rect.top = rc.top;
+    //    _header->rect.bottom = rc.bottom;
+    //}
     return 0;
 }
 
