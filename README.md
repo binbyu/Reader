@@ -1,26 +1,26 @@
 # Reader
 An win32 txt file reader
 
-***
+****
 最新release版本：`v1.0.0.3`<br/>
 (百度网盘)<br/>
 链接: [https://pan.baidu.com/s/1pL7GARr9DOFQCfJbqOvkMg](https://pan.baidu.com/s/1pL7GARr9DOFQCfJbqOvkMg)<br/>
 提取码: `grmu`
-***
+****
 <br/>
 <br/>
 <br/>
 <br/>
-# 2019/09/17 bug修复
+# 2019/09/17 bug修复<br/>
 1. 修改行距bug
 <br/>
 <br/>
-# 2019/01/02 更新
+# 2019/01/02 更新<br/>
 1. 增加鼠标翻页支持：<br/>
      使用方法：鼠标滚动事件（向上滚动：上一页， 向下滚动：下一页） 
 <br/>
 <br/> 
-# 首次提交
+# 首次提交<br/>
 软件介绍： 这是一款使用VS2010开发的一款win32 txt小说阅读器。<br/>
 主要功能和特点如下：<br/>
 1. 支持BOM-UTF8/UTF8/UTF16/BOM-UNICODE LE or BE/UNICODE/GB2312/ANSI等txt文本格式<br/>
