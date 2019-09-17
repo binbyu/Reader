@@ -18,6 +18,8 @@
 
 
 #define MAX_LOADSTRING              100
+#define FONT_LINE_GAP               5
+#define INTERNAL_BORDER             0  // left and right border
 
 // Global Variables:
 HINSTANCE hInst;								// current instance
@@ -48,6 +50,7 @@ TCHAR               _szSrcTitle[MAX_PATH] = {0};
 LRESULT             OnCreate(HWND);
 LRESULT             OnUpdateMenu(HWND);
 LRESULT             OnOpenItem(HWND, int);
+LRESULT             OnOpenFile(HWND, TCHAR*);
 LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
@@ -289,51 +292,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
-        if (hit == HTCLIENT)
-            hit = HTCAPTION;
-        return hit;
-    case /*WM_LBUTTONDBLCLK*/WM_NCLBUTTONDBLCLK:
-        GetCursorPos(&pt);
-        ScreenToClient(hWnd, &pt);
-        GetClientRectExceptStatusBar(hWnd, &rc);
-        if (PtInRect(&rc, pt))
+        if (hit == HTCLIENT && hiden)
         {
-            OnOpenFile(hWnd, message, wParam, lParam);
-        }
-        else
-        {
-            return DefWindowProc(hWnd, message, wParam, lParam);
-        }
-        break;
-    case /*WM_RBUTTONDOWN*/WM_NCRBUTTONDBLCLK:
-        if (!hiden)
-        {
-            hMenu = GetMenu(hWnd);
-            dwStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
-            GetWindowRect(hWnd, &border);
+            GetCursorPos(&pt);
+            ScreenToClient(hWnd, &pt);
             GetClientRectExceptStatusBar(hWnd, &rc);
-            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
-            border.left = rc.left - border.left;
-            border.right -= rc.right;
-            border.top = rc.top - border.top;
-            border.bottom -= rc.bottom;
-            SetWindowLong(hWnd, GWL_STYLE, dwStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-            SetMenu(hWnd, NULL);
-            ShowWindow(_hWndStatus, SW_HIDE);
-            SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+            rc.bottom = rc.bottom/2 > 80 ? 80 : rc.bottom/2;
+            if (PtInRect(&rc, pt))
+                hit = HTCAPTION;
         }
-        else
-        {
-            GetWindowRect(hWnd, &rc);
-            SetWindowLong(hWnd, GWL_STYLE, dwStyle);
-            SetMenu(hWnd, hMenu);
-            ShowWindow(_hWndStatus, SW_SHOW);
-            SetWindowPos(hWnd, NULL, rc.left-border.left, rc.top-border.top, 
-                rc.right-rc.left+border.left+border.right, rc.bottom-rc.top+border.top+border.bottom, SWP_DRAWFRAME);
-        }
-        hiden = !hiden;
-        break;
+        return hit;
     case WM_SIZE:
         OnSize(hWnd, message, wParam, lParam);
         break;
@@ -356,6 +324,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnFindText(hWnd, message, wParam, lParam);
             }
         }
+        else if (VK_F12 == wParam)
+        {
+            // show or hiden border
+            if (!hiden)
+            {
+                hMenu = GetMenu(hWnd);
+                dwStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
+                GetWindowRect(hWnd, &border);
+                GetClientRectExceptStatusBar(hWnd, &rc);
+                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+                border.left = rc.left - border.left;
+                border.right -= rc.right;
+                border.top = rc.top - border.top;
+                border.bottom -= rc.bottom;
+                SetWindowLong(hWnd, GWL_STYLE, dwStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
+                SetMenu(hWnd, NULL);
+                ShowWindow(_hWndStatus, SW_HIDE);
+                SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+            }
+            else
+            {
+                GetWindowRect(hWnd, &rc);
+                SetWindowLong(hWnd, GWL_STYLE, dwStyle);
+                SetMenu(hWnd, hMenu);
+                ShowWindow(_hWndStatus, SW_SHOW);
+                SetWindowPos(hWnd, NULL, rc.left-border.left, rc.top-border.top, 
+                    rc.right-rc.left+border.left+border.right, rc.bottom-rc.top+border.top+border.bottom, SWP_DRAWFRAME);
+            }
+            hiden = !hiden;
+        }
+        break;
+    case WM_LBUTTONDOWN:
+        OnNextPage(hWnd, message, wParam, lParam);
+        break;
+    case WM_RBUTTONDOWN:
+        OnPrevPage(hWnd, message, wParam, lParam);
         break;
     case WM_MOUSEWHEEL:
         if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
@@ -424,6 +429,10 @@ LRESULT OnUpdateMenu(HWND hWnd)
     {
         item_t* item = _Cache.get_item(i);
         AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id++, item->file_name);
+        if (i == 0)
+        {
+            OnOpenFile(hWnd, item->file_name);
+        }
     }
     if (_header->size > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
@@ -511,30 +520,8 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
 	return 0;
 }
 
-LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT OnOpenFile(HWND hWnd, TCHAR *szFileName)
 {
-    if (IsWindow(_hFindDlg))
-    {
-        DestroyWindow(_hFindDlg);
-        _hFindDlg = NULL;
-    }
-    TCHAR szFileName[MAX_PATH] = {0};
-    TCHAR szTitle[MAX_PATH] = {0};
-    OPENFILENAME ofn = {0};
-    ofn.lStructSize = sizeof(ofn);  
-    ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("txt(*.txt)\0*.txt\0");
-    ofn.lpstrInitialDir = NULL;
-    ofn.lpstrFile = szFileName; 
-    ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
-    ofn.nFilterIndex = 0;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
-    BOOL bSel = GetOpenFileName(&ofn);
-    if (!bSel)
-    {
-        return 0;
-    }
-
     item_t* item = NULL;
     if (!ReadAllAndDecode(hWnd, szFileName, &item))
     {
@@ -574,6 +561,33 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         ResumeThread(_hThreadChapter);
 
     return 0;
+}
+
+LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (IsWindow(_hFindDlg))
+    {
+        DestroyWindow(_hFindDlg);
+        _hFindDlg = NULL;
+    }
+    TCHAR szFileName[MAX_PATH] = {0};
+    TCHAR szTitle[MAX_PATH] = {0};
+    OPENFILENAME ofn = {0};
+    ofn.lStructSize = sizeof(ofn);  
+    ofn.hwndOwner = hWnd;  
+    ofn.lpstrFilter = _T("txt(*.txt)\0*.txt\0");
+    ofn.lpstrInitialDir = NULL;
+    ofn.lpstrFile = szFileName; 
+    ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
+    ofn.nFilterIndex = 0;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
+    BOOL bSel = GetOpenFileName(&ofn);
+    if (!bSel)
+    {
+        return 0;
+    }
+
+    return OnOpenFile(hWnd, szFileName);
 }
 
 LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -897,9 +911,8 @@ LONG GetFontHeight(HWND hWnd, HDC hdc)
 {
     SIZE sz = {0};
     LONG fontHeight = 20;
-    const LONG GAP = 5;
     GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
-    fontHeight = sz.cy + GAP;
+    fontHeight = sz.cy + FONT_LINE_GAP;
     return fontHeight;
 }
 
@@ -908,8 +921,10 @@ LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
+    rect.left+=INTERNAL_BORDER;
+    rect.top+=INTERNAL_BORDER;
     LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = rc.bottom/fontHeight;
+    LONG maxLine = (rc.bottom+FONT_LINE_GAP-2*INTERNAL_BORDER)/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
     while (maxLine && index<size)
@@ -936,7 +951,7 @@ LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
             continue;
         }
         // calc char width
-        LONG width = 0;
+        LONG width = INTERNAL_BORDER*2;
         SIZE sz;
         while (width < rc.right && index<size)
         {
@@ -973,8 +988,10 @@ LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
+    rect.left+=INTERNAL_BORDER;
+    rect.top+=INTERNAL_BORDER;
     LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = rc.bottom/fontHeight;
+    LONG maxLine = (rc.bottom+FONT_LINE_GAP-2*INTERNAL_BORDER)/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
     while (maxLine && size + index > 0)
@@ -1001,7 +1018,7 @@ LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
             continue;
         }
         // calc char width
-        LONG width = 0;
+        LONG width = INTERNAL_BORDER*2;
         SIZE sz;
         while (width < rc.right && size + index > 0)
         {
