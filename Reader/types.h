@@ -42,12 +42,16 @@ typedef struct
 typedef struct 
 {
 	int flag;
+    UINT version;
     RECT rect;
 	LOGFONT font;
     u32 font_color;
 	u32 bk_color; 
 	int item_id;
 	int size;
+    int line_gap;
+    int internal_border;
+    int page_mode;
 } header_t;
 
 struct body_t

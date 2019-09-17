@@ -18,8 +18,6 @@
 
 
 #define MAX_LOADSTRING              100
-#define FONT_LINE_GAP               5
-#define INTERNAL_BORDER             0  // left and right border
 
 // Global Variables:
 HINSTANCE hInst;								// current instance
@@ -32,6 +30,7 @@ ATOM				MyRegisterClass(HINSTANCE hInstance);
 BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
 
 Cache               _Cache(CACHE_FILE_NAME);
 header_t*           _header         = NULL;
@@ -61,13 +60,14 @@ LRESULT             OnMove(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPrevPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnNextPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
-BOOL                Init();
-void                Exit();
+UINT                GetAppVersion(void);
+BOOL                Init(void);
+void                Exit(void);
 LONG                GetFontHeight(HWND, HDC);
 LONG                CalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
 LONG                ReCalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
 BOOL                ReadAllAndDecode(HWND, TCHAR*, item_t**);
-VOID                UpdateProgess();
+VOID                UpdateProgess(void);
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
 DWORD WINAPI        ThreadProcChapter(LPVOID);
 
@@ -141,7 +141,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
 	wcex.cbSize = sizeof(WNDCLASSEX);
 
-	wcex.style			= CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+	wcex.style			= CS_HREDRAW | CS_VREDRAW /*| CS_DBLCLKS*/;
 	wcex.lpfnWndProc	= WndProc;
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
@@ -259,6 +259,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_COLOR:
             OnSetBkColor(hWnd, message, wParam, lParam);
             break;
+        case IDM_CONFIG:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTING), hWnd, Setting);
+            break;
         case IDM_DEFAULT:
             OnRestoreDefault(hWnd, message, wParam, lParam);
             break;
@@ -357,19 +360,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONDOWN:
-        OnNextPage(hWnd, message, wParam, lParam);
+        if (_header->page_mode == 0)
+        {
+            OnNextPage(hWnd, message, wParam, lParam);
+        }
         break;
     case WM_RBUTTONDOWN:
-        OnPrevPage(hWnd, message, wParam, lParam);
-        break;
-    case WM_MOUSEWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+        if (_header->page_mode == 0)
         {
             OnPrevPage(hWnd, message, wParam, lParam);
         }
-        else
+        break;
+    case WM_MOUSEWHEEL:
+        if (_header->page_mode == 1)
         {
-            OnNextPage(hWnd, message, wParam, lParam);
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+            {
+                OnPrevPage(hWnd, message, wParam, lParam);
+            }
+            else
+            {
+                OnNextPage(hWnd, message, wParam, lParam);
+            }
         }
         break;
     case WM_ERASEBKGND:
@@ -400,6 +412,82 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    BOOL bResult = FALSE;
+    BOOL bUpdated = FALSE;
+    int value = 0;
+    UNREFERENCED_PARAMETER(lParam);
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
+        CheckRadioButton(hDlg, IDC_RADIO_CLICK, IDC_RADIO_WHEEL, _header->page_mode == 0 ? IDC_RADIO_CLICK : IDC_RADIO_WHEEL);
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
+            switch (LOWORD(wParam))
+            {
+            case IDOK:
+                GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
+                if (!bResult)
+                {
+                    MessageBox(hDlg, _T("Invalid line gap value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
+                if (!bResult)
+                {
+                    MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
+                if (value != _header->line_gap)
+                {
+                    _header->line_gap = value;
+                    bUpdated = TRUE;
+                }
+                value = GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
+                if (value != _header->internal_border)
+                {
+                    _header->internal_border = value;
+                    bUpdated = TRUE;
+                }
+                if (BST_CHECKED == IsDlgButtonChecked(hDlg, IDC_RADIO_CLICK))
+                {
+                    _header->page_mode = 0;
+                }
+                else
+                {
+                    _header->page_mode = 1;
+                }
+                break;
+            case IDCANCEL:
+                break;
+            default:
+                break;
+            }
+
+            EndDialog(hDlg, LOWORD(wParam));
+
+            if (bUpdated)
+            {
+                RECT rc;
+                _Cache.reset_page_info();
+                GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
+                InvalidateRect(GetParent(hDlg), &rc, TRUE);
+            }
+
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
 }
 
 LRESULT OnCreate(HWND hWnd)
@@ -520,9 +608,13 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
 	return 0;
 }
 
-LRESULT OnOpenFile(HWND hWnd, TCHAR *szFileName)
+LRESULT OnOpenFile(HWND hWnd, TCHAR *filename)
 {
     item_t* item = NULL;
+    TCHAR szFileName[MAX_PATH] = {0};
+
+    memcpy(szFileName, filename, MAX_PATH);
+
     if (!ReadAllAndDecode(hWnd, szFileName, &item))
     {
         return 0;
@@ -860,7 +952,16 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-BOOL Init()
+UINT GetAppVersion(void)
+{
+    char version[4] = {'1','1','0','0'};
+    UINT ver = 0;
+
+    ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
+    return ver;
+}
+
+BOOL Init(void)
 {
     if (!_Cache.init())
     {
@@ -888,7 +989,7 @@ BOOL Init()
     return TRUE;
 }
 
-void Exit()
+void Exit(void)
 {
     if (_Text)
         free(_Text);
@@ -912,7 +1013,7 @@ LONG GetFontHeight(HWND hWnd, HDC hdc)
     SIZE sz = {0};
     LONG fontHeight = 20;
     GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
-    fontHeight = sz.cy + FONT_LINE_GAP;
+    fontHeight = sz.cy + _header->line_gap;
     return fontHeight;
 }
 
@@ -921,10 +1022,10 @@ LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
-    rect.left+=INTERNAL_BORDER;
-    rect.top+=INTERNAL_BORDER;
+    rect.left+=_header->internal_border;
+    rect.top+=_header->internal_border;
     LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = (rc.bottom+FONT_LINE_GAP-2*INTERNAL_BORDER)/fontHeight;
+    LONG maxLine = (rc.bottom+_header->line_gap-2*_header->internal_border)/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
     while (maxLine && index<size)
@@ -951,7 +1052,7 @@ LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
             continue;
         }
         // calc char width
-        LONG width = INTERNAL_BORDER*2;
+        LONG width = _header->internal_border*2;
         SIZE sz;
         while (width < rc.right && index<size)
         {
@@ -988,10 +1089,10 @@ LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
-    rect.left+=INTERNAL_BORDER;
-    rect.top+=INTERNAL_BORDER;
+    rect.left+=_header->internal_border;
+    rect.top+=_header->internal_border;
     LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = (rc.bottom+FONT_LINE_GAP-2*INTERNAL_BORDER)/fontHeight;
+    LONG maxLine = (rc.bottom+_header->line_gap-2*_header->internal_border)/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
     while (maxLine && size + index > 0)
@@ -1018,7 +1119,7 @@ LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
             continue;
         }
         // calc char width
-        LONG width = INTERNAL_BORDER*2;
+        LONG width = _header->internal_border*2;
         SIZE sz;
         while (width < rc.right && size + index > 0)
         {
@@ -1151,7 +1252,7 @@ BOOL ReadAllAndDecode(HWND hWnd, TCHAR* szFileName, item_t** item)
     return TRUE;
 }
 
-VOID UpdateProgess()
+VOID UpdateProgess(void)
 {
     static TCHAR progress[32] = {0};
     if (_item)

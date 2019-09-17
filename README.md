@@ -2,25 +2,37 @@
 An win32 txt file reader
 
 ****
-最新release版本：`v1.0.0.3`<br/>
+最新release版本：`v1.1.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1pL7GARr9DOFQCfJbqOvkMg](https://pan.baidu.com/s/1pL7GARr9DOFQCfJbqOvkMg)<br/>
-提取码: `grmu`
+链接: [https://pan.baidu.com/s/1_ohKo82M3E2UCLtLK2xLCg](https://pan.baidu.com/s/1_ohKo82M3E2UCLtLK2xLCg)<br/>
+提取码: `dcvj`
 ****
 <br/>
 <br/>
 <br/>
 <br/>
-# 2019/09/17 bug修复<br/>
+# v1.1.0.0 2019/09/17 功能更新<br/>
+1. 新增设置项：setting > config<br/>
+  1.1 行距间隙：显示行高 = 字体默认高度 + ”行距间隙“<br/>
+  1.2 内部边框：文本与边框之间的距离<br/>
+  1.3 翻页方式：<br/>
+      1.3.1 鼠标点击：鼠标左键单击：下一页，  鼠标右键单击：上一页<br/>
+      1.3.2 鼠标滚动：向上滚动：上一页， 向下滚动：下一页<br/>
+2. 取消原鼠标左键双击打开文件功能<br/>
+3. 取消原鼠标右键双击隐藏/显示，改为快捷键F12<br/>
+4. 取消原鼠标按住拖动窗口功能，改为在“隐藏边框”模式时，鼠标左键按住窗口上部区域进行拖动。<br/>
+<br/>
+<br/>
+# v1.0.0.3 2019/09/17 bug修复<br/>
 1. 修改行距bug
 <br/>
 <br/>
-# 2019/01/02 更新<br/>
+# v1.0.0.2 2019/01/02 更新<br/>
 1. 增加鼠标翻页支持：<br/>
      使用方法：鼠标滚动事件（向上滚动：上一页， 向下滚动：下一页） 
 <br/>
 <br/> 
-# 首次提交<br/>
+# v1.0.0.0 首次提交<br/>
 软件介绍： 这是一款使用VS2010开发的一款win32 txt小说阅读器。<br/>
 主要功能和特点如下：<br/>
 1. 支持BOM-UTF8/UTF8/UTF16/BOM-UNICODE LE or BE/UNICODE/GB2312/ANSI等txt文本格式<br/>

@@ -6,6 +6,7 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
+extern UINT GetAppVersion(void);
 
 Cache::Cache(TCHAR* file)
 {
@@ -44,7 +45,20 @@ bool Cache::init()
     }
     else
     {
-        return read();
+        if (read())
+        {
+            if (get_header()->version != GetAppVersion())
+            {
+                // remove old cache data
+                DeleteFile(m_file_name);
+                free(m_buffer);
+                m_buffer = NULL;
+                if (!default_header())
+                    return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     return true;
@@ -244,6 +258,10 @@ header_t* Cache::default_header()
 
     // default bk color
     header->bk_color = 0x00ffffff;  // White
+
+    header->line_gap = 5;
+    header->internal_border = 0;
+    header->version = GetAppVersion();
 
     return header;
 }
