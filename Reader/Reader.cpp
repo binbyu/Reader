@@ -60,8 +60,9 @@ LRESULT             OnNextPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
 BOOL                Init();
 void                Exit();
-LONG                CalcCount(HWND, HDC, LONG, TCHAR*, UINT, BOOL);
-LONG                ReCalcCount(HWND, HDC, LONG, TCHAR*, UINT, BOOL);
+LONG                GetFontHeight(HWND, HDC);
+LONG                CalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
+LONG                ReCalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
 BOOL                ReadAllAndDecode(HWND, TCHAR*, item_t**);
 VOID                UpdateProgess();
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
@@ -682,13 +683,13 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
         {
             _item->index = pageInfo.top();
             pageInfo.pop();
-            _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
+            _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _TextLen-_item->index, TRUE);
         }
         else
         {
             int count = 0;
             int temp = 0;
-            count = ReCalcCount(hWnd, memdc, 20, _Text+_item->index-1, _item->index, FALSE);
+            count = ReCalcCount(hWnd, memdc, _Text+_item->index-1, _item->index, FALSE);
             if (_item->index <= count)
             {
                 _item->index = 0;
@@ -696,21 +697,21 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
             else
             {
                 //try to draw
-                temp = CalcCount(hWnd, memdc, 20, _Text+_item->index-count, _TextLen-_item->index+count, FALSE);
+                temp = CalcCount(hWnd, memdc, _Text+_item->index-count, _TextLen-_item->index+count, FALSE);
                 if (temp < count)
                 {
                     count = temp;
                 }
                 _item->index -= count;
             }
-            _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _item->index == 0 ? _TextLen : count, TRUE);
+            _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _item->index == 0 ? _TextLen : count, TRUE);
         }
         _bPrevOrNext = FALSE;
     }
     // next page
     else
     {
-        _CurPageCount = CalcCount(hWnd, memdc, 20, _Text+_item->index, _TextLen-_item->index, TRUE);
+        _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _TextLen-_item->index, TRUE);
     }
 
     BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
@@ -892,11 +893,22 @@ void Exit()
     }
 }
 
-LONG CalcCount(HWND hWnd, HDC hdc, LONG fontHeight, TCHAR* data, UINT size, BOOL isDraw)
+LONG GetFontHeight(HWND hWnd, HDC hdc)
+{
+    SIZE sz = {0};
+    LONG fontHeight = 20;
+    const LONG GAP = 5;
+    GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
+    fontHeight = sz.cy + GAP;
+    return fontHeight;
+}
+
+LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
 {
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
+    LONG fontHeight = GetFontHeight(hWnd, hdc);
     LONG maxLine = rc.bottom/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
@@ -956,11 +968,12 @@ LONG CalcCount(HWND hWnd, HDC hdc, LONG fontHeight, TCHAR* data, UINT size, BOOL
 }
 
 
-LONG ReCalcCount(HWND hWnd, HDC hdc, LONG fontHeight, TCHAR* data, UINT size, BOOL isDraw)
+LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
 {
     RECT rc,rect;
     GetClientRectExceptStatusBar(hWnd, &rc);
     GetClientRectExceptStatusBar(hWnd, &rect);
+    LONG fontHeight = GetFontHeight(hWnd, hdc);
     LONG maxLine = rc.bottom/fontHeight;
     LONG index = 0;
     LONG lastIndex = index;
