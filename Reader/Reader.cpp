@@ -60,6 +60,8 @@ LRESULT             OnMove(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPrevPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnNextPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnGotoPrevChapter(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
 UINT                GetAppVersion(void);
 BOOL                Init(void);
 void                Exit(void);
@@ -314,11 +316,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
         if (VK_LEFT == wParam)
         {
-            OnPrevPage(hWnd, message, wParam, lParam);
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                OnGotoPrevChapter(hWnd, message, wParam, lParam);
+            }
+            else
+            {
+                OnPrevPage(hWnd, message, wParam, lParam);
+            }
         }
         else if (VK_RIGHT == wParam)
         {
-            OnNextPage(hWnd, message, wParam, lParam);
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                OnGotoNextChapter(hWnd, message, wParam, lParam);
+            }
+            else
+            {
+                OnNextPage(hWnd, message, wParam, lParam);
+            }
         }
         else if ('F' == wParam)
         {
@@ -883,6 +899,48 @@ LRESULT OnNextPage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     RECT rc;
     GetClientRectExceptStatusBar(hWnd, &rc);
     InvalidateRect(hWnd, &rc, TRUE);
+    return 0;
+}
+
+LRESULT OnGotoPrevChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (!_Text || _item->index == 0)
+        return 0;
+
+    std::map<int, int>::reverse_iterator itor;
+    for (itor = _ChapterMap.rbegin(); itor != _ChapterMap.rend(); itor++)
+    {
+        if (itor->second < _item->index)
+        {
+            _item->index = itor->second;
+            _Cache.reset_page_info(_item->id);
+            RECT rc;
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, TRUE);
+            break;
+        }
+    }
+    return 0;
+}
+
+LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (!_Text || _TextLen == _item->index+_CurPageCount)
+        return 0;
+
+    std::map<int, int>::iterator itor;
+    for (itor = _ChapterMap.begin(); itor != _ChapterMap.end(); itor++)
+    {
+        if (itor->second > _item->index)
+        {
+            _item->index = itor->second;
+            _Cache.reset_page_info(_item->id);
+            RECT rc;
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, TRUE);
+            break;
+        }
+    }
     return 0;
 }
 
