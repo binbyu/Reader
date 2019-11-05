@@ -513,6 +513,13 @@ LRESULT OnCreate(HWND hWnd)
     // register find text dialog
     _uFindReplaceMsg = RegisterWindowMessage(FINDMSGSTRING);
     OnUpdateMenu(hWnd);
+
+    // open the last file
+    if (_header->size > 0)
+    {
+        item_t* item = _Cache.get_item(0);
+        OnOpenFile(hWnd, item->file_name);
+    }
     return 0;
 }
 
@@ -533,10 +540,6 @@ LRESULT OnUpdateMenu(HWND hWnd)
     {
         item_t* item = _Cache.get_item(i);
         AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id++, item->file_name);
-        if (i == 0)
-        {
-            OnOpenFile(hWnd, item->file_name);
-        }
     }
     if (_header->size > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
@@ -1012,6 +1015,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 UINT GetAppVersion(void)
 {
+    // Not a real version, just used to flag whether you need to update the cache.dat file.
     char version[4] = {'1','1','0','0'};
     UINT ver = 0;
 
@@ -1428,23 +1432,20 @@ DWORD WINAPI ThreadProcChapter(LPVOID lpParam)
             {
                 idx_1 = i;
             }
-            if (idx_1>-1 && index[i] == _T('╬М') 
+            if (idx_1>-1
                 && ((line_size > i+1 && index[i+1] == _T(' ') 
                 || index[i+1] == _T('\t'))
                 || line_size <= i+1))
             {
-                idx_2 = i;
-                bFound = TRUE;
-                break;
-            }
-            if (idx_1>-1 && index[i] == _T('уб')
-                && ((line_size > i+1 && (index[i+1] == _T(' ') 
-                || index[i+1] == _T('\t')))
-                || line_size <= i+1))
-            {
-                idx_2 = i;
-                bFound = TRUE;
-                break;
+                if (index[i] == _T('╬М')
+                    || index[i] == _T('уб')
+                    || index[i] == _T('╡©')
+                    || index[i] == _T('╫з'))
+                {
+                    idx_2 = i;
+                    bFound = TRUE;
+                    break;
+                }
             }
         }
         if (bFound && IsChapter(index+idx_1+1, idx_2-idx_1-1))
