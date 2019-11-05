@@ -12,7 +12,7 @@ An win32 txt file reader
 <br/>
 <br/>
 # v1.2.0.0 2019/11/05 功能更新<br/>
-1. 新增热键支持
+1. 新增热键支持<br/>
   1.1 Alt + T ：窗口置顶/取消置顶<br/>
   1.2 Alt + H ：窗口隐藏/显示<br/>
   1.3 支持热键修改：setting > config<br/>
