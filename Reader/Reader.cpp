@@ -3,9 +3,6 @@
 
 #include "stdafx.h"
 #include "Reader.h"
-#include "Cache.h"
-#include "Utils.h"
-#include "MiniStack.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -45,33 +42,6 @@ UINT                _uFindReplaceMsg=0;
 HANDLE              _hThreadChapter = NULL;
 std::map<int, int>  _ChapterMap;
 TCHAR               _szSrcTitle[MAX_PATH] = {0};
-
-LRESULT             OnCreate(HWND);
-LRESULT             OnUpdateMenu(HWND);
-LRESULT             OnOpenItem(HWND, int);
-LRESULT             OnOpenFile(HWND, TCHAR*);
-LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnRestoreDefault(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnPaint(HWND, HDC);
-LRESULT             OnSize(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnMove(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnPrevPage(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnNextPage(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnGotoPrevChapter(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
-UINT                GetAppVersion(void);
-BOOL                Init(void);
-void                Exit(void);
-LONG                GetFontHeight(HWND, HDC);
-LONG                CalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
-LONG                ReCalcCount(HWND, HDC, TCHAR*, UINT, BOOL);
-BOOL                ReadAllAndDecode(HWND, TCHAR*, item_t**);
-VOID                UpdateProgess(void);
-BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
-DWORD WINAPI        ThreadProcChapter(LPVOID);
 
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -273,6 +243,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
     case WM_CREATE:
         OnCreate(hWnd);
+        // register hot key
+        RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
+        RegisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
         break;
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
@@ -281,6 +254,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
+        UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
+        UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
         GetWindowRect(hWnd, &rc);
         if (hiden)
         {
@@ -375,6 +350,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hiden = !hiden;
         }
         break;
+    case WM_HOTKEY:
+        if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
+        {
+            // show or hide window
+            static bool isShow = true;
+            ShowWindow(hWnd, isShow ? SW_HIDE : SW_SHOW);
+            SetForegroundWindow(hWnd);
+            isShow = !isShow;
+        }
+        else if (ID_HOTKEY_TOP_WINDOW == wParam)
+        {
+            // topmost window
+            static bool isTopmost = false;
+            SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
+            isTopmost = !isTopmost;
+        }
+        break;
     case WM_LBUTTONDOWN:
         if (_header->page_mode == 0)
         {
@@ -442,6 +434,8 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
         SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
         CheckRadioButton(hDlg, IDC_RADIO_CLICK, IDC_RADIO_WHEEL, _header->page_mode == 0 ? IDC_RADIO_CLICK : IDC_RADIO_WHEEL);
+        // init hotkey
+        HotkeyInit(hDlg);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -462,6 +456,12 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
+                // save hot key
+                if (!HotkeySave(hDlg))
+                {
+                    return (INT_PTR)TRUE;
+                }
+
                 value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
                 if (value != _header->line_gap)
                 {
@@ -772,6 +772,8 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     RECT rc;
     GetClientRectExceptStatusBar(hWnd, &rc);
     InvalidateRect(hWnd, &rc, TRUE);
+    RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
+    RegisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
     return 0;
 }
 
@@ -1016,7 +1018,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 UINT GetAppVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','1','0','0'};
+    char version[4] = {'1','2','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -1466,4 +1468,265 @@ DWORD WINAPI ThreadProcChapter(LPVOID lpParam)
     InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
     DrawMenuBar(hWnd);
     return 0;
+}
+
+void HotkeyInit(HWND hDlg)
+{
+    HWND hWnd = NULL;
+    TCHAR buf[2] = {0};
+
+    // IDC_COMBO_TOP_1
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_1);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T(""));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_1, IDC_COMBO_TOP_1), NULL);
+
+    // IDC_COMBO_TOP_2
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_2);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_2, IDC_COMBO_TOP_2), NULL);
+
+    // IDC_COMBO_TOP_3
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_3);
+    for (int i='A'; i<='Z'; i++)
+    {
+        buf[0] = i;
+        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+    }
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_3, IDC_COMBO_TOP_3), NULL);
+
+
+    // IDC_COMBO_SHOW_1
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_1);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T(""));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_1, IDC_COMBO_SHOW_1), NULL);
+
+    // IDC_COMBO_SHOW_2
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_2);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_2, IDC_COMBO_SHOW_2), NULL);
+
+    // IDC_COMBO_SHOW_3
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_3);
+    for (int i='A'; i<='Z'; i++)
+    {
+        buf[0] = i;
+        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+    }
+    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_3, IDC_COMBO_SHOW_3), NULL);
+}
+
+BOOL HotkeySave(HWND hDlg)
+{
+    int vk_11, vk_12, vk_13;
+    int vk_21, vk_22, vk_23;
+    TCHAR msg[256] = {0};
+
+    vk_11 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_1);
+    vk_12 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_2);
+    vk_13 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_3);
+    vk_21 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_1);
+    vk_22 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_2);
+    vk_23 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_3);
+
+    if (vk_11 != _header->hk_top_1 || vk_12 != _header->hk_top_2 || vk_13 != _header->hk_top_3)
+    {
+        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_TOP_WINDOW, vk_11 | vk_12 | MOD_NOREPEAT, vk_13))
+        {
+            if (vk_11 == 0)
+            {
+                _stprintf(msg, _T("[%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
+                    ,HotKeyMap_KeyToString(vk_12, IDC_COMBO_TOP_2)
+                    ,HotKeyMap_KeyToString(vk_13, IDC_COMBO_TOP_3));
+            }
+            else
+            {
+                _stprintf(msg, _T("[%s+%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
+                    ,HotKeyMap_KeyToString(vk_11, IDC_COMBO_TOP_1)
+                    ,HotKeyMap_KeyToString(vk_12, IDC_COMBO_TOP_2)
+                    ,HotKeyMap_KeyToString(vk_13, IDC_COMBO_TOP_3));
+            }
+            
+            MessageBox(hDlg, msg, _T("Error"), MB_OK|MB_ICONERROR);
+            return FALSE;
+        }
+    }
+    
+    if (vk_21 != _header->hk_show_1 || vk_22 != _header->hk_show_2 || vk_23 != _header->hk_show_3)
+    {
+        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_SHOW_HIDE_WINDOW, vk_21 | vk_22 | MOD_NOREPEAT, vk_23))
+        {
+            if (vk_21 == 0)
+            {
+                _stprintf(msg, _T("[%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
+                    ,HotKeyMap_KeyToString(vk_22, IDC_COMBO_SHOW_2)
+                    ,HotKeyMap_KeyToString(vk_23, IDC_COMBO_SHOW_3));
+            }
+            else
+            {
+                _stprintf(msg, _T("[%s+%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
+                    ,HotKeyMap_KeyToString(vk_21, IDC_COMBO_SHOW_1)
+                    ,HotKeyMap_KeyToString(vk_22, IDC_COMBO_SHOW_2)
+                    ,HotKeyMap_KeyToString(vk_23, IDC_COMBO_SHOW_3));
+            }
+            MessageBox(hDlg, msg, _T("Error"), MB_OK|MB_ICONERROR);
+
+            // revert top hotkey
+            RegisterHotKey(GetParent(hDlg), ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
+            return FALSE;
+        }
+    }
+    
+    _header->hk_top_1 = vk_11;
+    _header->hk_top_2 = vk_12;
+    _header->hk_top_3 = vk_13;
+    _header->hk_show_1 = vk_21;
+    _header->hk_show_2 = vk_22;
+    _header->hk_show_3 = vk_23;
+    return TRUE;
+}
+
+static int s_hk_map_1[5] = {
+    0, MOD_CONTROL, MOD_ALT, MOD_SHIFT, MOD_WIN
+};
+
+static int s_hk_map_2[4] = {
+    MOD_CONTROL, MOD_ALT, MOD_SHIFT, MOD_WIN
+};
+
+static int s_hk_map_3[26] = {
+    'A', 'B', 'C', 'D', 'E',
+    'F', 'G', 'H', 'I', 'J',
+    'K', 'L', 'M', 'N', 'O',
+    'P', 'Q', 'R', 'S', 'T',
+    'U', 'V', 'W', 'X', 'Y',
+    'Z'
+};
+int HotKeyMap_IndexToKey(int index, int cid)
+{
+    if (index < 0)
+        return 0;
+
+    if (cid == IDC_COMBO_TOP_1
+        || cid == IDC_COMBO_SHOW_1)
+    {
+        return s_hk_map_1[index];
+    }
+    else if (cid == IDC_COMBO_TOP_2
+        || cid == IDC_COMBO_SHOW_2)
+    {
+        return s_hk_map_2[index];
+    }
+    else
+    {
+        return s_hk_map_3[index];
+    }
+}
+
+int HotKeyMap_KeyToIndex(int key, int cid)
+{
+    if (cid == IDC_COMBO_TOP_1
+        || cid == IDC_COMBO_SHOW_1)
+    {
+        for (int i=0; i<5; i++)
+        {
+            if (key == s_hk_map_1[i])
+            {
+                return i;
+            }
+        }
+    }
+    else if (cid == IDC_COMBO_TOP_2
+        || cid == IDC_COMBO_SHOW_2)
+    {
+        for (int i=0; i<4; i++)
+        {
+            if (key == s_hk_map_2[i])
+            {
+                return i;
+            }
+        }
+    }
+    else
+    {
+        for (int i=0; i<26; i++)
+        {
+            if (key == s_hk_map_3[i])
+            {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+TCHAR* HotKeyMap_KeyToString(int key, int cid)
+{
+    static TCHAR buf1[8] = {0};
+    static TCHAR buf2[8] = {0};
+    static TCHAR buf3[8] = {0};
+
+
+    if (cid == IDC_COMBO_TOP_1
+        || cid == IDC_COMBO_SHOW_1)
+    {
+        switch (key)
+        {
+        case 0:
+            memset(buf1, 0, sizeof(TCHAR)*8);
+            break;
+        case MOD_CONTROL:
+            _tcscpy(buf1, _T("Ctrl"));
+            break;
+        case MOD_ALT:
+            _tcscpy(buf1, _T("Alt"));
+            break;
+        case MOD_SHIFT:
+            _tcscpy(buf1, _T("Shift"));
+            break;
+        case MOD_WIN:
+            _tcscpy(buf1, _T("Win"));
+            break;
+        }
+        return buf1;
+    }
+    else if (cid == IDC_COMBO_TOP_2
+        || cid == IDC_COMBO_SHOW_2)
+    {
+        switch (key)
+        {
+        case MOD_CONTROL:
+            _tcscpy(buf2, _T("Ctrl"));
+            break;
+        case MOD_ALT:
+            _tcscpy(buf2, _T("Alt"));
+            break;
+        case MOD_SHIFT:
+            _tcscpy(buf2, _T("Shift"));
+            break;
+        case MOD_WIN:
+            _tcscpy(buf2, _T("Win"));
+            break;
+        }
+        return buf2;
+    }
+    else
+    {
+        memset(buf3, 0, sizeof(TCHAR)*8);
+        buf3[0] = key;
+        return buf3;
+    }
 }

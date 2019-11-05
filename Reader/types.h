@@ -52,6 +52,12 @@ typedef struct
     int line_gap;
     int internal_border;
     int page_mode;
+    int hk_top_1;
+    int hk_top_2;
+    int hk_top_3;
+    int hk_show_1;
+    int hk_show_2;
+    int hk_show_3;
 } header_t;
 
 struct body_t

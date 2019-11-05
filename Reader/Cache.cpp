@@ -263,6 +263,14 @@ header_t* Cache::default_header()
     header->internal_border = 0;
     header->version = GetAppVersion();
 
+    // default hotkey
+    header->hk_top_1 = 0;
+    header->hk_top_2 = MOD_ALT;
+    header->hk_top_3 = 'T';
+    header->hk_show_1 = 0;
+    header->hk_show_2 = MOD_ALT;
+    header->hk_show_3 = 'H';
+
     return header;
 }
 
