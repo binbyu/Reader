@@ -4,8 +4,8 @@ An win32 txt file reader
 ****
 最新release版本：`v1.1.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1_ohKo82M3E2UCLtLK2xLCg](https://pan.baidu.com/s/1_ohKo82M3E2UCLtLK2xLCg)<br/>
-提取码: `dcvj`
+链接: [https://pan.baidu.com/s/1TZbU0F5qLe53ggoru5LKfQ](https://pan.baidu.com/s/1TZbU0F5qLe53ggoru5LKfQ)<br/>
+提取码: `qj6i`
 ****
 <br/>
 <br/>
