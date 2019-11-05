@@ -26,6 +26,7 @@ LRESULT             OnNextPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnGotoPrevChapter(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
 UINT                GetAppVersion(void);
 BOOL                Init(void);
 void                Exit(void);

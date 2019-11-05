@@ -9,9 +9,11 @@
 #include <commctrl.h>
 #include <map>
 #include <vector>
+#include <shellapi.h>
 
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "Comctl32.lib")
+#pragma comment(lib, "shell32.lib")
 
 
 #define MAX_LOADSTRING              100
@@ -144,7 +146,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hInst = hInstance; // Store instance handle in our global variable
 
-   hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
       _header->rect.right - _header->rect.left,
       _header->rect.bottom - _header->rect.top,
@@ -395,6 +397,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_ERASEBKGND:
         if (!_Text)
             DefWindowProc(hWnd, message, wParam, lParam);
+        break;
+    case WM_DROPFILES:
+        OnDropFiles(hWnd, message, wParam, lParam);
         break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -946,6 +951,40 @@ LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         }
     }
+    return 0;
+}
+
+LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HDROP hDropInfo = (HDROP)wParam;
+    UINT  nFileCount = ::DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);
+    TCHAR szFileName[MAX_PATH] = _T("");
+    DWORD dwAttribute;
+
+    for (UINT i = 0; i < nFileCount; i++)
+    {
+        ::DragQueryFile(hDropInfo, i, szFileName, sizeof(szFileName));
+        dwAttribute = ::GetFileAttributes(szFileName);
+
+        if (dwAttribute & FILE_ATTRIBUTE_DIRECTORY)
+        {          
+            continue;
+        }
+
+        // check is txt file
+        if (_tcscmp(PathFindExtension(szFileName), _T(".txt")))
+        {
+            continue;
+        }
+
+        // open file
+        OnOpenFile(hWnd, szFileName);
+
+        // just open first file
+        break;
+    }
+
+    ::DragFinish(hDropInfo);
     return 0;
 }
 
