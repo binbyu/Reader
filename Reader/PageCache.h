@@ -1,6 +1,6 @@
 #pragma once
 
-#define TEST_MODEL      1
+#define TEST_MODEL      0
 #define FAST_MODEL      1
 
 typedef struct line_info_t
