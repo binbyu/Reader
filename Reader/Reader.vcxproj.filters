@@ -48,7 +48,7 @@
     <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MiniStack.h">
+    <ClInclude Include="PageCache.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -65,7 +65,7 @@
     <ClCompile Include="Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MiniStack.cpp">
+    <ClCompile Include="PageCache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

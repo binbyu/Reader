@@ -7,7 +7,6 @@
 #include <shlwapi.h>
 #include <CommDlg.h>
 #include <commctrl.h>
-#include <map>
 #include <vector>
 #include <shellapi.h>
 
@@ -30,20 +29,8 @@ BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
 
-Cache               _Cache(CACHE_FILE_NAME);
-header_t*           _header         = NULL;
-item_t*             _item           = NULL;
-TCHAR*              _Text           = NULL;
-int                 _TextLen        = 0;
-int                 _CurPageCount   = 0;
-BOOL                _bPrevOrNext    = FALSE;
-HWND                _hWndStatus     = NULL;
-HWND                _hFindDlg       = NULL;
-UINT                _uFindReplaceMsg=0;
-HANDLE              _hThreadChapter = NULL;
-std::map<int, int>  _ChapterMap;
-TCHAR               _szSrcTitle[MAX_PATH] = {0};
 
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -203,10 +190,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (_ChapterMap.end() != _ChapterMap.find(wmId))
             {
                 _item->index = _ChapterMap[wmId];
-                _Cache.reset_page_info(_item->id);
-                RECT rc;
-                GetClientRectExceptStatusBar(hWnd, &rc);
-                InvalidateRect(hWnd, &rc, TRUE);
+                _PageCache.Reset(hWnd);
             }
             break;
         }
@@ -247,7 +231,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnCreate(hWnd);
         // register hot key
         RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
-        RegisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
         break;
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
@@ -288,7 +271,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnSize(hWnd, message, wParam, lParam);
         break;
     case WM_MOVE:
-        OnMove(hWnd, message, wParam, lParam);
+        OnMove(hWnd);
         break;
     case WM_KEYDOWN:
         if (VK_LEFT == wParam)
@@ -299,7 +282,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-                OnPrevPage(hWnd, message, wParam, lParam);
+                OnPageUp(hWnd);
             }
         }
         else if (VK_RIGHT == wParam)
@@ -310,14 +293,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-                OnNextPage(hWnd, message, wParam, lParam);
+                OnPageDown(hWnd);
             }
+        }
+        else if (VK_UP == wParam)
+        {
+            OnLineUp(hWnd);
+        }
+        else if (VK_DOWN == wParam)
+        {
+            OnLineDown(hWnd);
         }
         else if ('F' == wParam)
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
             {
                 OnFindText(hWnd, message, wParam, lParam);
+            }
+        }
+        else if ('T' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                // topmost window
+                static bool isTopmost = false;
+                SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
+                isTopmost = !isTopmost;
+            }
+        }
+        else if ('O' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                OnOpenFile(hWnd, message, wParam, lParam);
+            }
+        }
+        else if ('G' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_JUMP_PROGRESS), hWnd, JumpProgress);
+                break;
             }
         }
         else if (VK_F12 == wParam)
@@ -361,37 +377,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SetForegroundWindow(hWnd);
             isShow = !isShow;
         }
-        else if (ID_HOTKEY_TOP_WINDOW == wParam)
-        {
-            // topmost window
-            static bool isTopmost = false;
-            SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
-            isTopmost = !isTopmost;
-        }
         break;
     case WM_LBUTTONDOWN:
-        if (_header->page_mode == 0)
-        {
-            OnNextPage(hWnd, message, wParam, lParam);
-        }
+        OnPageDown(hWnd);
         break;
     case WM_RBUTTONDOWN:
-        if (_header->page_mode == 0)
-        {
-            OnPrevPage(hWnd, message, wParam, lParam);
-        }
+        OnPageUp(hWnd);
         break;
     case WM_MOUSEWHEEL:
-        if (_header->page_mode == 1)
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
         {
-            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-            {
-                OnPrevPage(hWnd, message, wParam, lParam);
-            }
-            else
-            {
-                OnNextPage(hWnd, message, wParam, lParam);
-            }
+            OnLineUp(hWnd);
+        }
+        else
+        {
+            OnLineDown(hWnd);
         }
         break;
     case WM_ERASEBKGND:
@@ -410,7 +410,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	UNREFERENCED_PARAMETER(lParam);
+    POINT pt;
+    HWND hWnd;
+    RECT rc;
+
 	switch (message)
 	{
 	case WM_INITDIALOG:
@@ -423,6 +426,19 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			return (INT_PTR)TRUE;
 		}
 		break;
+    case WM_LBUTTONDOWN:
+        pt.x = LOWORD(lParam);
+        pt.y = HIWORD(lParam);
+        hWnd = GetDlgItem(hDlg, IDC_STATIC_LINK);
+        ClientToScreen(hDlg, &pt);
+        GetWindowRect(hWnd, &rc);
+        if (PtInRect(&rc, pt))
+        {
+            ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader"), NULL, NULL, SW_SHOWNORMAL);
+        }
+        break;
+    default:
+        break;
 	}
 	return (INT_PTR)FALSE;
 }
@@ -432,13 +448,14 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     BOOL bResult = FALSE;
     BOOL bUpdated = FALSE;
     int value = 0;
-    UNREFERENCED_PARAMETER(lParam);
+    LRESULT res;
     switch (message)
     {
     case WM_INITDIALOG:
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
         SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
-        CheckRadioButton(hDlg, IDC_RADIO_CLICK, IDC_RADIO_WHEEL, _header->page_mode == 0 ? IDC_RADIO_CLICK : IDC_RADIO_WHEEL);
+        SendMessage(GetDlgItem(hDlg, IDC_CHECK_ENABLE_MC), BM_SETCHECK, _header->enable_click_page ? BST_CHECKED : BST_UNCHECKED, NULL);
+        WheelSpeedInit(hDlg);
         // init hotkey
         HotkeyInit(hDlg);
         return (INT_PTR)TRUE;
@@ -466,7 +483,15 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     return (INT_PTR)TRUE;
                 }
-
+                if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
+                {
+                    _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) + 1;
+                }
+                res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_ENABLE_MC), BM_GETCHECK, 0, NULL);
+                if (res == BST_CHECKED)
+                    _header->enable_click_page = 1;
+                else
+                    _header->enable_click_page = 0;
                 value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
                 if (value != _header->line_gap)
                 {
@@ -479,14 +504,6 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     _header->internal_border = value;
                     bUpdated = TRUE;
                 }
-                if (BST_CHECKED == IsDlgButtonChecked(hDlg, IDC_RADIO_CLICK))
-                {
-                    _header->page_mode = 0;
-                }
-                else
-                {
-                    _header->page_mode = 1;
-                }
                 break;
             case IDCANCEL:
                 break;
@@ -498,18 +515,65 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
             if (bUpdated)
             {
-                RECT rc;
-                _Cache.reset_page_info();
-                GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
-                InvalidateRect(GetParent(hDlg), &rc, TRUE);
+                _PageCache.Reset(GetParent(hDlg));
             }
 
             return (INT_PTR)TRUE;
         }
         break;
+    default:
+        break;
     }
     return (INT_PTR)FALSE;
 }
+
+INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HWND hWnd;
+    TCHAR buf[16] = {0};
+    double progress;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        hWnd = GetDlgItem(hDlg, IDC_EDIT_JP);
+        progress = (double)(_item->index+_PageCache.GetCurPageSize())*100/_TextLen;
+        _stprintf(buf, _T("%0.2f"), progress);
+        SetWindowText(hWnd, buf);
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
+            if (LOWORD(wParam) == IDOK)
+            {
+                if (_item)
+                {
+                    hWnd = GetDlgItem(hDlg, IDC_EDIT_JP);
+                    GetWindowText(hWnd, buf, 15);
+                    progress = _tstof(buf);
+                    if (progress < 0.0 || progress > 100.0)
+                    {
+                        MessageBox(hDlg, _T("Invalid value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                        return (INT_PTR)TRUE;
+                    }
+                    _item->index = (int)(progress * _TextLen / 100);
+                    if (_item->index == _TextLen)
+                        _item->index--;
+                    _PageCache.Reset(GetParent(hDlg));
+                }
+            }
+
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
 
 LRESULT OnCreate(HWND hWnd)
 {
@@ -609,6 +673,9 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         OnUpdateMenu(hWnd);
         return 0L;
     }
+
+    // set text
+    _PageCache.SetText(hWnd, _Text, _TextLen, &_item->index, &_header->line_gap, &_header->internal_border);
     
     // update menu
     OnUpdateMenu(hWnd);
@@ -646,6 +713,9 @@ LRESULT OnOpenFile(HWND hWnd, TCHAR *filename)
 
     // open item
     _item = _Cache.open_item(item->id);
+
+    // set text
+    _PageCache.SetText(hWnd, _Text, _TextLen, &_item->index, &_header->line_gap, &_header->internal_border);
 
     // get chapter
     if (_hThreadChapter)
@@ -711,6 +781,7 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     CHOOSEFONT cf;            // common dialog box structure
     LOGFONT logFont;
     static DWORD rgbCurrent;   // current text color
+    BOOL bUpdate = FALSE;
 
     // Initialize CHOOSEFONT
     ZeroMemory(&cf, sizeof(cf));
@@ -723,17 +794,19 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (ChooseFont(&cf))
     {
-        _header->font_color = cf.rgbColors;
-        memcpy(&_header->font, &logFont, sizeof(LOGFONT));
-
-        if (0 != memcmp(&logFont, &_header->font, sizeof(LONG)*5))
+        if (_header->font_color != cf.rgbColors)
         {
-            _Cache.reset_page_info();
+            _header->font_color = cf.rgbColors;
+            bUpdate = TRUE;
         }
 
-        RECT rc;
-        GetClientRectExceptStatusBar(hWnd, &rc);
-        InvalidateRect(hWnd, &rc, TRUE);
+        if (0 != memcmp(&logFont, &_header->font, sizeof(LOGFONT)))
+        {
+            memcpy(&_header->font, &logFont, sizeof(LOGFONT));
+            bUpdate = TRUE;
+        }
+        if (bUpdate)
+            _PageCache.Reset(hWnd);
     }
 
     return 0;
@@ -756,9 +829,7 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (_header->bk_color != cc.rgbResult)
         {
             _header->bk_color = cc.rgbResult;
-            RECT rc;
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
+            _PageCache.ReDraw(hWnd);
         }
     }
     
@@ -768,17 +839,13 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     _Cache.default_header();
-    _Cache.reset_page_info();
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
         _header->rect.right - _header->rect.left,
         _header->rect.bottom - _header->rect.top,
         SWP_DRAWFRAME);
-    RECT rc;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    _PageCache.Reset(hWnd);
     RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
-    RegisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
     return 0;
 }
 
@@ -803,48 +870,7 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     FillRect(memdc, &rc, hBrush);
     SetBkMode(memdc, TRANSPARENT);
 
-    if (!_Text)
-        return 0;
-
-    // prev page
-    if (_bPrevOrNext)
-    {
-        MiniStack pageInfo(&_item->page_info);
-        // using cache page
-        if (pageInfo.size() > 0)
-        {
-            _item->index = pageInfo.top();
-            pageInfo.pop();
-            _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _TextLen-_item->index, TRUE);
-        }
-        else
-        {
-            int count = 0;
-            int temp = 0;
-            count = ReCalcCount(hWnd, memdc, _Text+_item->index-1, _item->index, FALSE);
-            if (_item->index <= count)
-            {
-                _item->index = 0;
-            }
-            else
-            {
-                //try to draw
-                temp = CalcCount(hWnd, memdc, _Text+_item->index-count, _TextLen-_item->index+count, FALSE);
-                if (temp < count)
-                {
-                    count = temp;
-                }
-                _item->index -= count;
-            }
-            _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _item->index == 0 ? _TextLen : count, TRUE);
-        }
-        _bPrevOrNext = FALSE;
-    }
-    // next page
-    else
-    {
-        _CurPageCount = CalcCount(hWnd, memdc, _Text+_item->index, _TextLen-_item->index, TRUE);
-    }
+    _PageCache.DrawPage(memdc);
 
     BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
 
@@ -859,56 +885,41 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
 LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
-    GetWindowRect(hWnd, &rc);
-    if (rc.right - rc.left != _header->rect.right - _header->rect.left
-        || rc.bottom - rc.top != _header->rect.bottom - _header->rect.top)
-    {
-        //_header->rect.left = rc.left;
-        //_header->rect.right = rc.right;
-        //_header->rect.top = rc.top;
-        //_header->rect.bottom = rc.bottom;
-        _Cache.reset_page_info();
-    }
+    GetClientRectExceptStatusBar(hWnd, &rc);
+    _PageCache.SetRect(&rc);
     SendMessage(_hWndStatus, message, wParam, lParam);
     return 0;
 }
 
-LRESULT OnMove(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT OnMove(HWND hWnd)
 {
-    //RECT rc;
-    //GetWindowRect(hWnd, &rc);
-    //if (rc.left != _header->rect.left
-    //    || rc.top != _header->rect.top)
-    //{
-    //    _header->rect.left = rc.left;
-    //    _header->rect.right = rc.right;
-    //    _header->rect.top = rc.top;
-    //    _header->rect.bottom = rc.bottom;
-    //}
+    // save rect to cache file when exit app
     return 0;
 }
 
-LRESULT OnPrevPage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT OnPageUp(HWND hWnd)
 {
-    if (!_Text || _item->index == 0)
-        return 0;
-    _bPrevOrNext = TRUE;
-    RECT rc;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    if (_header->enable_click_page)
+        _PageCache.PageUp(hWnd);
     return 0;
 }
 
-LRESULT OnNextPage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT OnPageDown(HWND hWnd)
 {
-    if (!_Text || _TextLen == _item->index+_CurPageCount)
-        return 0;
-    MiniStack pageInfo(&_item->page_info);
-    pageInfo.push(_item->index);
-    _item->index += _CurPageCount;
-    RECT rc;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    if (_header->enable_click_page)
+        _PageCache.PageDown(hWnd);
+    return 0;
+}
+
+LRESULT OnLineUp(HWND hWnd)
+{
+    _PageCache.LineUp(hWnd, _header->wheel_speed);
+    return 0;
+}
+
+LRESULT OnLineDown(HWND hWnd)
+{
+    _PageCache.LineDown(hWnd, _header->wheel_speed);
     return 0;
 }
 
@@ -923,10 +934,7 @@ LRESULT OnGotoPrevChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (itor->second < _item->index)
         {
             _item->index = itor->second;
-            _Cache.reset_page_info(_item->id);
-            RECT rc;
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
+            _PageCache.Reset(hWnd);
             break;
         }
     }
@@ -935,7 +943,7 @@ LRESULT OnGotoPrevChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (!_Text || _TextLen == _item->index+_CurPageCount)
+    if (!_Text || _TextLen == _item->index+_PageCache.GetCurPageSize())
         return 0;
 
     std::map<int, int>::iterator itor;
@@ -944,10 +952,7 @@ LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (itor->second > _item->index)
         {
             _item->index = itor->second;
-            _Cache.reset_page_info(_item->id);
-            RECT rc;
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
+            _PageCache.Reset(hWnd);
             break;
         }
     }
@@ -1010,10 +1015,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 if (0 == memcmp(szFindWhat, _Text+i, len*sizeof(TCHAR)))
                 {
                     _item->index = i;
-                    _Cache.reset_page_info(_item->id);
-                    RECT rc;
-                    GetClientRectExceptStatusBar(hWnd, &rc);
-                    InvalidateRect(hWnd, &rc, TRUE);
+                    _PageCache.Reset(hWnd);
                     break;
                 }
             }
@@ -1025,10 +1027,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 if (0 == memcmp(szFindWhat, _Text+i, len*sizeof(TCHAR)))
                 {
                     _item->index = i;
-                    _Cache.reset_page_info(_item->id);
-                    RECT rc;
-                    GetClientRectExceptStatusBar(hWnd, &rc);
-                    InvalidateRect(hWnd, &rc, TRUE);
+                    _PageCache.Reset(hWnd);
                     break;
                 }
             }
@@ -1057,7 +1056,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 UINT GetAppVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','2','0','0'};
+    char version[4] = {'1','3','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -1084,7 +1083,7 @@ BOOL Init(void)
             delVec.push_back(i);
         }
     }
-    for (int i=0; i<delVec.size(); i++)
+    for (size_t i=0; i<delVec.size(); i++)
     {
         _Cache.delete_item(delVec[i]);
     }
@@ -1109,147 +1108,6 @@ void Exit(void)
     {
         MessageBox(NULL, _T("Save Cache fail."), _T("Error"), MB_OK);
     }
-}
-
-LONG GetFontHeight(HWND hWnd, HDC hdc)
-{
-    SIZE sz = {0};
-    LONG fontHeight = 20;
-    GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
-    fontHeight = sz.cy + _header->line_gap;
-    return fontHeight;
-}
-
-LONG CalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
-{
-    RECT rc,rect;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    rect.left+=_header->internal_border;
-    rect.top+=_header->internal_border;
-    LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = (rc.bottom+_header->line_gap-2*_header->internal_border)/fontHeight;
-    LONG index = 0;
-    LONG lastIndex = index;
-    while (maxLine && index<size)
-    {
-        // new line
-        if (data[index] == 0x0A)
-        {
-            index++;
-            maxLine--;
-            if (isDraw)
-                DrawText(hdc, data+lastIndex, index-lastIndex, &rect, DT_LEFT);
-            lastIndex = index;
-            rect.top+=fontHeight;
-            continue;
-        }
-        else if (data[index] == 0x0D && data[index+1] == 0x0A)
-        {
-            index+=2;
-            maxLine--;
-            if (isDraw)
-                DrawText(hdc, data+lastIndex, index-lastIndex, &rect, DT_LEFT);
-            lastIndex = index;
-            rect.top+=fontHeight;
-            continue;
-        }
-        // calc char width
-        LONG width = _header->internal_border*2;
-        SIZE sz;
-        while (width < rc.right && index<size)
-        {
-            // new line
-            if (data[index] == 0x0A)
-            {
-                index++;
-                break;
-            }
-            else if (data[index] == 0x0D && data[index+1] == 0x0A)
-            {
-                index+=2;
-                break;
-            }
-
-            GetTextExtentPoint32(hdc, data+index, 1, &sz);
-            width += sz.cx;
-            index++;
-        }
-        if (width > rc.right)
-            index--;
-        maxLine--;
-        if (isDraw)
-            DrawText(hdc, data+lastIndex, index-lastIndex, &rect, DT_LEFT);
-        lastIndex = index;
-        rect.top+=fontHeight;
-    }
-    return index;
-}
-
-
-LONG ReCalcCount(HWND hWnd, HDC hdc, TCHAR* data, UINT size, BOOL isDraw)
-{
-    RECT rc,rect;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    rect.left+=_header->internal_border;
-    rect.top+=_header->internal_border;
-    LONG fontHeight = GetFontHeight(hWnd, hdc);
-    LONG maxLine = (rc.bottom+_header->line_gap-2*_header->internal_border)/fontHeight;
-    LONG index = 0;
-    LONG lastIndex = index;
-    while (maxLine && size + index > 0)
-    {
-        // new line
-        if (data[index] == 0x0A && size + index > 1 && data[index-1] == 0x0D)
-        {
-            index-=2;
-            maxLine--;
-            rect.top = fontHeight*maxLine;
-            if (isDraw)
-                DrawText(hdc, data+index+1, lastIndex-index, &rect, DT_LEFT);
-            lastIndex = index;
-            continue;
-        }
-        else if (data[index] == 0x0A)
-        {
-            index--;
-            maxLine--;
-            rect.top = fontHeight*maxLine;
-            if (isDraw)
-                DrawText(hdc, data+index+1, lastIndex-index, &rect, DT_LEFT);
-            lastIndex = index;
-            continue;
-        }
-        // calc char width
-        LONG width = _header->internal_border*2;
-        SIZE sz;
-        while (width < rc.right && size + index > 0)
-        {
-            // new line
-            if (data[index] == 0x0A && size + index > 1 && data[index-1] == 0x0D)
-            {
-                index-=2;
-                break;
-            }
-            else if (data[index] == 0x0A)
-            {
-                index--;
-                break;
-            }
-            GetTextExtentPoint32(hdc, data+index, 1, &sz);
-            width += sz.cx;
-            index--;
-        }
-        if (width > rc.right)
-            index++;
-        maxLine--;
-        rect.top = fontHeight*maxLine;
-        if (isDraw)
-            DrawText(hdc, data+index+1, lastIndex-index, &rect, DT_LEFT);
-        lastIndex = index;
-    }
-    return -index;
 }
 
 BOOL ReadAllAndDecode(HWND hWnd, TCHAR* szFileName, item_t** item)
@@ -1352,15 +1210,45 @@ BOOL ReadAllAndDecode(HWND hWnd, TCHAR* szFileName, item_t** item)
         free(_Text);
     }
     _Text = result;
+    FormatText();
     return TRUE;
 }
 
-VOID UpdateProgess(void)
+void FormatText(void)
+{
+    TCHAR *buf = NULL;
+    int i, index = 0;
+    if (!_Text || _TextLen == 0)
+        return;
+
+    buf = (TCHAR *)malloc(_TextLen * sizeof(TCHAR));
+    for (i = 0; i < _TextLen; i++)
+    {
+        if (_Text[i] == 0x0D && _Text[i + 1] == 0x0A)
+            i++;
+        buf[index++] = _Text[i];
+    }
+#if 0
+    buf[index] = 0;
+#else
+    index--;
+#endif
+    _TextLen = index;
+    memcpy(_Text, buf, _TextLen * sizeof(TCHAR));
+    free(buf);
+}
+
+void UpdateProgess(void)
 {
     static TCHAR progress[32] = {0};
+    double dprog = 0.0;
+    int nprog = 0;
     if (_item)
     {
-        _stprintf(progress, _T("Progress: %6.2f%%"), ((float)(_item->index+_CurPageCount)*100/_TextLen));
+        dprog = (double)(_item->index+_PageCache.GetCurPageSize())*100.0/_TextLen;
+        nprog = (int)(dprog * 100);
+        dprog = (double)nprog / 100.0;
+        _stprintf(progress, _T("Progress: %.2f%%"), dprog);
         SendMessage(_hWndStatus, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
     }
     else
@@ -1509,36 +1397,25 @@ DWORD WINAPI ThreadProcChapter(LPVOID lpParam)
     return 0;
 }
 
+void WheelSpeedInit(HWND hDlg)
+{
+    int i;
+    HWND hWnd = NULL;
+    TCHAR buf[8] = {0};
+
+    hWnd = GetDlgItem(hDlg, IDC_COMBO_SPEED);
+    for (i=1; i<=_PageCache.GetOnePageLineCount(); i++)
+    {
+        _itot(i, buf, 10);
+        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+    }
+    SendMessage(hWnd, CB_SETCURSEL, _header->wheel_speed - 1, NULL);
+}
+
 void HotkeyInit(HWND hDlg)
 {
     HWND hWnd = NULL;
     TCHAR buf[2] = {0};
-
-    // IDC_COMBO_TOP_1
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_1);
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T(""));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_1, IDC_COMBO_TOP_1), NULL);
-
-    // IDC_COMBO_TOP_2
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_2);
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_2, IDC_COMBO_TOP_2), NULL);
-
-    // IDC_COMBO_TOP_3
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_TOP_3);
-    for (int i='A'; i<='Z'; i++)
-    {
-        buf[0] = i;
-        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
-    }
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_top_3, IDC_COMBO_TOP_3), NULL);
 
 
     // IDC_COMBO_SHOW_1
@@ -1570,71 +1447,39 @@ void HotkeyInit(HWND hDlg)
 
 BOOL HotkeySave(HWND hDlg)
 {
-    int vk_11, vk_12, vk_13;
-    int vk_21, vk_22, vk_23;
+    int vk_1, vk_2, vk_3;
     TCHAR msg[256] = {0};
 
-    vk_11 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_1);
-    vk_12 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_2);
-    vk_13 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_TOP_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_TOP_3);
-    vk_21 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_1);
-    vk_22 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_2);
-    vk_23 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_3);
-
-    if (vk_11 != _header->hk_top_1 || vk_12 != _header->hk_top_2 || vk_13 != _header->hk_top_3)
+    vk_1 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_1);
+    vk_2 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_2);
+    vk_3 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_3);
+    
+    if (vk_1 != _header->hk_show_1 || vk_2 != _header->hk_show_2 || vk_3 != _header->hk_show_3)
     {
-        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_TOP_WINDOW, vk_11 | vk_12 | MOD_NOREPEAT, vk_13))
+        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_SHOW_HIDE_WINDOW, vk_1 | vk_2 | MOD_NOREPEAT, vk_3))
         {
-            if (vk_11 == 0)
+            if (vk_1 == 0)
             {
                 _stprintf(msg, _T("[%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_12, IDC_COMBO_TOP_2)
-                    ,HotKeyMap_KeyToString(vk_13, IDC_COMBO_TOP_3));
+                    ,HotKeyMap_KeyToString(vk_2, IDC_COMBO_SHOW_2)
+                    ,HotKeyMap_KeyToString(vk_3, IDC_COMBO_SHOW_3));
             }
             else
             {
                 _stprintf(msg, _T("[%s+%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_11, IDC_COMBO_TOP_1)
-                    ,HotKeyMap_KeyToString(vk_12, IDC_COMBO_TOP_2)
-                    ,HotKeyMap_KeyToString(vk_13, IDC_COMBO_TOP_3));
-            }
-            
-            MessageBox(hDlg, msg, _T("Error"), MB_OK|MB_ICONERROR);
-            return FALSE;
-        }
-    }
-    
-    if (vk_21 != _header->hk_show_1 || vk_22 != _header->hk_show_2 || vk_23 != _header->hk_show_3)
-    {
-        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_SHOW_HIDE_WINDOW, vk_21 | vk_22 | MOD_NOREPEAT, vk_23))
-        {
-            if (vk_21 == 0)
-            {
-                _stprintf(msg, _T("[%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_22, IDC_COMBO_SHOW_2)
-                    ,HotKeyMap_KeyToString(vk_23, IDC_COMBO_SHOW_3));
-            }
-            else
-            {
-                _stprintf(msg, _T("[%s+%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_21, IDC_COMBO_SHOW_1)
-                    ,HotKeyMap_KeyToString(vk_22, IDC_COMBO_SHOW_2)
-                    ,HotKeyMap_KeyToString(vk_23, IDC_COMBO_SHOW_3));
+                    ,HotKeyMap_KeyToString(vk_1, IDC_COMBO_SHOW_1)
+                    ,HotKeyMap_KeyToString(vk_2, IDC_COMBO_SHOW_2)
+                    ,HotKeyMap_KeyToString(vk_3, IDC_COMBO_SHOW_3));
             }
             MessageBox(hDlg, msg, _T("Error"), MB_OK|MB_ICONERROR);
 
-            // revert top hotkey
-            RegisterHotKey(GetParent(hDlg), ID_HOTKEY_TOP_WINDOW, _header->hk_top_1 | _header->hk_top_2 | MOD_NOREPEAT, _header->hk_top_3);
             return FALSE;
         }
     }
     
-    _header->hk_top_1 = vk_11;
-    _header->hk_top_2 = vk_12;
-    _header->hk_top_3 = vk_13;
-    _header->hk_show_1 = vk_21;
-    _header->hk_show_2 = vk_22;
-    _header->hk_show_3 = vk_23;
+    _header->hk_show_1 = vk_1;
+    _header->hk_show_2 = vk_2;
+    _header->hk_show_3 = vk_3;
     return TRUE;
 }
 
@@ -1659,13 +1504,11 @@ int HotKeyMap_IndexToKey(int index, int cid)
     if (index < 0)
         return 0;
 
-    if (cid == IDC_COMBO_TOP_1
-        || cid == IDC_COMBO_SHOW_1)
+    if (cid == IDC_COMBO_SHOW_1)
     {
         return s_hk_map_1[index];
     }
-    else if (cid == IDC_COMBO_TOP_2
-        || cid == IDC_COMBO_SHOW_2)
+    else if (cid == IDC_COMBO_SHOW_2)
     {
         return s_hk_map_2[index];
     }
@@ -1677,8 +1520,7 @@ int HotKeyMap_IndexToKey(int index, int cid)
 
 int HotKeyMap_KeyToIndex(int key, int cid)
 {
-    if (cid == IDC_COMBO_TOP_1
-        || cid == IDC_COMBO_SHOW_1)
+    if (cid == IDC_COMBO_SHOW_1)
     {
         for (int i=0; i<5; i++)
         {
@@ -1688,8 +1530,7 @@ int HotKeyMap_KeyToIndex(int key, int cid)
             }
         }
     }
-    else if (cid == IDC_COMBO_TOP_2
-        || cid == IDC_COMBO_SHOW_2)
+    else if (cid == IDC_COMBO_SHOW_2)
     {
         for (int i=0; i<4; i++)
         {
@@ -1719,8 +1560,7 @@ TCHAR* HotKeyMap_KeyToString(int key, int cid)
     static TCHAR buf3[8] = {0};
 
 
-    if (cid == IDC_COMBO_TOP_1
-        || cid == IDC_COMBO_SHOW_1)
+    if (cid == IDC_COMBO_SHOW_1)
     {
         switch (key)
         {
@@ -1742,8 +1582,7 @@ TCHAR* HotKeyMap_KeyToString(int key, int cid)
         }
         return buf1;
     }
-    else if (cid == IDC_COMBO_TOP_2
-        || cid == IDC_COMBO_SHOW_2)
+    else if (cid == IDC_COMBO_SHOW_2)
     {
         switch (key)
         {

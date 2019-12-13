@@ -4,11 +4,25 @@ An win32 txt file reader
 ****
 最新release版本：`v1.2.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1TZbU0F5qLe53ggoru5LKfQ](https://pan.baidu.com/s/1TZbU0F5qLe53ggoru5LKfQ)<br/>
-提取码: `qj6i`
+链接: [https://pan.baidu.com/s/1zwHblwaaq5oTEreSQ3Bu8w](https://pan.baidu.com/s/1zwHblwaaq5oTEreSQ3Bu8w)<br/>
+提取码: `difm`
 ****
 <br/>
 <br/>
+<br/>
+<br/>
+# v1.3.0.0 2019/12/13 功能更新<br/>
+1. 新增逐行翻页<br/>
+  1.1 为了支持逐行翻页，重新编写了翻页算法<br/>
+  1.2 按键 ↓：下N行 (N: setting > config > 文本滚动速度，默认为1)<br/>
+  1.3 按键 ↑：上N行<br/>
+  1.4 鼠标向下滚动：下N行<br/>
+  1.5 鼠标向上滚动：上N行<br/>
+  1.6 取消原鼠标滚动直接翻页<br/>
+2. 新增进度百分比跳转功能<br/>
+  2.1 快捷键：Ctrl + G<br/>
+3. 新增readme.txt，使用说明文档<br/>
+  3.1 readme.txt会放在release包内，请参考<br/>
 <br/>
 <br/>
 # v1.2.0.0 2019/11/05 功能更新<br/>
@@ -25,6 +39,11 @@ An win32 txt file reader
   3.1 仅支持单个txt文件操作<br/>
 4. 修改再次打开程序会出现两个view的bug<br/>
 <br/>
+版本：`v1.2.0.0`<br/>
+链接: https://pan.baidu.com/s/1TZbU0F5qLe53ggoru5LKfQ<br/>
+提取码: qj6i<br/>
+<br/>
+<br/>
 <br/>
 # v1.1.0.0 2019/09/17 功能更新<br/>
 1. 新增设置项：setting > config<br/>
@@ -39,7 +58,7 @@ An win32 txt file reader
 <br/>
 <br/>
 # v1.0.0.3 2019/09/17 bug修复<br/>
-1. 修改行距bug
+1. 修改行距bug<br/>
 <br/>
 <br/>
 # v1.0.0.2 2019/01/02 更新<br/>

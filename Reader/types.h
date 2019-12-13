@@ -4,7 +4,6 @@
 #pragma pack(1)
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
-#define MAX_STACK_LENGTH            1024
 #define MAX_CHAPTER_LENGTH          32
 
 
@@ -25,17 +24,9 @@ typedef struct
 
 typedef struct 
 {
-	int data[MAX_STACK_LENGTH];
-	int top;
-	int size;
-} min_stack_t;
-
-typedef struct 
-{
 	u128_t md5;
 	int id;
-	int index;
-	min_stack_t page_info;
+	int index; // save text current pos
     TCHAR file_name[MAX_PATH];
 } item_t;
 
@@ -51,13 +42,12 @@ typedef struct
 	int size;
     int line_gap;
     int internal_border;
-    int page_mode;
-    int hk_top_1;
-    int hk_top_2;
-    int hk_top_3;
     int hk_show_1;
     int hk_show_2;
     int hk_show_3;
+    int wheel_speed;
+    int enable_click_page;
+    int reserved[64];
 } header_t;
 
 struct body_t

@@ -191,29 +191,6 @@ bool Cache::delete_item(int item_id)
     return true;
 }
 
-bool Cache::reset_page_info(int item_id)
-{
-    item_t* item = get_item(item_id);
-    if (!item)
-        return false;
-
-    memset(&item->page_info, 0, sizeof(min_stack_t));
-    return true;
-}
-
-bool Cache::reset_page_info()
-{
-    header_t* header = get_header();
-    item_t* item = NULL;
-
-    for (int i=0; i<header->size; i++)
-    {
-        item = get_item(i);
-        memset(&item->page_info, 0, sizeof(min_stack_t));
-    }
-    return true;
-}
-
 header_t* Cache::default_header()
 {
     header_t* header = NULL;
@@ -264,12 +241,11 @@ header_t* Cache::default_header()
     header->version = GetAppVersion();
 
     // default hotkey
-    header->hk_top_1 = 0;
-    header->hk_top_2 = MOD_ALT;
-    header->hk_top_3 = 'T';
     header->hk_show_1 = 0;
     header->hk_show_2 = MOD_ALT;
     header->hk_show_3 = 'H';
+    header->wheel_speed = 1;
+    header->enable_click_page = 1;
 
     return header;
 }
