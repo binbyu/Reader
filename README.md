@@ -2,10 +2,10 @@
 An win32 txt file reader
 
 ****
-最新release版本：`v1.2.0.0`<br/>
+最新release版本：`v1.3.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1zwHblwaaq5oTEreSQ3Bu8w](https://pan.baidu.com/s/1zwHblwaaq5oTEreSQ3Bu8w)<br/>
-提取码: `difm`
+链接: [https://pan.baidu.com/s/16ZkylT4pgbxsS30yZa7OEw](https://pan.baidu.com/s/16ZkylT4pgbxsS30yZa7OEw)<br/>
+提取码: `pat4`
 ****
 <br/>
 <br/>
