@@ -117,18 +117,19 @@ void PageCache::DrawPage(HDC hdc)
     if (m_PageInfo.line_size == 0 || m_CurrentLine < 0 
         || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_Size && m_CurrentLine + m_OnePageLineCount > m_PageInfo.line_size))
     {
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left);
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder));
         UnitTest1();
     }
     UnitTest2();
 
     memcpy(&rect, &m_Rect, sizeof(RECT));
     m_CurPageSize = 0;
+    rect.left = (*m_InternalBorder);
+    rect.top = (*m_InternalBorder);
     for (i = 0; i < m_OnePageLineCount && m_CurrentLine + i < m_PageInfo.line_size; i++)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
-        rect.left = 0;
         DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT);
         rect.top += h;
         m_CurPageSize += line->length;
