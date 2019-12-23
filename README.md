@@ -37,6 +37,10 @@ A win32 txt file reader
 3. 新增readme.txt，使用说明文档<br/>
   3.1 readme.txt会放在release包内，请参考<br/>
 <br/>
+版本：`v1.3.0.0`<br/>
+链接: https://pan.baidu.com/s/1-SYmA5BmbpU3Kc249fjyow<br/>
+提取码: sw6p<br/>
+<br/>
 <br/>
 # v1.2.0.0 2019/11/05 功能更新<br/>
 1. 新增热键支持<br/>
