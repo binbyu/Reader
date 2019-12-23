@@ -46,7 +46,7 @@ typedef struct
     int hk_show_2;
     int hk_show_3;
     int wheel_speed;
-    int enable_click_page;
+    int page_mode;
     int reserved[64];
 } header_t;
 

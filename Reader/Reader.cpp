@@ -259,12 +259,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         hit = DefWindowProc(hWnd, message, wParam, lParam);
         if (hit == HTCLIENT && hiden)
         {
-            GetCursorPos(&pt);
-            ScreenToClient(hWnd, &pt);
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            rc.bottom = rc.bottom/2 > 80 ? 80 : rc.bottom/2;
-            if (PtInRect(&rc, pt))
-                hit = HTCAPTION;
+            if (_header->page_mode == 2)
+            {
+                GetCursorPos(&pt);
+                ScreenToClient(hWnd, &pt);
+                GetClientRectExceptStatusBar(hWnd, &rc);
+                rc.left = rc.right/3;
+                rc.right = rc.right/3 * 2;
+                if (PtInRect(&rc, pt))
+                    hit = HTCAPTION;
+            }
+            else
+            {
+                GetCursorPos(&pt);
+                ScreenToClient(hWnd, &pt);
+                GetClientRectExceptStatusBar(hWnd, &rc);
+                rc.bottom = rc.bottom/2 > 80 ? 80 : rc.bottom/2;
+                if (PtInRect(&rc, pt))
+                    hit = HTCAPTION;
+            }
         }
         return hit;
     case WM_SIZE:
@@ -379,10 +392,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONDOWN:
-        OnPageDown(hWnd);
+        if (_header->page_mode == 1)
+        {
+            OnPageDown(hWnd);
+        }
+        else if (_header->page_mode == 2)
+        {
+            GetCursorPos(&pt);
+            ScreenToClient(hWnd, &pt);
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            rc.left = rc.right/3 * 2;
+            if (PtInRect(&rc, pt))
+            {
+                OnPageDown(hWnd);
+            }
+            else
+            {
+                rc.left = 0;
+                rc.right = rc.right/3;
+                if (PtInRect(&rc, pt))
+                {
+                    OnPageUp(hWnd);
+                }
+            }
+        }
         break;
     case WM_RBUTTONDOWN:
-        OnPageUp(hWnd);
+        if (_header->page_mode == 1)
+        {
+            OnPageUp(hWnd);
+        }
         break;
     case WM_MOUSEWHEEL:
         if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
@@ -448,13 +487,20 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     BOOL bResult = FALSE;
     BOOL bUpdated = FALSE;
     int value = 0;
+    int cid;
     LRESULT res;
     switch (message)
     {
     case WM_INITDIALOG:
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
         SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
-        SendMessage(GetDlgItem(hDlg, IDC_CHECK_ENABLE_MC), BM_SETCHECK, _header->enable_click_page ? BST_CHECKED : BST_UNCHECKED, NULL);
+        if (_header->page_mode == 0)
+            cid = IDC_RADIO_MODE1;
+        else if (_header->page_mode == 1)
+            cid = IDC_RADIO_MODE2;
+        else
+            cid = IDC_RADIO_MODE3;
+        SendMessage(GetDlgItem(hDlg, cid), BM_SETCHECK, BST_CHECKED, NULL);
         WheelSpeedInit(hDlg);
         // init hotkey
         HotkeyInit(hDlg);
@@ -487,11 +533,23 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) + 1;
                 }
-                res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_ENABLE_MC), BM_GETCHECK, 0, NULL);
+                res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE1), BM_GETCHECK, 0, NULL);
                 if (res == BST_CHECKED)
-                    _header->enable_click_page = 1;
+                {
+                    _header->page_mode = 0;
+                }
                 else
-                    _header->enable_click_page = 0;
+                {
+                    res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE2), BM_GETCHECK, 0, NULL);
+                    if (res == BST_CHECKED)
+                    {
+                        _header->page_mode = 1;
+                    }
+                    else
+                    {
+                        _header->page_mode = 2;
+                    }
+                }
                 value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
                 if (value != _header->line_gap)
                 {
@@ -899,15 +957,13 @@ LRESULT OnMove(HWND hWnd)
 
 LRESULT OnPageUp(HWND hWnd)
 {
-    if (_header->enable_click_page)
-        _PageCache.PageUp(hWnd);
+    _PageCache.PageUp(hWnd);
     return 0;
 }
 
 LRESULT OnPageDown(HWND hWnd)
 {
-    if (_header->enable_click_page)
-        _PageCache.PageDown(hWnd);
+    _PageCache.PageDown(hWnd);
     return 0;
 }
 
