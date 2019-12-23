@@ -17,12 +17,10 @@ A win32 txt file reader
     1.1.  鼠标左键单击：下一页<br/>
     1.2.  鼠标右键单击：上一页<br/>
     1.3.  详见readme.txt使用说明<br/>
-<br/>
 2.  翻页模式二：(setting > config > 鼠标左键点击左右侧翻页)<br/>
     2.1.  鼠标左键点击界面右侧：下一页<br/>
     2.2.  鼠标左键点击界面左侧：上一页<br/>
     2.3.  详见readme.txt使用说明<br/>
-<br/>
 3. release版本使用MT模式编译。避免出现vs运行时库依赖问题<br/>
 <br/>
 <br/>
