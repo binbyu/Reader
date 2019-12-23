@@ -1,8 +1,8 @@
 # Reader
-An win32 txt file reader
+A win32 txt file reader
 
 ****
-最新release版本：`v1.3.0.0`<br/>
+最新release版本：`v1.3.1.0`<br/>
 (百度网盘)<br/>
 链接: [https://pan.baidu.com/s/1IuIMWKpgyzgUvUzYej_gWw](https://pan.baidu.com/s/1IuIMWKpgyzgUvUzYej_gWw)<br/>
 提取码: `rman`
@@ -16,42 +16,14 @@ An win32 txt file reader
 1.  翻页模式一：(setting > config > 鼠标左右键点击翻页)<br/>
     1.1.  鼠标左键单击：下一页<br/>
     1.2.  鼠标右键单击：上一页<br/>
-    1.3.  如下图<br/>
-________________<br/>
-| 隐藏边框时   |<br/>
-| 按住可拖动   |<br/>
-|______________|<br/>
-|              |<br/>
-|              |<br/>
-|   左键单击   |<br/>
-|    上一页    |<br/>
-|              |<br/>
-|              |<br/>
-|   右键单击   |<br/>
-|    下一页    |<br/>
-|              |<br/>
-|______________|<br/>
+    1.3.  详见readme.txt使用说明<br/>
 <br/>
 2.  翻页模式二：(setting > config > 鼠标左键点击左右侧翻页)<br/>
     2.1.  鼠标左键点击界面右侧：下一页<br/>
     2.2.  鼠标左键点击界面左侧：上一页<br/>
-    2.3.  如下图<br/>
-________________<br/>
-|    |    |    |<br/>
-| 1/3| 1/3| 1/3|<br/>
-|    | 隐 |    |<br/>
-|    | 藏 |    |<br/>
-|    | 边 |    |<br/>
-| 上 | 框 | 下 |<br/>
-|    | 时 |    |<br/>
-| 一 | 按 | 一 |<br/>
-|    | 住 |    |<br/>
-| 页 | 可 | 页 |<br/>
-|    | 拖 |    |<br/>
-|    | 动 |    |<br/>
-|____|____|____|<br/>
+    2.3.  详见readme.txt使用说明<br/>
 <br/>
-3. release版本使用MT模式编译。避免出现vs运行时库依赖问题
+3. release版本使用MT模式编译。避免出现vs运行时库依赖问题<br/>
 <br/>
 <br/>
 # v1.3.0.0 2019/12/13 功能更新<br/>
