@@ -30,6 +30,20 @@ typedef struct
     TCHAR file_name[MAX_PATH];
 } item_t;
 
+typedef enum
+{
+    Stretch,
+    Tile,
+    TileFlip
+} bg_image_mode_t;
+
+typedef struct
+{
+    BOOL enable;
+    TCHAR file_name[MAX_PATH];
+    int mode; // bg_image_mode_t
+} bg_image_t;
+
 typedef struct 
 {
 	int flag;
@@ -37,7 +51,7 @@ typedef struct
     RECT rect;
 	LOGFONT font;
     u32 font_color;
-	u32 bk_color; 
+	u32 bg_color;
 	int item_id;
 	int size;
     int line_gap;
@@ -47,6 +61,7 @@ typedef struct
     int hk_show_3;
     int wheel_speed;
     int page_mode;
+    bg_image_t bg_image;
     int reserved[64];
 } header_t;
 

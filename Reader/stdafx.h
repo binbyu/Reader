@@ -19,3 +19,7 @@
 
 
 // TODO: reference additional headers your program requires here
+#include <objidl.h>
+#include <GdiPlus.h>
+using namespace Gdiplus;
+#pragma comment(lib, "Gdiplus.lib")

@@ -29,6 +29,7 @@ BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    BgImage(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
 
 
@@ -44,6 +45,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
  	// TODO: Place code here.
 	MSG msg;
 	HACCEL hAccelTable;
+
+    // init gdiplus
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR gdiplusToken;
+    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     // load cache file
     if (!Init())
@@ -80,6 +86,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
     Exit();
 
+    // uninit gdiplus
+    GdiplusShutdown(gdiplusToken);
+
 	return (int) msg.wParam;
 }
 
@@ -109,7 +118,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	wcex.hInstance		= hInstance;
 	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= CreateSolidBrush(_header->bk_color);//(HBRUSH)(COLOR_WINDOW+1);
+	wcex.hbrBackground	= CreateSolidBrush(_header->bg_color);//(HBRUSH)(COLOR_WINDOW+1);
 	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_READER);
 	wcex.lpszClassName	= szWindowClass;
 	wcex.hIconSm		= LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_BOOK));
@@ -212,6 +221,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_COLOR:
             OnSetBkColor(hWnd, message, wParam, lParam);
+            break;
+        case IDM_IMAGE:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_BG_IMAGE), hWnd, BgImage);
             break;
         case IDM_CONFIG:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTING), hWnd, Setting);
@@ -559,6 +571,125 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     return (INT_PTR)FALSE;
 }
 
+INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    LRESULT res;
+    TCHAR text[MAX_PATH] = {0};
+    TCHAR *ext;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        SendMessage(GetDlgItem(hDlg, IDC_CHECK_BIENABLE), BM_SETCHECK, _header->bg_image.enable ? BST_CHECKED : BST_UNCHECKED, NULL);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_BIFILE), _header->bg_image.file_name);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 0, (LPARAM)_T("拉伸缩放"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 1, (LPARAM)_T("平铺"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 2, (LPARAM)_T("旋转平铺"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_SETCURSEL, _header->bg_image.mode, NULL);
+        if (_header->bg_image.enable)
+        {
+            EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BIMODE), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BIFILE), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BISEL), TRUE);
+        }
+        else
+        {
+            EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BIMODE), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BIFILE), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BISEL), FALSE);
+        }
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_BIENABLE), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+            {
+                GetWindowText(GetDlgItem(hDlg, IDC_EDIT_BIFILE), text, MAX_PATH-1);
+                if (!text[0])
+                {
+                    MessageBox(hDlg, _T("Please select a image!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                ext = PathFindExtension(text);
+                if (_tcscmp(ext, _T(".jpg")) != 0
+                    && _tcscmp(ext, _T(".png")) != 0
+                    && _tcscmp(ext, _T(".bmp")) != 0
+                    && _tcscmp(ext, _T(".jpeg")) != 0)
+                {
+                    MessageBox(hDlg, _T("Invalid image format!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_GETCURSEL, 0, NULL);
+                if (res == -1)
+                {
+                    MessageBox(hDlg, _T("Invalid layout mode format!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                _header->bg_image.mode = res;
+                _header->bg_image.enable = 1;
+                _tcscpy(_header->bg_image.file_name, text);
+                _PageCache.ReDraw(GetParent(hDlg));
+            }
+            else
+            {
+                _header->bg_image.enable = 0;
+                _PageCache.ReDraw(GetParent(hDlg));
+            }
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDC_CHECK_BIENABLE:
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_BIENABLE), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BIMODE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BIFILE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BISEL), TRUE);
+            }
+            else
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BIMODE), FALSE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BIFILE), FALSE);
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BISEL), FALSE);
+            }
+            break;
+        case IDC_BUTTON_BISEL:
+            if (IsWindow(_hFindDlg))
+            {
+                DestroyWindow(_hFindDlg);
+                _hFindDlg = NULL;
+            }
+            TCHAR szFileName[MAX_PATH] = {0};
+            TCHAR szTitle[MAX_PATH] = {0};
+            OPENFILENAME ofn = {0};
+            ofn.lStructSize = sizeof(ofn);  
+            ofn.hwndOwner = hDlg;  
+            ofn.lpstrFilter = _T("jpg(*.jpg)\0*.jpg\0jpeg(*.jpeg)\0*.jpeg\0png(*.png)\0*.png\0bmp(*.bmp)\0*.bmp\0\0");
+            ofn.lpstrInitialDir = NULL;
+            ofn.lpstrFile = szFileName; 
+            ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
+            ofn.nFilterIndex = 0;
+            ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
+            BOOL bSel = GetOpenFileName(&ofn);
+            if (!bSel)
+            {
+                return 0;
+            }
+            SetWindowText(GetDlgItem(hDlg, IDC_EDIT_BIFILE), szFileName);
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
 INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HWND hWnd;
@@ -854,14 +985,14 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     cc.lStructSize = sizeof(cc);
     cc.hwndOwner = hWnd;
     cc.lpCustColors = (LPDWORD) acrCustClr;
-    cc.rgbResult = _header->bk_color;
+    cc.rgbResult = _header->bg_color;
     cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
     if (ChooseColor(&cc))
     {
-        if (_header->bk_color != cc.rgbResult)
+        if (_header->bg_color != cc.rgbResult)
         {
-            _header->bk_color = cc.rgbResult;
+            _header->bg_color = cc.rgbResult;
             _PageCache.ReDraw(hWnd);
         }
     }
@@ -887,24 +1018,41 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnPaint(HWND hWnd, HDC hdc)
 {
     RECT rc;
+    HBRUSH hBrush = NULL;
+    HDC memdc = NULL;
+    HBITMAP hBmp = NULL;
+    HFONT hFont = NULL;
+    Bitmap *image;
+
     GetClientRectExceptStatusBar(hWnd, &rc);
 
     // memory dc
-    HDC memdc = CreateCompatibleDC(hdc);
-    HBITMAP hBmp = CreateCompatibleBitmap(hdc, rc.right-rc.left, rc.bottom-rc.top);
-    SelectObject(memdc, hBmp);
+    memdc = CreateCompatibleDC(hdc);
+
+    // load bg image
+    image = LoadBGImage(rc.right-rc.left,rc.bottom-rc.top);
+    if (image)
+    {
+        image->GetHBITMAP(Color(255, 255, 255), &hBmp);
+        SelectObject(memdc, hBmp);
+    }
+    else
+    {
+        hBmp = CreateCompatibleBitmap(hdc, rc.right-rc.left, rc.bottom-rc.top);
+        SelectObject(memdc, hBmp);
+
+        // set bg color
+        hBrush = CreateSolidBrush(_header->bg_color);
+        SelectObject(memdc, hBrush);
+        FillRect(memdc, &rc, hBrush);
+    }
 
     // set font
-    HFONT hFont = CreateFontIndirect(&_header->font);
+    hFont = CreateFontIndirect(&_header->font);
     SelectObject(memdc, hFont);
     SetTextColor(memdc, _header->font_color);
-
-    // set bk color
-    HBRUSH hBrush = CreateSolidBrush(_header->bk_color);
-    SelectObject(memdc, hBrush);
-    FillRect(memdc, &rc, hBrush);
+    
     SetBkMode(memdc, TRANSPARENT);
-
     _PageCache.DrawPage(memdc);
 
     BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
@@ -1175,7 +1323,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 UINT GetAppVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','3','0','0'};
+    char version[4] = {'1','4','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -1726,4 +1874,80 @@ TCHAR* HotKeyMap_KeyToString(int key, int cid)
         buf3[0] = key;
         return buf3;
     }
+}
+
+Bitmap* LoadBGImage(int w, int h)
+{
+    static Bitmap *bgimg = NULL;
+    static TCHAR curfile[MAX_PATH] = {0};
+    static int curWidth = 0;
+    static int curHeight = 0;
+    static int curmode = Stretch;
+    Bitmap *image = NULL;
+    Graphics *graphics = NULL;
+    ImageAttributes ImgAtt;
+    RectF rcDrawRect;
+
+    if (!_header->bg_image.enable || !_header->bg_image.file_name[0])
+    {
+        return NULL;
+    }
+
+    if (_tcscmp(_header->bg_image.file_name, curfile) == 0 && curWidth == w && curHeight == h 
+        && curmode == _header->bg_image.mode && bgimg)
+    {
+        return bgimg;
+    }
+    
+    if (bgimg)
+    {
+        delete bgimg;
+        bgimg = NULL;
+    }
+    _tcscpy(curfile, _header->bg_image.file_name);
+    curWidth = w;
+    curHeight = h;
+    curmode = _header->bg_image.mode;
+    
+    // load image file
+    image = Bitmap::FromFile(curfile);
+    if (image == NULL)
+        return NULL;
+    if (Gdiplus::Ok != image->GetLastStatus())
+    {
+        delete image;
+        image = NULL;
+        return NULL;
+    }
+
+    // create bg image
+    bgimg = new Bitmap(curWidth, curHeight);
+    rcDrawRect.X=0.0;
+    rcDrawRect.Y=0.0;
+    rcDrawRect.Width=(float)curWidth;
+    rcDrawRect.Height=(float)curHeight;
+    graphics = Graphics::FromImage(bgimg);
+    graphics->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+
+    switch (curmode)
+    {
+    case Stretch:
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel);
+        break;
+    case Tile:
+        ImgAtt.SetWrapMode(WrapModeTile);
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)curWidth,(float)curHeight,UnitPixel,&ImgAtt);
+        break;
+    case TileFlip:
+        ImgAtt.SetWrapMode(WrapModeTileFlipXY);
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)curWidth,(float)curHeight,UnitPixel,&ImgAtt);
+        break;
+    default:
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel);
+        break;
+    }
+
+    delete image;
+    delete graphics;
+    return bgimg;
 }

@@ -234,7 +234,7 @@ header_t* Cache::default_header()
     header->rect.bottom = header->rect.top + height;
 
     // default bk color
-    header->bk_color = 0x00ffffff;  // White
+    header->bg_color = 0x00ffffff;  // White
 
     header->line_gap = 5;
     header->internal_border = 0;

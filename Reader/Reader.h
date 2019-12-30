@@ -60,3 +60,4 @@ BOOL                HotkeySave(HWND);
 int                 HotKeyMap_IndexToKey(int, int);
 int                 HotKeyMap_KeyToIndex(int, int);
 TCHAR*              HotKeyMap_KeyToString(int, int);
+Bitmap*             LoadBGImage(int, int);

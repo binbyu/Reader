@@ -63,8 +63,11 @@ ________________
 四、其他设置
 1.  setting > font：   字体设置
 2.  setting > color：  背景颜色设置
-3.  setting > config： 进入设置菜单
-4.  setting > default：还原默认设置
+3.  setting > Image：  背景图片设置
+    3.1 勾选  “启用背景图片”，则会使用背景图片
+    3.2 不勾选“启用背景图片”，则会使用setting > color设置
+4.  setting > config： 进入设置菜单
+5.  setting > default：还原默认设置
 
 五、备注
 1.  如果需要还原软件最原始的状态（或者清除File菜单里面的文件列表）：
