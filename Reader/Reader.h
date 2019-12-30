@@ -22,6 +22,7 @@ UINT                _uFindReplaceMsg        = 0;
 HANDLE              _hThreadChapter         = NULL;
 std::map<int, int>  _ChapterMap;
 TCHAR               _szSrcTitle[MAX_PATH]   = {0};
+window_info_t       _WndInfo                = {0};
 
 
 LRESULT             OnCreate(HWND);
@@ -43,6 +44,8 @@ LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnGotoPrevChapter(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnHideBorder(HWND);
+LRESULT             OnFullScreen(HWND);
 UINT                GetAppVersion(void);
 BOOL                Init(void);
 void                Exit(void);

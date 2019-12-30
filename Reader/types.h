@@ -75,4 +75,22 @@ struct upmenu_t
     LPCTSTR lpNewItem;
 };
 
+typedef struct
+{
+    HMENU hMenu;
+    HWND hStatusBar;
+    BOOL bHideBorder;
+    BOOL bFullScreen;
+
+    // hide border restore data
+    DWORD hbStyle;
+    DWORD hbExStyle;
+    RECT hbRect;
+
+    // full screen restore data
+    DWORD fsStyle;
+    DWORD fsExStyle;
+    RECT fsRect;
+} window_info_t;
+
 #endif

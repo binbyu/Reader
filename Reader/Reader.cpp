@@ -168,10 +168,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
-    static BOOL hiden = FALSE;
-    static RECT border;
-    static DWORD dwStyle;
-    static HMENU hMenu;
 
     if (message == _uFindReplaceMsg)
     {
@@ -241,23 +237,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
-        GetWindowRect(hWnd, &rc);
-        if (hiden)
-        {
-            rc.left -= border.left;
-            rc.top -= border.top;
-            rc.right += border.right;
-            rc.bottom += border.bottom;
-        }
-        _header->rect.left = rc.left;
-        _header->rect.right = rc.right;
-        _header->rect.top = rc.top;
-        _header->rect.bottom = rc.bottom;
 		PostQuitMessage(0);
 		break;
+    case WM_QUERYENDSESSION:
+        Exit(); // save data when poweroff ?
+        return TRUE;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
-        if (hit == HTCLIENT && hiden)
+        if (hit == HTCLIENT && _WndInfo.bHideBorder)
         {
             if (_header->page_mode == 2)
             {
@@ -282,9 +269,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return hit;
     case WM_SIZE:
         OnSize(hWnd, message, wParam, lParam);
+        if (!IsZoomed(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+            GetWindowRect(hWnd, &_header->rect);
         break;
     case WM_MOVE:
         OnMove(hWnd);
+        if (!IsZoomed(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+            GetWindowRect(hWnd, &_header->rect);
         break;
     case WM_KEYDOWN:
         if (VK_LEFT == wParam)
@@ -352,33 +343,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         else if (VK_F12 == wParam)
         {
             // show or hiden border
-            if (!hiden)
-            {
-                hMenu = GetMenu(hWnd);
-                dwStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
-                GetWindowRect(hWnd, &border);
-                GetClientRectExceptStatusBar(hWnd, &rc);
-                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
-                border.left = rc.left - border.left;
-                border.right -= rc.right;
-                border.top = rc.top - border.top;
-                border.bottom -= rc.bottom;
-                SetWindowLong(hWnd, GWL_STYLE, dwStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-                SetMenu(hWnd, NULL);
-                ShowWindow(_hWndStatus, SW_HIDE);
-                SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
-            }
-            else
-            {
-                GetWindowRect(hWnd, &rc);
-                SetWindowLong(hWnd, GWL_STYLE, dwStyle);
-                SetMenu(hWnd, hMenu);
-                ShowWindow(_hWndStatus, SW_SHOW);
-                SetWindowPos(hWnd, NULL, rc.left-border.left, rc.top-border.top, 
-                    rc.right-rc.left+border.left+border.right, rc.bottom-rc.top+border.top+border.bottom, SWP_DRAWFRAME);
-            }
-            hiden = !hiden;
+            OnHideBorder(hWnd);
+        }
+        else if (VK_F11 == wParam)
+        {
+            OnFullScreen(hWnd);
+        }
+        else if (VK_ESCAPE == wParam)
+        {
+            if (_WndInfo.bFullScreen)
+                OnFullScreen(hWnd);
         }
         break;
     case WM_HOTKEY:
@@ -635,8 +609,9 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 
 LRESULT OnCreate(HWND hWnd)
 {
+    _WndInfo.hMenu = GetMenu(hWnd);
     // create status bar
-    _hWndStatus = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
+    _WndInfo.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
     // register find text dialog
     _uFindReplaceMsg = RegisterWindowMessage(FINDMSGSTRING);
     OnUpdateMenu(hWnd);
@@ -896,6 +871,8 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (IsZoomed(hWnd))
+        SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     _Cache.default_header();
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
@@ -945,7 +922,7 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     RECT rc;
     GetClientRectExceptStatusBar(hWnd, &rc);
     _PageCache.SetRect(&rc);
-    SendMessage(_hWndStatus, message, wParam, lParam);
+    SendMessage(_WndInfo.hStatusBar, message, wParam, lParam);
     return 0;
 }
 
@@ -1046,6 +1023,92 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     ::DragFinish(hDropInfo);
+    return 0;
+}
+
+LRESULT OnHideBorder(HWND hWnd)
+{
+    RECT rc;
+
+    if (_WndInfo.bFullScreen)
+        return 0;
+
+    // save status
+    if (!_WndInfo.bHideBorder)
+    {
+        _WndInfo.hbStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
+        _WndInfo.hbExStyle = (DWORD)GetWindowLong(hWnd, GWL_EXSTYLE);
+        GetWindowRect(hWnd, &_WndInfo.hbRect);
+    }
+
+    // set new status
+    _WndInfo.bHideBorder = !_WndInfo.bHideBorder;
+
+    // hide border
+    if (_WndInfo.bHideBorder)
+    {
+        GetClientRectExceptStatusBar(hWnd, &rc);
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.hbStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
+        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+        SetMenu(hWnd, NULL);
+        ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top,
+            rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+    }
+    // show border
+    else
+    {
+        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.hbStyle);
+        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
+        SetMenu(hWnd, _WndInfo.hMenu);
+        ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
+        SetWindowPos(hWnd, NULL, _WndInfo.hbRect.left, _WndInfo.hbRect.top, 
+            _WndInfo.hbRect.right-_WndInfo.hbRect.left, _WndInfo.hbRect.bottom-_WndInfo.hbRect.top, SWP_DRAWFRAME);
+    }
+    return 0;
+}
+
+LRESULT OnFullScreen(HWND hWnd)
+{
+    MONITORINFO mi;
+    RECT rc;
+
+    if (!_WndInfo.bFullScreen)
+    {
+        _WndInfo.fsStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
+        _WndInfo.fsExStyle = (DWORD)GetWindowLong(hWnd, GWL_EXSTYLE);
+        GetWindowRect(hWnd, &_WndInfo.fsRect);
+    }
+
+    _WndInfo.bFullScreen = !_WndInfo.bFullScreen;
+    
+    if (_WndInfo.bFullScreen)
+    {
+        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.fsStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
+        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+        SetMenu(hWnd, NULL);
+        ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
+
+        
+        mi.cbSize = sizeof(mi);
+        GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST),&mi);
+        rc = mi.rcMonitor;
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+    }
+    else
+    {
+        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.fsStyle);
+        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle);
+        if (!_WndInfo.bHideBorder)
+        {
+            SetMenu(hWnd, _WndInfo.hMenu);
+            ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
+        }
+        SetWindowPos(hWnd, NULL, _WndInfo.fsRect.left, _WndInfo.fsRect.top, 
+            _WndInfo.fsRect.right-_WndInfo.fsRect.left, _WndInfo.fsRect.bottom-_WndInfo.fsRect.top, SWP_DRAWFRAME);
+    }
     return 0;
 }
 
@@ -1305,20 +1368,20 @@ void UpdateProgess(void)
         nprog = (int)(dprog * 100);
         dprog = (double)nprog / 100.0;
         _stprintf(progress, _T("Progress: %.2f%%"), dprog);
-        SendMessage(_hWndStatus, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
+        SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
     }
     else
     {
-        SendMessage(_hWndStatus, SB_SETTEXT, (WPARAM)0, (LPARAM)_T(""));
+        SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)_T(""));
     }
 }
 
 BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)
 {
     RECT rect;
-    GetClientRect(_hWndStatus, &rect);
+    GetClientRect(_WndInfo.hStatusBar, &rect);
     GetClientRect(hWnd, rc);
-    if (IsWindowVisible(_hWndStatus))
+    if (IsWindowVisible(_WndInfo.hStatusBar))
     {
         rc->bottom -= rect.bottom;
     }
