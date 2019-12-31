@@ -250,6 +250,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
 		PostQuitMessage(0);
+        // save rect
+        if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+        {
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+            rc.left = rc.left - _WndInfo.hbRect.left;
+            rc.right = rc.right + _WndInfo.hbRect.right;
+            rc.top = rc.top - _WndInfo.hbRect.top;
+            rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
+            _header->rect = rc;
+        }
 		break;
     case WM_QUERYENDSESSION:
         Exit(); // save data when poweroff ?
@@ -1186,12 +1198,27 @@ LRESULT OnHideBorder(HWND hWnd)
     if (_WndInfo.bFullScreen)
         return 0;
 
+    GetClientRectExceptStatusBar(hWnd, &rc);
+    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+
     // save status
     if (!_WndInfo.bHideBorder)
     {
         _WndInfo.hbStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
         _WndInfo.hbExStyle = (DWORD)GetWindowLong(hWnd, GWL_EXSTYLE);
         GetWindowRect(hWnd, &_WndInfo.hbRect);
+        _WndInfo.hbRect.left = rc.left - _WndInfo.hbRect.left;
+        _WndInfo.hbRect.right = _WndInfo.hbRect.right - rc.right;
+        _WndInfo.hbRect.top = rc.top - _WndInfo.hbRect.top;
+        _WndInfo.hbRect.bottom = _WndInfo.hbRect.bottom - rc.bottom;
+    }
+    else
+    {
+        rc.left = rc.left - _WndInfo.hbRect.left;
+        rc.right = rc.right + _WndInfo.hbRect.right;
+        rc.top = rc.top - _WndInfo.hbRect.top;
+        rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
     }
 
     // set new status
@@ -1200,15 +1227,11 @@ LRESULT OnHideBorder(HWND hWnd)
     // hide border
     if (_WndInfo.bHideBorder)
     {
-        GetClientRectExceptStatusBar(hWnd, &rc);
-        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
         SetWindowLong(hWnd, GWL_STYLE, _WndInfo.hbStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
         SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
         SetMenu(hWnd, NULL);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
-        SetWindowPos(hWnd, NULL, rc.left, rc.top,
-            rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
     }
     // show border
     else
@@ -1217,8 +1240,7 @@ LRESULT OnHideBorder(HWND hWnd)
         SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
         SetMenu(hWnd, _WndInfo.hMenu);
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
-        SetWindowPos(hWnd, NULL, _WndInfo.hbRect.left, _WndInfo.hbRect.top, 
-            _WndInfo.hbRect.right-_WndInfo.hbRect.left, _WndInfo.hbRect.bottom-_WndInfo.hbRect.top, SWP_DRAWFRAME);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
     }
     return 0;
 }
