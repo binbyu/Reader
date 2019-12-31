@@ -142,11 +142,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hInst = hInstance; // Store instance handle in our global variable
 
-   hWnd = CreateWindowEx(WS_EX_ACCEPTFILES, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
       _header->rect.right - _header->rect.left,
       _header->rect.bottom - _header->rect.top,
       NULL, NULL, hInstance, NULL);
+
+   SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
 
    if (!hWnd)
    {
@@ -422,13 +424,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_MOUSEWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
         {
-            OnLineUp(hWnd);
-        }
-        else
-        {
-            OnLineDown(hWnd);
+            const BYTE MIN_ALPHA = 0x0F;
+            const BYTE MAX_ALPHA = 0xff;
+            const BYTE UNIT_STEP = 0x05;
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+            {
+                if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+                {
+                    if (_header->alpha < MAX_ALPHA - UNIT_STEP)
+                        _header->alpha += UNIT_STEP;
+                    else
+                        _header->alpha = MAX_ALPHA;
+                    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+                }
+                else
+                {
+                    OnLineUp(hWnd);
+                }
+            }
+            else
+            {
+                if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+                {
+                    if (_header->alpha > MIN_ALPHA + UNIT_STEP)
+                        _header->alpha -= UNIT_STEP;
+                    else
+                        _header->alpha = MIN_ALPHA;
+                    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+                }
+                else
+                {
+                    OnLineDown(hWnd);
+                }
+            }
         }
         break;
     case WM_ERASEBKGND:
@@ -1022,6 +1051,7 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (IsZoomed(hWnd))
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     _Cache.default_header();
+    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
         _header->rect.right - _header->rect.left,

@@ -52,6 +52,7 @@ typedef struct
 	LOGFONT font;
     u32 font_color;
 	u32 bg_color;
+    BYTE alpha;
 	int item_id;
 	int size;
     int line_gap;
