@@ -621,6 +621,11 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     MessageBox(hDlg, _T("Invalid image format!"), _T("Error"), MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
+                if (!FileExists(text))
+                {
+                    MessageBox(hDlg, _T("image is not exists!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
                 res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_GETCURSEL, 0, NULL);
                 if (res == -1)
                 {
@@ -1898,6 +1903,12 @@ Bitmap* LoadBGImage(int w, int h)
     {
         return bgimg;
     }
+
+    if (!FileExists(_header->bg_image.file_name))
+    {
+        _header->bg_image.file_name[0] = 0;
+        return NULL;
+    }
     
     if (bgimg)
     {
@@ -1950,4 +1961,11 @@ Bitmap* LoadBGImage(int w, int h)
     delete image;
     delete graphics;
     return bgimg;
+}
+
+BOOL FileExists(TCHAR *file)
+{
+    DWORD dwAttrib = GetFileAttributes(file);
+    return (dwAttrib != INVALID_FILE_ATTRIBUTES && 
+        !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
