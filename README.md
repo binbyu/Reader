@@ -1,5 +1,5 @@
 # Reader
-An win32 txt file reader
+A win32 txt file reader
 
 ****
 最新release版本：`v1.3.0.0`<br/>
