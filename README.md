@@ -25,6 +25,7 @@ A win32 txt file reader
 5. 增加版本更新推送功能<br/>
   5.1 如果使用代理上网，需要配置网络代理：setting > proxy<br/>
   5.2 由于没有自己的服务器，这里只能使用github中转获取真实下载地址<br/>
+  5.3 Just for test. 此功能不一定有效 :)
 <br/>
 <br/>
 # v1.3.1.0 2019/12/23 功能更新<br/>
