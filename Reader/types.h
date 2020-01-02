@@ -44,6 +44,15 @@ typedef struct
     int mode; // bg_image_mode_t
 } bg_image_t;
 
+typedef struct  
+{
+    BOOL enable;
+    char addr[64];
+    int port;
+    char user[64];
+    char pass[64];
+} proxy_t;
+
 typedef struct 
 {
 	int flag;
@@ -64,6 +73,8 @@ typedef struct
     int page_mode;
     bg_image_t bg_image;
     UINT uElapse;
+    proxy_t proxy;
+    TCHAR ingore_version[16];
     int reserved[64];
 } header_t;
 
@@ -109,5 +120,6 @@ typedef struct
     DWORD fsExStyle;
     RECT fsRect;
 } window_info_t;
+
 
 #endif

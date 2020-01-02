@@ -29,8 +29,10 @@ BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    Proxy(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    BgImage(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    UpgradeProc(HWND, UINT, WPARAM, LPARAM);
 
 
 
@@ -189,7 +191,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	switch (message)
 	{
 	case WM_COMMAND:
-        PauseAutoPage(hWnd);
+        //PauseAutoPage(hWnd);
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
 		// Parse the menu selections:
@@ -232,6 +234,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_CONFIG:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTING), hWnd, Setting);
+            break;
+        case IDM_PROXY:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_PROXY), hWnd, Proxy);
             break;
         case IDM_DEFAULT:
             OnRestoreDefault(hWnd, message, wParam, lParam);
@@ -487,14 +492,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_TIMER:
         switch (wParam)
         {
-        case IDT_PAGE_TIMER:
+        case IDT_TIMER_PAGE:
             OnPageDown(hWnd);
             if (_item->index+_PageCache.GetCurPageSize() == _TextLen)
                 StopAutoPage(hWnd);
             break;
+        case IDT_TIMER_UPGRADE:
+            _Upgrade.Check(UpgradeCallback, hWnd);
+            break;
         default:
             break;
         }
+        break;
+    case WM_NEW_VERSION:
+        DialogBox(hInst, MAKEINTRESOURCE(IDD_UPGRADE), hWnd, UpgradeProc);
         break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -653,6 +664,123 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     return (INT_PTR)FALSE;
 }
 
+INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    LRESULT res;
+    BOOL bResult = FALSE;
+    int value = 0;
+    TCHAR buf[64] = {0};
+    wchar_t *uni = NULL;
+    char *utf8 = NULL;
+    int len;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("不使用代理"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("使用代理"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_SETCURSEL, _header->proxy.enable ? 1 : 0, NULL);
+        uni = Utils::utf8_to_unicode(_header->proxy.addr, &len);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), uni);
+        free(uni);
+        uni = Utils::utf8_to_unicode(_header->proxy.user, &len);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), uni);
+        free(uni);
+        uni = Utils::utf8_to_unicode(_header->proxy.pass, &len);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), uni);
+        free(uni);
+        if (_header->proxy.port == 0)
+            SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), _T(""));
+        else
+            SetDlgItemInt(hDlg, IDC_EDIT_PROXY_PORT, _header->proxy.port, TRUE);
+        if (_header->proxy.enable)
+        {
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), TRUE);
+        }
+        else
+        {
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), FALSE);
+        }
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), buf, 64-1);
+            if (buf[0])
+            {
+                value = GetDlgItemInt(hDlg, IDC_EDIT_PROXY_PORT, &bResult, FALSE);
+                if (!bResult || value <= 0 || value >= 0xFFFF)
+                {
+                    MessageBox(hDlg, _T("Invalid port value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                _header->proxy.port = value;
+            }
+            else
+            {
+                _header->proxy.port = 0;
+            }
+
+            res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_GETCURSEL, 0, NULL);
+            if (res == 1)
+            {
+                _header->proxy.enable = TRUE;
+            }
+            else
+            {
+                _header->proxy.enable = FALSE;
+            }
+            GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), buf, 64-1);
+            utf8 = Utils::unicode_to_utf8(buf, &len);
+            strcpy(_header->proxy.addr, utf8);
+            free(utf8);
+            GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), buf, 64-1);
+            utf8 = Utils::unicode_to_utf8(buf, &len);
+            strcpy(_header->proxy.user, utf8);
+            free(utf8);
+            GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), buf, 64-1);
+            utf8 = Utils::unicode_to_utf8(buf, &len);
+            strcpy(_header->proxy.pass, utf8);
+            free(utf8);
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDC_COMBO_PROXY:
+            res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_GETCURSEL, 0, NULL);
+            if (res == 0)
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), FALSE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), FALSE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), FALSE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), FALSE);
+            }
+            else
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), TRUE);
+            }
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
 INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT res;
@@ -777,6 +905,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return (INT_PTR)FALSE;
 }
+
 INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HWND hWnd;
@@ -824,6 +953,41 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return (INT_PTR)FALSE;
 }
 
+INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    json_item_data_t *vinfo;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        vinfo = _Upgrade.GetVersionInfo();
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_UPGRADE_VERSION), vinfo->version.c_str());
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_UPGRADE_DESC), vinfo->desc.c_str());
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        case IDC_BUTTON_UPGRADE_INGORE:
+            vinfo = _Upgrade.GetVersionInfo();
+            wcscpy(_header->ingore_version, vinfo->version.c_str());
+            break;
+        case IDC_BUTTON_UPGRADE_DOWN:
+            vinfo = _Upgrade.GetVersionInfo();
+            ShellExecute(NULL, _T("open"), vinfo->url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
 
 LRESULT OnCreate(HWND hWnd)
 {
@@ -840,6 +1004,9 @@ LRESULT OnCreate(HWND hWnd)
         item_t* item = _Cache.get_item(0);
         OnOpenFile(hWnd, item->file_name);
     }
+
+    // check upgrade
+    CheckUpgrade(hWnd);
     return 0;
 }
 
@@ -1418,7 +1585,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-UINT GetAppVersion(void)
+UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
     char version[4] = {'1','4','0','0'};
@@ -2065,9 +2232,9 @@ BOOL FileExists(TCHAR *file)
 
 void StartAutoPage(HWND hWnd)
 {
-    if (!_IsAutoPage)
+    if (_item && !_IsAutoPage)
     {
-        SetTimer(hWnd, IDT_PAGE_TIMER, _header->uElapse, NULL);
+        SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
         _IsAutoPage = TRUE;
     }
 }
@@ -2076,7 +2243,7 @@ void StopAutoPage(HWND hWnd)
 {
     if (_IsAutoPage)
     {
-        KillTimer(hWnd, IDT_PAGE_TIMER);
+        KillTimer(hWnd, IDT_TIMER_PAGE);
         _IsAutoPage = FALSE;
     }
 }
@@ -2085,14 +2252,31 @@ void PauseAutoPage(HWND hWnd)
 {
     if (_IsAutoPage)
     {
-        KillTimer(hWnd, IDT_PAGE_TIMER);
+        KillTimer(hWnd, IDT_TIMER_PAGE);
     }
 }
 
 void ResumeAutoPage(HWND hWnd)
 {
-    if (_IsAutoPage)
+    if (_item && _IsAutoPage)
     {
-        SetTimer(hWnd, IDT_PAGE_TIMER, _header->uElapse, NULL);
+        SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
     }
+}
+
+void CheckUpgrade(HWND hWnd)
+{
+    // set proxy & check upgrade
+    _Upgrade.SetProxy(&_header->proxy);
+    _Upgrade.SetIngoreVersion(_header->ingore_version);
+    _Upgrade.Check(UpgradeCallback, hWnd);
+    SetTimer(hWnd, IDT_TIMER_UPGRADE, 24 * 60 * 60 * 1000 /*one day*/, NULL);
+}
+
+bool UpgradeCallback(void *param, json_item_data_t *item)
+{
+    HWND hWnd = (HWND)param;
+
+    PostMessage(hWnd, WM_NEW_VERSION, 0, NULL);
+    return true;
 }

@@ -1,14 +1,19 @@
-#pragma once
+#ifndef __READER_H__
+#define __READER_H__
+
 
 #include "resource.h"
 #include "Cache.h"
 #include "Utils.h"
 #include "PageCache.h"
+#include "Upgrade.h"
 #include <map>
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define ID_HOTKEY_TOP_WINDOW        101
-#define IDT_PAGE_TIMER              102
+#define IDT_TIMER_PAGE              102
+#define IDT_TIMER_UPGRADE           103
+#define WM_NEW_VERSION              (WM_USER + 100)
 
 
 PageCache           _PageCache;
@@ -25,6 +30,7 @@ std::map<int, int>  _ChapterMap;
 TCHAR               _szSrcTitle[MAX_PATH]   = {0};
 window_info_t       _WndInfo                = {0};
 BOOL                _IsAutoPage             = FALSE;
+Upgrade             _Upgrade;
 
 
 LRESULT             OnCreate(HWND);
@@ -48,7 +54,7 @@ LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnHideBorder(HWND);
 LRESULT             OnFullScreen(HWND);
-UINT                GetAppVersion(void);
+UINT                GetCacheVersion(void);
 BOOL                Init(void);
 void                Exit(void);
 BOOL                ReadAllAndDecode(HWND, TCHAR*, item_t**);
@@ -68,3 +74,8 @@ void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
 void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
+void                CheckUpgrade(HWND);
+bool                UpgradeCallback(void *param, json_item_data_t *item);
+
+
+#endif

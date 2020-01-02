@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __PAGE_CACHE_H__
+#define __PAGE_CACHE_H__
 
 #define TEST_MODEL      0
 #define FAST_MODEL      1
@@ -68,3 +69,4 @@ private:
     page_info_t m_PageInfo;
 };
 
+#endif

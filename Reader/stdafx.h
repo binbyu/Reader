@@ -23,3 +23,9 @@
 #include <GdiPlus.h>
 using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
+
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <Winsock2.h>
+#pragma comment(lib, "Ws2_32.lib")
+
+

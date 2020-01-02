@@ -6,11 +6,11 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
-extern UINT GetAppVersion(void);
+extern UINT GetCacheVersion(void);
 
 Cache::Cache(TCHAR* file)
 {
-    GetModuleFileName(NULL, m_file_name, MAX_PATH-1);
+    GetModuleFileName(NULL, m_file_name, sizeof(TCHAR)*(MAX_PATH-1));
     for (int i=_tcslen(m_file_name)-1; i>=0; i--)
     {
         if (m_file_name[i] == _T('\\'))
@@ -47,7 +47,7 @@ bool Cache::init()
     {
         if (read())
         {
-            if (get_header()->version != GetAppVersion())
+            if (get_header()->version != GetCacheVersion())
             {
                 // remove old cache data
                 DeleteFile(m_file_name);
@@ -239,7 +239,7 @@ header_t* Cache::default_header()
 
     header->line_gap = 5;
     header->internal_border = 0;
-    header->version = GetAppVersion();
+    header->version = GetCacheVersion();
 
     // default hotkey
     header->hk_show_1 = 0;

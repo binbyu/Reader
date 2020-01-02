@@ -2,27 +2,29 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.3.0.0`<br/>
+最新release版本：`v1.4.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1IuIMWKpgyzgUvUzYej_gWw](https://pan.baidu.com/s/1IuIMWKpgyzgUvUzYej_gWw)<br/>
-提取码: `rman`
+链接: [暂无](暂无)<br/>
+提取码: `暂无`
 ****
 <br/>
 <br/>
 <br/>
 <br/>
-# 
-1. 增加全屏显示功能
-  1.1 F11：全屏/退出全屏
-  1.2 Esc: 退出全屏
-2. 增加背景图片设置功能
-  2.1 setting > image 里面可以设置
-3. 增加窗口透明度调节功能
-  3.1 调节方式：Ctrl + “鼠标滚轮”
-4. 增加自动翻页功能
-  4.1 快捷键：“空格键” 开始/停止自动翻页
-  4.2 setting > setting > config > 自动翻页时间间隔，可以配置，默认为3000ms
-
+# v1.4.0.0 2020/1/2 功能更新<br/>
+1. 增加全屏显示功能<br/>
+  1.1 F11：全屏/退出全屏<br/>
+  1.2 Esc: 退出全屏<br/>
+2. 增加背景图片设置功能<br/>
+  2.1 setting > image 里面可以设置<br/>
+3. 增加窗口透明度调节功能<br/>
+  3.1 调节方式：Ctrl + “鼠标滚轮”<br/>
+4. 增加自动翻页功能<br/>
+  4.1 快捷键：“空格键” 开始/停止自动翻页<br/>
+  4.2 setting > setting > config > 自动翻页时间间隔，可以配置，默认为3000ms<br/>
+5. 增加版本更新推送功能<br/>
+  5.1 如果使用代理上网，需要配置网络代理：setting > proxy<br/>
+  5.2 由于没有自己的服务器，这里只能使用github中转获取真实下载地址<br/>
 <br/>
 <br/>
 # v1.3.1.0 2019/12/23 功能更新<br/>
@@ -67,6 +69,11 @@ ________________<br/>
 <br/>
 3. release版本使用MT模式编译。避免出现vs运行时库依赖问题
 <br/>
+版本：`v1.3.1.0`<br/>
+链接: https://pan.baidu.com/s/1IuIMWKpgyzgUvUzYej_gWw<br/>
+提取码: rman<br/>
+<br/>
+<br/>
 <br/>
 # v1.3.0.0 2019/12/13 功能更新<br/>
 1. 新增逐行翻页<br/>
@@ -80,6 +87,11 @@ ________________<br/>
   2.1 快捷键：Ctrl + G<br/>
 3. 新增readme.txt，使用说明文档<br/>
   3.1 readme.txt会放在release包内，请参考<br/>
+<br/>
+版本：`v1.3.0.0`<br/>
+链接: https://pan.baidu.com/s/1-SYmA5BmbpU3Kc249fjyow<br/>
+提取码: sw6p<br/>
+<br/>
 <br/>
 <br/>
 # v1.2.0.0 2019/11/05 功能更新<br/>

@@ -28,6 +28,10 @@ public:
 	// le be
 	static char* le_to_be(char* data, int len);
 	static char* be_to_le(char* data, int len);
+
+    // base64
+    static void b64_encode(const char *src, int slen, char *dst, int *dlen);
+    static void b64_decode(const char *src, int slen, char *dst, int *dlen);
 };
 
 #endif
