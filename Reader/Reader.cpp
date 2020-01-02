@@ -1006,7 +1006,7 @@ LRESULT OnCreate(HWND hWnd)
     }
 
     // check upgrade
-    CheckUpgrade(hWnd);
+    //CheckUpgrade(hWnd);
     return 0;
 }
 
