@@ -247,6 +247,7 @@ header_t* Cache::default_header()
     header->hk_show_3 = 'H';
     header->wheel_speed = 1;
     header->page_mode = 1;
+    header->uElapse = 3000;
 
     return header;
 }

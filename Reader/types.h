@@ -63,6 +63,7 @@ typedef struct
     int wheel_speed;
     int page_mode;
     bg_image_t bg_image;
+    UINT uElapse;
     int reserved[64];
 } header_t;
 

@@ -8,6 +8,7 @@
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define ID_HOTKEY_TOP_WINDOW        101
+#define IDT_PAGE_TIMER              102
 
 
 PageCache           _PageCache;
@@ -23,6 +24,7 @@ HANDLE              _hThreadChapter         = NULL;
 std::map<int, int>  _ChapterMap;
 TCHAR               _szSrcTitle[MAX_PATH]   = {0};
 window_info_t       _WndInfo                = {0};
+BOOL                _IsAutoPage             = FALSE;
 
 
 LRESULT             OnCreate(HWND);
@@ -62,3 +64,7 @@ int                 HotKeyMap_KeyToIndex(int, int);
 TCHAR*              HotKeyMap_KeyToString(int, int);
 Bitmap*             LoadBGImage(int, int);
 BOOL                FileExists(TCHAR *file);
+void                StartAutoPage(HWND);
+void                StopAutoPage(HWND);
+void                PauseAutoPage(HWND);
+void                ResumeAutoPage(HWND);

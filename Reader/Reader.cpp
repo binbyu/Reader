@@ -189,8 +189,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	switch (message)
 	{
 	case WM_COMMAND:
-		wmId    = LOWORD(wParam);
-		wmEvent = HIWORD(wParam);
+        PauseAutoPage(hWnd);
+        wmId    = LOWORD(wParam);
+        wmEvent = HIWORD(wParam);
 		// Parse the menu selections:
         if (wmId >= IDM_CHAPTER_BEGIN && wmId <= IDM_CHAPTER_END)
         {
@@ -199,12 +200,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 _item->index = _ChapterMap[wmId];
                 _PageCache.Reset(hWnd);
             }
+            ResumeAutoPage(hWnd);
             break;
         }
         else if (wmId >= IDM_OPEN_BEGIN && wmId <= IDM_OPEN_END)
         {
             int item_id = wmId - IDM_OPEN_BEGIN;
             OnOpenItem(hWnd, item_id);
+            ResumeAutoPage(hWnd);
             break;
         }
 		switch (wmId)
@@ -234,8 +237,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnRestoreDefault(hWnd, message, wParam, lParam);
             break;
 		default:
+            ResumeAutoPage(hWnd);
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
+        ResumeAutoPage(hWnd);
 		break;
     case WM_CREATE:
         OnCreate(hWnd);
@@ -249,6 +254,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
+        StopAutoPage(hWnd);
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
 		PostQuitMessage(0);
@@ -380,6 +386,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (_WndInfo.bFullScreen)
                 OnFullScreen(hWnd);
         }
+        else if (VK_SPACE == wParam)
+        {
+            if (_IsAutoPage)
+            {
+                StopAutoPage(hWnd);
+            }
+            else
+            {
+                StartAutoPage(hWnd);
+            }
+        }
         break;
     case WM_HOTKEY:
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
@@ -467,6 +484,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES:
         OnDropFiles(hWnd, message, wParam, lParam);
         break;
+    case WM_TIMER:
+        switch (wParam)
+        {
+        case IDT_PAGE_TIMER:
+            OnPageDown(hWnd);
+            if (_item->index+_PageCache.GetCurPageSize() == _TextLen)
+                StopAutoPage(hWnd);
+            break;
+        default:
+            break;
+        }
+        break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -521,6 +550,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
         SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, _header->uElapse, TRUE);
         if (_header->page_mode == 0)
             cid = IDC_RADIO_MODE1;
         else if (_header->page_mode == 1)
@@ -549,6 +579,12 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 if (!bResult)
                 {
                     MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    return (INT_PTR)TRUE;
+                }
+                value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
+                if (!bResult || value == 0)
+                {
+                    MessageBox(hDlg, _T("Invalid auto page time value!"), _T("Error"), MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 // save hot key
@@ -588,6 +624,11 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     _header->internal_border = value;
                     bUpdated = TRUE;
+                }
+                value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
+                if (value != _header->uElapse)
+                {
+                    _header->uElapse = value;
                 }
                 break;
             case IDCANCEL:
@@ -2020,4 +2061,38 @@ BOOL FileExists(TCHAR *file)
     DWORD dwAttrib = GetFileAttributes(file);
     return (dwAttrib != INVALID_FILE_ATTRIBUTES && 
         !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+void StartAutoPage(HWND hWnd)
+{
+    if (!_IsAutoPage)
+    {
+        SetTimer(hWnd, IDT_PAGE_TIMER, _header->uElapse, NULL);
+        _IsAutoPage = TRUE;
+    }
+}
+
+void StopAutoPage(HWND hWnd)
+{
+    if (_IsAutoPage)
+    {
+        KillTimer(hWnd, IDT_PAGE_TIMER);
+        _IsAutoPage = FALSE;
+    }
+}
+
+void PauseAutoPage(HWND hWnd)
+{
+    if (_IsAutoPage)
+    {
+        KillTimer(hWnd, IDT_PAGE_TIMER);
+    }
+}
+
+void ResumeAutoPage(HWND hWnd)
+{
+    if (_IsAutoPage)
+    {
+        SetTimer(hWnd, IDT_PAGE_TIMER, _header->uElapse, NULL);
+    }
 }
