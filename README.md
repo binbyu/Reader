@@ -4,8 +4,8 @@ A win32 txt file reader
 ****
 最新release版本：`v1.4.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1nfqUl7Rx0rtCMXfrMeGyag](https://pan.baidu.com/s/1nfqUl7Rx0rtCMXfrMeGyag)<br/>
-提取码: `nimu`
+链接: [https://pan.baidu.com/s/1MV8Di5F3Dd1is6vMQaVOZg](https://pan.baidu.com/s/1MV8Di5F3Dd1is6vMQaVOZg)<br/>
+提取码: `r994`
 ****
 <br/>
 <br/>

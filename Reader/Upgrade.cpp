@@ -33,7 +33,7 @@ void Upgrade::Check(upgrade_callback_t cb, void *param)
 {
     request_t req;
     req.method = GET;
-    req.url = "https://github.com/binbyu/Reader/blob/master/version.json";
+    req.url = "https://raw.githubusercontent.com/binbyu/Reader/master/version.json";
     req.writer = writer_string;
     req.stream = new std::string;
     req.completer = GetVersionListCompleter;
