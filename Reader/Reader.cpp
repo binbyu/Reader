@@ -806,6 +806,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT res;
     TCHAR text[MAX_PATH] = {0};
     TCHAR *ext;
+    RECT rc;
     switch (message)
     {
     case WM_INITDIALOG:
@@ -867,12 +868,22 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _tcscpy(_header->bg_image.file_name, text);
                 if (_Book)
                     _Book->ReDraw(GetParent(hDlg));
+                else
+                {
+                    GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
+                    InvalidateRect(GetParent(hDlg), &rc, FALSE);
+                }
             }
             else
             {
                 _header->bg_image.enable = 0;
                 if (_Book)
                     _Book->ReDraw(GetParent(hDlg));
+                else
+                {
+                    GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
+                    InvalidateRect(GetParent(hDlg), &rc, FALSE);
+                }
             }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
@@ -1603,6 +1614,12 @@ BOOL OnOpenBook(HWND hWnd, TCHAR *filename, item_t** item)
         return FALSE;
     }
 
+    if (size == 0)
+    {
+        MessageBox(hWnd, _T("Open file failed.\r\nThis is a empty file."), _T("Error"), MB_OK|MB_ICONERROR);
+        return FALSE;
+    }
+
     // check md5
     if (NULL == *item)
     {
@@ -1612,6 +1629,7 @@ BOOL OnOpenBook(HWND hWnd, TCHAR *filename, item_t** item)
             if (_item && (*item)->id == _item->id) // current is opened
             {
                 free(data);
+                OnUpdateMenu(hWnd);
                 return FALSE;
             }
         }

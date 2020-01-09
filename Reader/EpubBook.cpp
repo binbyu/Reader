@@ -12,10 +12,10 @@
 
 #ifdef _DEBUG
 #pragma comment(lib, "zlibstatd.lib")
-#pragma comment(lib, "libxml2d.lib")
+#pragma comment(lib, "libxml2_ad.lib")
 #else
 #pragma comment(lib, "zlibstat.lib")
-#pragma comment(lib, "libxml2.lib")
+#pragma comment(lib, "libxml2_a.lib")
 #endif
 
 EpubBook::EpubBook()
@@ -27,6 +27,10 @@ EpubBook::EpubBook()
 EpubBook::~EpubBook()
 {
     FreeFilelist();
+    if (m_Cover)
+    {
+        delete m_Cover;
+    }
     xmlCleanupParser();
 }
 
@@ -83,7 +87,14 @@ end:
     }
     FreeFilelist();
     if (!ret)
+    {
+        if (m_Cover)
+        {
+            delete m_Cover;
+            m_Cover = NULL;
+        }
         CloseBook();
+    }
 
     return ret;
 }
@@ -315,7 +326,7 @@ bool EpubBook::ParserOpf(epub_t &epub)
             }
             else
             {
-                free(item);
+                delete item;
                 goto end;
             }
         }
@@ -651,7 +662,6 @@ bool EpubBook::ParserChapters(epub_t &epub)
     if (index > 0)
     {
         len = 1; // add one wchar_t '0x0a' new line for cover
-        m_TextLength += len;
         m_Text = (wchar_t *)malloc(sizeof(wchar_t) * (m_TextLength + 1));
         m_Text[m_TextLength] = 0;
         m_Text[0] = 0x0A;

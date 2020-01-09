@@ -20,16 +20,14 @@ Book::~Book()
 bool Book::OpenBook(const TCHAR *fileName)
 {
     _tcscpy(m_fileName, fileName);
-    ParserBook();
-    return true;
+    return ParserBook();
 }
 
 bool Book::OpenBook(char *data, int size)
 {
     m_Data = data;
     m_Size = size;
-    ParserBook();
-    return true;
+    return ParserBook();
 }
 
 bool Book::CloseBook(void)
@@ -213,7 +211,7 @@ bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
     fseek(fp, 0, SEEK_END);
     _size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    _data = (char *)malloc(_size);
+    _data = (char *)malloc(_size + 1);
     if (!_data)
     {
         fclose(fp);
@@ -225,6 +223,7 @@ bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
         fclose(fp);
         return false;
     }
+    _data[_size] = 0;
     fclose(fp);
 
     if (!Utils::get_md5(_data, _size, md5))
