@@ -1,10 +1,13 @@
 #include "stdafx.h"
 #include "PageCache.h"
 #include <assert.h>
+#include "Book.h"
+#include "EpubBook.h"
+
 
 PageCache::PageCache()
     : m_Text(NULL)
-    , m_Size(0)
+    , m_TextLength(0)
     , m_OnePageLineCount(0)
     , m_CurPageSize(0)
     , m_CurrentLine(0)
@@ -22,10 +25,8 @@ PageCache::~PageCache()
     RemoveAllLine(TRUE);
 }
 
-void PageCache::SetText(HWND hWnd, TCHAR *text, INT size, INT *pos, INT *lg, INT *ib)
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib)
 {
-    m_Text = text;
-    m_Size = size;
     m_CurrentPos = pos;
     m_lineGap = lg;
     m_InternalBorder = ib;
@@ -81,10 +82,19 @@ void PageCache::LineUp(HWND hWnd, INT n)
         return;
 
     m_CurrentLine -= n;
-    if (m_CurrentLine < 0 && m_PageInfo.line_info[0].start == 0) // n is out of range
+    if (GetCover())
     {
-        m_CurrentLine = 0;
+        if ((*m_CurrentPos) == 1 && m_PageInfo.line_info[0].start == 0)
+            m_CurrentLine = 0;
+        else if (m_CurrentLine < 1 && m_PageInfo.line_info[0].start == 0)
+            m_CurrentLine = 1;
     }
+    else
+    {
+        if (m_CurrentLine < 0 && m_PageInfo.line_info[0].start == 0) // n is out of range
+            m_CurrentLine = 0;
+    }
+    
     InvalidateRect(hWnd, &m_Rect, FALSE);
 }
 
@@ -94,11 +104,82 @@ void PageCache::LineDown(HWND hWnd, INT n)
         return;
     if (n == 0)
         return;
-    if ((*m_CurrentPos) + m_CurPageSize == m_Size) // already show the last line of file
+    if ((*m_CurrentPos) + m_CurPageSize == m_TextLength) // already show the last line of file
         return;
     
     m_CurrentLine += n;
     InvalidateRect(hWnd, &m_Rect, FALSE);
+}
+
+Bitmap * PageCache::GetCover(void)
+{
+    Book *book = NULL;
+    EpubBook *epub = NULL;
+    book = dynamic_cast<Book *>(this);
+    if (!book)
+        return NULL;
+    if (book_epub != book->GetBookType())
+        return NULL;
+    epub = dynamic_cast<EpubBook *>(book);
+    if (!epub)
+        return NULL;
+
+    return epub->GetCoverImage();
+}
+
+BOOL PageCache::DrawCover(HDC hdc)
+{
+    Book *book = NULL;
+    Gdiplus::Bitmap *cover = NULL;
+    Gdiplus::Graphics *g = NULL;
+    int w,h,bw,bh;
+    double d,bd;
+    Rect src;
+    Rect dst;
+
+    if (m_PageInfo.line_info[m_CurrentLine].start != 0)
+        return FALSE;
+
+    cover = GetCover();
+    if (!cover)
+        return FALSE;
+    (*m_CurrentPos) = 0;
+    m_CurPageSize = 1; // 1 wchar_t for cover
+    m_CurrentLine = 0;
+    m_OnePageLineCount = 1;
+
+    // calc image rect
+    w = m_Rect.right - m_Rect.left;
+    h = m_Rect.bottom - m_Rect.top;
+    bw = cover->GetWidth();
+    bh = cover->GetHeight();
+    d = ((double)w)/h;
+    bd = ((double)bw)/bh;
+    if (bd > d)
+    {
+        // image is too wide
+        bw = w;
+        bh = (int)(bw / bd);
+    }
+    else if (bd < d)
+    {
+        // image is too high
+        bh = h;
+        bw = (int)(bd * bh);
+    }
+    src.X = 0;
+    src.Y = 0;
+    src.Width = cover->GetWidth();
+    src.Height = cover->GetHeight();
+    dst.X = (w - bw)/2;
+    dst.Y = (h - bh)/2;
+    dst.Width = bw;
+    dst.Height = bh;
+    g = new Gdiplus::Graphics(hdc);
+    g->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+    g->DrawImage(cover, dst, src.X, src.Y, src.Width, src.Height, UnitPixel);
+    delete g;
+    return TRUE;
 }
 
 void PageCache::DrawPage(HDC hdc)
@@ -115,12 +196,15 @@ void PageCache::DrawPage(HDC hdc)
     m_OnePageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - 2 * (*m_InternalBorder)) / h;
 
     if (m_PageInfo.line_size == 0 || m_CurrentLine < 0 
-        || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_Size && m_CurrentLine + m_OnePageLineCount > m_PageInfo.line_size))
+        || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_OnePageLineCount >= m_PageInfo.line_size))
     {
         LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder));
         UnitTest1();
     }
     UnitTest2();
+
+    if (DrawCover(hdc))
+        return;
 
     memcpy(&rect, &m_Rect, sizeof(RECT));
     m_CurPageSize = 0;
@@ -145,6 +229,26 @@ INT PageCache::GetCurPageSize(void)
 INT PageCache::GetOnePageLineCount(void)
 {
     return m_OnePageLineCount;
+}
+
+INT PageCache::GetTextLength(void)
+{
+    return m_TextLength;
+}
+
+BOOL PageCache::IsFirstPage(void)
+{
+    return (*m_CurrentPos) == 0;
+}
+
+BOOL PageCache::IsLastPage(void)
+{
+    return (*m_CurrentPos) + m_CurPageSize == m_TextLength;
+}
+
+double PageCache::GetProgress(void)
+{
+    return (double)((*m_CurrentPos) + m_CurPageSize)*100.0/m_TextLength;
 }
 
 LONG PageCache::GetLineHeight(HDC hdc)
@@ -175,7 +279,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
     INT index;
     SIZE sz = { 0 };
     BOOL flag = TRUE;
-    //MAX_FIND_SIZE = 1503;
+
     // pageup/lineup:         [pos1, pos2)
     // already in cache page: [pos2, pos3)
     // pagedown/linedown:     [pos3, pos4)
@@ -191,7 +295,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
         pos3 = m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length;
     else
         pos3 = (*m_CurrentPos);
-    pos4 = pos3 + MAX_FIND_SIZE >= m_Size ? m_Size : pos3 + MAX_FIND_SIZE;
+    pos4 = pos3 + MAX_FIND_SIZE >= m_TextLength ? m_TextLength : pos3 + MAX_FIND_SIZE;
 
     if (m_CurrentLine < 0)
     {
@@ -241,9 +345,17 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
         }
 
         // fixed bug
-        if (m_CurrentLine < 0 && m_PageInfo.line_info[0].start == 0)
+        if (GetCover())
         {
-            m_CurrentLine = 0;
+            if ((*m_CurrentPos) == 1 && m_PageInfo.line_info[0].start == 0)
+                m_CurrentLine = 0;
+            else if (m_CurrentLine < 1 && m_PageInfo.line_info[0].start == 0)
+                m_CurrentLine = 1;
+        }
+        else
+        {
+            if (m_CurrentLine < 0 && m_PageInfo.line_info[0].start == 0) // n is out of range
+                m_CurrentLine = 0;
         }
     }
 
@@ -271,8 +383,10 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 start = i + 1;
                 length = 0;
                 width = 0;
+#if FAST_MODEL
                 if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
                     break;
+#endif
                 continue;
             }
 
@@ -287,13 +401,16 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 width = sz.cx;
 #if FAST_MODEL
                 if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
+                {
+                    width = 0;
                     break;
+                }
 #endif
                 continue;
             }
             length++;
         }
-        if (pos4 == m_Size)
+        if (pos4 == m_TextLength)
         {
             if (width > 0 && width <= maxw)
             {
@@ -355,7 +472,7 @@ void PageCache::RemoveAllLine(BOOL freemem)
 
 BOOL PageCache::IsValid(void)
 {
-    if (!m_Text || m_Size == 0)
+    if (!m_Text || m_TextLength == 0)
         return FALSE;
     if (m_Rect.right - m_Rect.left == 0)
         return FALSE;
@@ -370,7 +487,7 @@ void PageCache::UnitTest1(void)
     assert(m_CurrentLine >= 0 && m_CurrentLine < m_PageInfo.line_size);
     if (m_CurrentLine + m_OnePageLineCount > m_PageInfo.line_size)
     {
-        assert(m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length == m_Size);
+        assert(m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length == m_TextLength);
     }
 #endif
 }
@@ -384,8 +501,8 @@ void PageCache::UnitTest2(void)
     {
         v1 = m_PageInfo.line_info[i].start;
         v2 = m_PageInfo.line_info[i].length;
-        assert(v1 >= 0 && v2 > 0 && v1 + v2 <= m_Size);
-        if (v1 + v2 == m_Size)
+        assert(v1 >= 0 && v2 > 0 && v1 + v2 <= m_TextLength);
+        if (v1 + v2 == m_TextLength)
         {
             assert(i == m_PageInfo.line_size - 1);
         }

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <shlwapi.h>
 
-#pragma comment(lib, "shlwapi.lib")
 
 extern UINT GetCacheVersion(void);
 

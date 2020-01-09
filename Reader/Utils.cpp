@@ -56,42 +56,42 @@ bool Utils::get_md5(void* data, size_t size, u128_t* result)
     return true;
 }
 
-wchar_t* Utils::ansi_to_unicode(char* str, int* len)
+wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
 {
 	wchar_t* result;
 	*len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-	result = (wchar_t*)malloc((*len+1)*sizeof(wchar_t));
-	memset(result, 0, (*len+1)*sizeof(wchar_t));
+	result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
+	memset(result, 0, (*len)*sizeof(wchar_t));
 	MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)result, *len);
 	return result;
 }
 
-char* Utils::unicode_to_ansi(wchar_t* str, int* len)
+char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
 {
 	char* result;
 	*len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
-	result = (char*)malloc((*len+1)*sizeof(char));
-	memset(result, 0, (*len+1)*sizeof(char));
+	result = (char*)malloc((*len)*sizeof(char));
+	memset(result, 0, (*len)*sizeof(char));
 	WideCharToMultiByte(CP_ACP, 0, str, -1, result, *len, NULL, NULL);
 	return result;
 }
 
-wchar_t* Utils::utf8_to_unicode(char* str, int* len)
+wchar_t* Utils::utf8_to_utf16(const char* str, int* len)
 {
 	wchar_t* result;
 	*len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-	result = (wchar_t*)malloc((*len+1)*sizeof(wchar_t));
-	memset(result, 0, (*len+1)*sizeof(wchar_t));
+	result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
+	memset(result, 0, (*len)*sizeof(wchar_t));
 	MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, *len);
 	return result;
 }
 
-char* Utils::unicode_to_utf8(wchar_t* str, int* len)
+char* Utils::utf16_to_utf8(const wchar_t* str, int* len)
 {
 	char* result;
 	*len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-	result =(char*)malloc((*len+1)*sizeof(char));
-	memset(result, 0, (*len+1)*sizeof(char));
+	result =(char*)malloc((*len)*sizeof(char));
+	memset(result, 0, (*len)*sizeof(char));
 	WideCharToMultiByte(CP_UTF8, 0, str, -1, result, *len, NULL, NULL);
 	return result;
 }

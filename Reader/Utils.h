@@ -14,10 +14,10 @@ public:
 	static bool get_md5(void* data, size_t size, u128_t* result);
 
 	// convert
-	static wchar_t* ansi_to_unicode(char* str, int* len);
-	static char* unicode_to_ansi(wchar_t* str, int* len);
-	static wchar_t* utf8_to_unicode(char* str, int* len);
-	static char* unicode_to_utf8(wchar_t* str, int* len);
+	static wchar_t* ansi_to_utf16(const char* str, int* len);
+	static char* utf16_to_ansi(const wchar_t* str, int* len);
+	static wchar_t* utf8_to_utf16(const char* str, int* len);
+	static char* utf16_to_utf8(const wchar_t* str, int* len);
 	static void free_buffer(void* buffer);
 
     // encoding

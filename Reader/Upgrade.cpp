@@ -134,15 +134,15 @@ unsigned int Upgrade::GetVersionListCompleter(bool result, request_t *req)
         if (!force)
             goto end;
 
-        temp = Utils::utf8_to_unicode(version->valuestring, &len);
+        temp = Utils::utf8_to_utf16(version->valuestring, &len);
         if (wcscmp(data.version.c_str(), temp) < 0)
         {
             data.version = temp;
             free(temp);
-            temp = Utils::utf8_to_unicode(url->valuestring, &len);
+            temp = Utils::utf8_to_utf16(url->valuestring, &len);
             data.url = temp;
             free(temp);
-            temp = Utils::utf8_to_unicode(desc->valuestring, &len);
+            temp = Utils::utf8_to_utf16(desc->valuestring, &len);
             data.desc = temp;
             free(temp);
             data.force = force->valueint;

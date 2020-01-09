@@ -5,8 +5,8 @@
 #include "resource.h"
 #include "Cache.h"
 #include "Utils.h"
-#include "PageCache.h"
 #include "Upgrade.h"
+#include "Book.h"
 #include <map>
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
@@ -14,23 +14,20 @@
 #define IDT_TIMER_PAGE              102
 #define IDT_TIMER_UPGRADE           103
 #define WM_NEW_VERSION              (WM_USER + 100)
+#define WM_UPDATE_CHAPTERS          (WM_USER + 101)
 
 
-PageCache           _PageCache;
 Cache               _Cache(CACHE_FILE_NAME);
 header_t*           _header                 = NULL;
 item_t*             _item                   = NULL;
-TCHAR*              _Text                   = NULL;
-int                 _TextLen                = 0;
 HWND                _hWndStatus             = NULL;
 HWND                _hFindDlg               = NULL;
 UINT                _uFindReplaceMsg        = 0;
-HANDLE              _hThreadChapter         = NULL;
-std::map<int, int>  _ChapterMap;
 TCHAR               _szSrcTitle[MAX_PATH]   = {0};
 window_info_t       _WndInfo                = {0};
 BOOL                _IsAutoPage             = FALSE;
 Upgrade             _Upgrade;
+Book *              _Book                   = NULL;
 
 
 LRESULT             OnCreate(HWND);
@@ -54,28 +51,27 @@ LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnHideBorder(HWND);
 LRESULT             OnFullScreen(HWND);
+LRESULT             OnUpdateChapters(HWND);
+BOOL                OnOpenBook(HWND, TCHAR *, item_t**);
 UINT                GetCacheVersion(void);
 BOOL                Init(void);
 void                Exit(void);
-BOOL                ReadAllAndDecode(HWND, TCHAR*, item_t**);
-void                FormatText(void);
 void                UpdateProgess(void);
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
-DWORD WINAPI        ThreadProcChapter(LPVOID);
-void                WheelSpeedInit(HWND hDlg);
+void                WheelSpeedInit(HWND);
 void                HotkeyInit(HWND);
 BOOL                HotkeySave(HWND);
 int                 HotKeyMap_IndexToKey(int, int);
 int                 HotKeyMap_KeyToIndex(int, int);
 TCHAR*              HotKeyMap_KeyToString(int, int);
 Bitmap*             LoadBGImage(int, int);
-BOOL                FileExists(TCHAR *file);
+BOOL                FileExists(TCHAR *);
 void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
 void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
 void                CheckUpgrade(HWND);
-bool                UpgradeCallback(void *param, json_item_data_t *item);
+bool                UpgradeCallback(void *, json_item_data_t *);
 
 
 #endif

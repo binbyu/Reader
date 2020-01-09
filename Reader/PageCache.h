@@ -29,10 +29,10 @@ class PageCache
 {
 public:
     PageCache();
-    ~PageCache();
+    virtual ~PageCache();
 
 public:
-    void SetText(HWND hWnd, TCHAR *text, INT size, INT *pos, INT *lg, INT *ib);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib);
     void SetRect(RECT *rect);
     void Reset(HWND hWnd, BOOL redraw = TRUE);
     void ReDraw(HWND hWnd);
@@ -43,22 +43,28 @@ public:
     void DrawPage(HDC hdc);
     INT GetCurPageSize(void);
     INT GetOnePageLineCount(void);
+    INT GetTextLength(void);
+    BOOL IsFirstPage(void);
+    BOOL IsLastPage(void);
+    double GetProgress(void);
 
-private:
+protected:
     LONG GetLineHeight(HDC hdc);
     INT GetCahceUnitSize(HDC hdc);
     void LoadPageInfo(HDC hdc, INT maxw);
     void AddLine(INT start, INT length, INT pos = -1);
     void RemoveAllLine(BOOL freemem = FALSE);
     BOOL IsValid(void);
+    Bitmap * GetCover(void);
+    BOOL DrawCover(HDC hdc);
 
-private:
+protected:
     void UnitTest1(void);
     void UnitTest2(void);
 
-private:
-    TCHAR *m_Text;
-    INT m_Size;
+protected:
+    wchar_t * m_Text;
+    INT m_TextLength;
     RECT m_Rect;
     INT m_OnePageLineCount;
     INT m_CurPageSize;

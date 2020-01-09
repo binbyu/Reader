@@ -2,12 +2,21 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.4.0.0`<br/>
+最新release版本：`v1.5.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1MV8Di5F3Dd1is6vMQaVOZg](https://pan.baidu.com/s/1MV8Di5F3Dd1is6vMQaVOZg)<br/>
+链接: [暂无](暂无)<br/>
 提取码: `r994`
 ****
 <br/>
+<br/>
+<br/>
+<br/>
+# v1.5.0.0 2020/1/9 功能更新<br/>
+1. 支持epub电子书<br/>
+  1.1 软件里面只是对epub进行解码。<br/>
+  1.2 解码后的文本，按照txt的方式显示。额外多了一个封面图片渲染。<br/>
+  1.3 软件内不支持html渲染，如果要增加，需要引入webkit，软件会变得很大很臃肿。<br/>
+  1.4 此次更新使用了开源库：zlib和libxml2
 <br/>
 <br/>
 <br/>
@@ -22,6 +31,11 @@ A win32 txt file reader
 4. 增加自动翻页功能<br/>
   4.1 快捷键：“空格键” 开始/停止自动翻页<br/>
   4.2 setting > setting > config > 自动翻页时间间隔，可以配置，默认为3000ms<br/>
+<br/>
+版本：`v1.4.0.0`<br/>
+链接: https://pan.baidu.com/s/1MV8Di5F3Dd1is6vMQaVOZg<br/>
+提取码: r994<br/>
+<br/>
 <br/>
 <br/>
 # v1.3.1.0 2019/12/23 功能更新<br/>

@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 #include "Reader.h"
+#include "TextBook.h"
+#include "EpubBook.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -144,6 +146,23 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hInst = hInstance; // Store instance handle in our global variable
 
+   // check rect
+   if (_header->rect.left < 0
+    || _header->rect.right < 0
+    || _header->rect.top < 0
+    || _header->rect.bottom < 0
+    || _header->rect.right - _header->rect.left < 0
+    || _header->rect.bottom - _header->rect.top < 0)
+   {
+       // default
+       int width = 300;
+       int height = 500;
+       _header->rect.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+       _header->rect.top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
+       _header->rect.right = _header->rect.left + width;
+       _header->rect.bottom = _header->rect.top + height;
+   }
+
    hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
       _header->rect.right - _header->rect.left,
@@ -197,11 +216,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// Parse the menu selections:
         if (wmId >= IDM_CHAPTER_BEGIN && wmId <= IDM_CHAPTER_END)
         {
-            if (_ChapterMap.end() != _ChapterMap.find(wmId))
-            {
-                _item->index = _ChapterMap[wmId];
-                _PageCache.Reset(hWnd);
-            }
+            if (_Book)
+                _Book->JumpChapter(hWnd, wmId);
             ResumeAutoPage(hWnd);
             break;
         }
@@ -281,7 +297,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return TRUE;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
-        if (hit == HTCLIENT && _WndInfo.bHideBorder)
+        if (hit == HTCLIENT && _WndInfo.bHideBorder && !_WndInfo.bFullScreen)
         {
             if (_header->page_mode == 2)
             {
@@ -345,7 +361,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             OnLineDown(hWnd);
         }
-        else if ('F' == wParam)
+        else if ('F' == wParam && _Book)
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
             {
@@ -369,7 +385,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnOpenFile(hWnd, message, wParam, lParam);
             }
         }
-        else if ('G' == wParam)
+        else if ('G' == wParam && _Book)
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
             {
@@ -483,7 +499,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_ERASEBKGND:
-        if (!_Text)
+        if (!_Book)
             DefWindowProc(hWnd, message, wParam, lParam);
         break;
     case WM_DROPFILES:
@@ -494,7 +510,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
         case IDT_TIMER_PAGE:
             OnPageDown(hWnd);
-            if (_item->index+_PageCache.GetCurPageSize() == _TextLen)
+            if (_Book && _Book->IsLastPage())
                 StopAutoPage(hWnd);
             break;
         case IDT_TIMER_UPGRADE:
@@ -503,6 +519,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         default:
             break;
         }
+        break;
+    case WM_UPDATE_CHAPTERS:
+        OnUpdateChapters(hWnd);
         break;
     case WM_NEW_VERSION:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_UPGRADE), hWnd, UpgradeProc);
@@ -652,7 +671,8 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
             if (bUpdated)
             {
-                _PageCache.Reset(GetParent(hDlg));
+                if (_Book)
+                    _Book->Reset(GetParent(hDlg));
             }
 
             return (INT_PTR)TRUE;
@@ -679,13 +699,13 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("不使用代理"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("使用代理"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_SETCURSEL, _header->proxy.enable ? 1 : 0, NULL);
-        uni = Utils::utf8_to_unicode(_header->proxy.addr, &len);
+        uni = Utils::utf8_to_utf16(_header->proxy.addr, &len);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), uni);
         free(uni);
-        uni = Utils::utf8_to_unicode(_header->proxy.user, &len);
+        uni = Utils::utf8_to_utf16(_header->proxy.user, &len);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), uni);
         free(uni);
-        uni = Utils::utf8_to_unicode(_header->proxy.pass, &len);
+        uni = Utils::utf8_to_utf16(_header->proxy.pass, &len);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), uni);
         free(uni);
         if (_header->proxy.port == 0)
@@ -738,15 +758,15 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->proxy.enable = FALSE;
             }
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), buf, 64-1);
-            utf8 = Utils::unicode_to_utf8(buf, &len);
+            utf8 = Utils::utf16_to_utf8(buf, &len);
             strcpy(_header->proxy.addr, utf8);
             free(utf8);
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), buf, 64-1);
-            utf8 = Utils::unicode_to_utf8(buf, &len);
+            utf8 = Utils::utf16_to_utf8(buf, &len);
             strcpy(_header->proxy.user, utf8);
             free(utf8);
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), buf, 64-1);
-            utf8 = Utils::unicode_to_utf8(buf, &len);
+            utf8 = Utils::utf16_to_utf8(buf, &len);
             strcpy(_header->proxy.pass, utf8);
             free(utf8);
             EndDialog(hDlg, LOWORD(wParam));
@@ -845,12 +865,14 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->bg_image.mode = res;
                 _header->bg_image.enable = 1;
                 _tcscpy(_header->bg_image.file_name, text);
-                _PageCache.ReDraw(GetParent(hDlg));
+                if (_Book)
+                    _Book->ReDraw(GetParent(hDlg));
             }
             else
             {
                 _header->bg_image.enable = 0;
-                _PageCache.ReDraw(GetParent(hDlg));
+                if (_Book)
+                    _Book->ReDraw(GetParent(hDlg));
             }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
@@ -916,9 +938,12 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     {
     case WM_INITDIALOG:
         hWnd = GetDlgItem(hDlg, IDC_EDIT_JP);
-        progress = (double)(_item->index+_PageCache.GetCurPageSize())*100/_TextLen;
-        _stprintf(buf, _T("%0.2f"), progress);
-        SetWindowText(hWnd, buf);
+        if (_Book)
+        {
+            progress = _Book->GetProgress();
+            _stprintf(buf, _T("%0.2f"), progress);
+            SetWindowText(hWnd, buf);
+        }
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -936,10 +961,13 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                         MessageBox(hDlg, _T("Invalid value!"), _T("Error"), MB_OK|MB_ICONERROR);
                         return (INT_PTR)TRUE;
                     }
-                    _item->index = (int)(progress * _TextLen / 100);
-                    if (_item->index == _TextLen)
-                        _item->index--;
-                    _PageCache.Reset(GetParent(hDlg));
+                    if (_Book)
+                    {
+                        _item->index = (int)(progress * _Book->GetTextLength() / 100);
+                        if (_item->index == _Book->GetTextLength())
+                            _item->index--;
+                        _Book->Reset(GetParent(hDlg));
+                    }
                 }
             }
 
@@ -1059,24 +1087,10 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
     {
         if (PathFileExists(item->file_name))
         {
-            if (!ReadAllAndDecode(hWnd, item->file_name, &item))
+            if (!OnOpenBook(hWnd, item->file_name, &item))
             {
-                return 0;
+                bNotExist = TRUE;
             }
-
-            // open item
-            _item = _Cache.open_item(item->id);
-
-            // get chapter
-            if (_hThreadChapter)
-            {
-                TerminateThread(_hThreadChapter, 0);
-                CloseHandle(_hThreadChapter);
-                _hThreadChapter = NULL;
-            }
-            _ChapterMap.clear();
-            DWORD dwThreadId;
-            _hThreadChapter = CreateThread(NULL, 0, ThreadProcChapter, hWnd, CREATE_SUSPENDED, &dwThreadId);
         }
         else
         {
@@ -1091,10 +1105,7 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         OnUpdateMenu(hWnd);
         return 0L;
     }
-
-    // set text
-    _PageCache.SetText(hWnd, _Text, _TextLen, &_item->index, &_header->line_gap, &_header->internal_border);
-    
+        
     // update menu
     OnUpdateMenu(hWnd);
 
@@ -1108,12 +1119,8 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
     SetWindowText(hWnd, szTitle);
 
     // repaint
-    RECT rc;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    _Book->ReDraw(hWnd);
 
-    if (_hThreadChapter)
-        ResumeThread(_hThreadChapter);
 	return 0;
 }
 
@@ -1124,27 +1131,10 @@ LRESULT OnOpenFile(HWND hWnd, TCHAR *filename)
 
     memcpy(szFileName, filename, MAX_PATH);
 
-    if (!ReadAllAndDecode(hWnd, szFileName, &item))
+    if (!OnOpenBook(hWnd, szFileName, &item))
     {
         return 0;
     }
-
-    // open item
-    _item = _Cache.open_item(item->id);
-
-    // set text
-    _PageCache.SetText(hWnd, _Text, _TextLen, &_item->index, &_header->line_gap, &_header->internal_border);
-
-    // get chapter
-    if (_hThreadChapter)
-    {
-        TerminateThread(_hThreadChapter, 0);
-        CloseHandle(_hThreadChapter);
-        _hThreadChapter = NULL;
-    }
-    _ChapterMap.clear();
-    DWORD dwThreadId;
-    _hThreadChapter = CreateThread(NULL, 0, ThreadProcChapter, hWnd, CREATE_SUSPENDED, &dwThreadId);
 
     // update menu
     OnUpdateMenu(hWnd);
@@ -1157,12 +1147,7 @@ LRESULT OnOpenFile(HWND hWnd, TCHAR *filename)
     SetWindowText(hWnd, szTitle);
 
     // repaint
-    RECT rc;
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
-
-    if (_hThreadChapter)
-        ResumeThread(_hThreadChapter);
+    _Book->ReDraw(hWnd);
 
     return 0;
 }
@@ -1179,7 +1164,7 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);  
     ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("txt(*.txt)\0*.txt\0");
+    ofn.lpstrFilter = _T("txt(*.txt)\0*.txt\0epub(*.epub)\0*.epub\0\0");
     ofn.lpstrInitialDir = NULL;
     ofn.lpstrFile = szFileName; 
     ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
@@ -1223,8 +1208,8 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             memcpy(&_header->font, &logFont, sizeof(LOGFONT));
             bUpdate = TRUE;
         }
-        if (bUpdate)
-            _PageCache.Reset(hWnd);
+        if (bUpdate && _Book)
+            _Book->Reset(hWnd);
     }
 
     return 0;
@@ -1232,6 +1217,7 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    RECT rect;
     CHOOSECOLOR cc;                 // common dialog box structure 
     static COLORREF acrCustClr[16]; // array of custom colors 
 
@@ -1247,7 +1233,9 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (_header->bg_color != cc.rgbResult)
         {
             _header->bg_color = cc.rgbResult;
-            _PageCache.ReDraw(hWnd);
+            //_Book->ReDraw(hWnd);
+            GetClientRectExceptStatusBar(hWnd, &rect);
+            InvalidateRect(hWnd, &rect, FALSE);
         }
     }
     
@@ -1265,7 +1253,8 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         _header->rect.right - _header->rect.left,
         _header->rect.bottom - _header->rect.top,
         SWP_DRAWFRAME);
-    _PageCache.Reset(hWnd);
+    if (_Book)
+        _Book->Reset(hWnd);
     RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
     return 0;
 }
@@ -1278,6 +1267,8 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     HBITMAP hBmp = NULL;
     HFONT hFont = NULL;
     Bitmap *image;
+    EpubBook *epub = NULL;
+    Bitmap *cover = NULL;
 
     GetClientRectExceptStatusBar(hWnd, &rc);
 
@@ -1308,7 +1299,9 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     SetTextColor(memdc, _header->font_color);
     
     SetBkMode(memdc, TRANSPARENT);
-    _PageCache.DrawPage(memdc);
+
+    if (_Book)
+        _Book->DrawPage(memdc);
 
     BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
 
@@ -1324,7 +1317,8 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
     GetClientRectExceptStatusBar(hWnd, &rc);
-    _PageCache.SetRect(&rc);
+    if (_Book)
+        _Book->SetRect(&rc);
     SendMessage(_WndInfo.hStatusBar, message, wParam, lParam);
     return 0;
 }
@@ -1337,61 +1331,43 @@ LRESULT OnMove(HWND hWnd)
 
 LRESULT OnPageUp(HWND hWnd)
 {
-    _PageCache.PageUp(hWnd);
+    if (_Book)
+        _Book->PageUp(hWnd);
     return 0;
 }
 
 LRESULT OnPageDown(HWND hWnd)
 {
-    _PageCache.PageDown(hWnd);
+    if (_Book)
+        _Book->PageDown(hWnd);
     return 0;
 }
 
 LRESULT OnLineUp(HWND hWnd)
 {
-    _PageCache.LineUp(hWnd, _header->wheel_speed);
+    if (_Book)
+        _Book->LineUp(hWnd, _header->wheel_speed);
     return 0;
 }
 
 LRESULT OnLineDown(HWND hWnd)
 {
-    _PageCache.LineDown(hWnd, _header->wheel_speed);
+    if (_Book)
+        _Book->LineDown(hWnd, _header->wheel_speed);
     return 0;
 }
 
 LRESULT OnGotoPrevChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (!_Text || _item->index == 0)
-        return 0;
-
-    std::map<int, int>::reverse_iterator itor;
-    for (itor = _ChapterMap.rbegin(); itor != _ChapterMap.rend(); itor++)
-    {
-        if (itor->second < _item->index)
-        {
-            _item->index = itor->second;
-            _PageCache.Reset(hWnd);
-            break;
-        }
-    }
+    if (_Book)
+        _Book->JumpPrevChapter(hWnd);
     return 0;
 }
 
 LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (!_Text || _TextLen == _item->index+_PageCache.GetCurPageSize())
-        return 0;
-
-    std::map<int, int>::iterator itor;
-    for (itor = _ChapterMap.begin(); itor != _ChapterMap.end(); itor++)
-    {
-        if (itor->second > _item->index)
-        {
-            _item->index = itor->second;
-            _PageCache.Reset(hWnd);
-            break;
-        }
-    }
+    if (_Book)
+        _Book->JumpNextChapter(hWnd);
     return 0;
 }
 
@@ -1401,6 +1377,7 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     UINT  nFileCount = ::DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);
     TCHAR szFileName[MAX_PATH] = _T("");
     DWORD dwAttribute;
+    TCHAR *ext = NULL;
 
     for (UINT i = 0; i < nFileCount; i++)
     {
@@ -1413,7 +1390,8 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
         // check is txt file
-        if (_tcscmp(PathFindExtension(szFileName), _T(".txt")))
+        ext = PathFindExtension(szFileName);
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
         {
             continue;
         }
@@ -1533,7 +1511,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (message == _uFindReplaceMsg)
     {
         // do search
-        if (!_Text)
+        if (!_Book)
             return 0;
         int len = _tcslen(szFindWhat);
         if (fr.Flags & FR_DIALOGTERM)
@@ -1542,12 +1520,12 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else if (fr.Flags & FR_DOWN) // back search
         {
-            for (int i=_item->index+1; i<_TextLen-len+1; i++)
+            for (int i=_item->index+1; i<_Book->GetTextLength()-len+1; i++)
             {
-                if (0 == memcmp(szFindWhat, _Text+i, len*sizeof(TCHAR)))
+                if (0 == memcmp(szFindWhat, _Book->GetText()+i, len*sizeof(TCHAR)))
                 {
                     _item->index = i;
-                    _PageCache.Reset(hWnd);
+                    _Book->Reset(hWnd);
                     break;
                 }
             }
@@ -1556,10 +1534,10 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             for (int i=_item->index-3; i>=0; i--)
             {
-                if (0 == memcmp(szFindWhat, _Text+i, len*sizeof(TCHAR)))
+                if (0 == memcmp(szFindWhat, _Book->GetText()+i, len*sizeof(TCHAR)))
                 {
                     _item->index = i;
-                    _PageCache.Reset(hWnd);
+                    _Book->Reset(hWnd);
                     break;
                 }
             }
@@ -1585,10 +1563,130 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+LRESULT OnUpdateChapters(HWND hWnd)
+{
+    chapters_t *chapters;
+    chapters_t::iterator itor;
+    HMENU hMenuBar = NULL;
+    HMENU hView = NULL;
+
+    if (!_Book)
+        return 1;
+
+    hMenuBar = GetMenu(hWnd);
+    hView = CreateMenu();
+    chapters = _Book->GetChapters();
+    for (itor = chapters->begin(); itor != chapters->end(); itor++)
+    {
+        AppendMenu(hView, MF_STRING, itor->first, itor->second.title.c_str());
+    }
+
+    DeleteMenu(hMenuBar, 1, MF_BYPOSITION);
+    InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
+    DrawMenuBar(hWnd);
+    return 0;
+}
+
+BOOL OnOpenBook(HWND hWnd, TCHAR *filename, item_t** item)
+{
+    TCHAR *ext = NULL;
+    RECT rect;
+    u128_t md5;
+    char *data = NULL;
+    int size = 0;
+    TCHAR szFileName[MAX_PATH] = {0};
+
+    _tcscpy(szFileName, filename);
+    if (!Book::CalcMd5(szFileName, &md5, &data, &size))
+    {
+        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        return FALSE;
+    }
+
+    // check md5
+    if (NULL == *item)
+    {
+        *item = _Cache.find_item(&md5, szFileName);
+        if (*item) // already exist
+        {
+            if (_item && (*item)->id == _item->id) // current is opened
+            {
+                free(data);
+                return FALSE;
+            }
+        }
+        else
+        {
+            *item = _Cache.new_item(&md5, szFileName);
+            _header = _Cache.get_header(); // after realloc the header address has been changed
+        }
+    }
+
+    // open item
+    _item = _Cache.open_item((*item)->id);
+
+    if (_Book)
+    {
+        delete _Book;
+        _Book = NULL;
+    }
+
+    ext = PathFindExtension(szFileName);
+    if (_tcscmp(ext, _T(".txt")) == 0)
+    {
+        _Book = new TextBook;
+        if (!_Book->OpenBook(data, size))
+        {
+            free(data);
+            delete _Book;
+            _Book = NULL;
+            MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+            return FALSE;
+        }
+    }
+    else if (_tcscmp(ext, _T(".epub")) == 0)
+    {
+        free(data);
+        data = NULL;
+        _Book = new EpubBook;
+        if (!_Book->OpenBook(szFileName))
+        {
+            delete _Book;
+            _Book = NULL;
+            MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+            return FALSE;
+        }
+    }
+    else
+    {
+        free(data);
+        MessageBox(hWnd, _T("Unknown file format."), _T("Error"), MB_OK|MB_ICONERROR);
+        return FALSE;
+    }
+
+    if (!_Book)
+    {
+        if (data)
+            free(data);
+        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        return FALSE;
+    }
+
+    // set param
+    GetClientRectExceptStatusBar(hWnd, &rect);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
+    _Book->SetRect(&rect);
+
+    // update chapter
+    PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
+
+    return TRUE;
+}
+
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','4','0','0'};
+    char version[4] = {'1','5','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -1625,16 +1723,11 @@ BOOL Init(void)
 
 void Exit(void)
 {
-    if (_Text)
-        free(_Text);
-    
-    if (_hThreadChapter)
+    if (_Book)
     {
-        TerminateThread(_hThreadChapter, 0);
-        CloseHandle(_hThreadChapter);
-        _hThreadChapter = NULL;
+        delete _Book;
+        _Book = NULL;
     }
-    _ChapterMap.clear();
 
     if (!_Cache.exit())
     {
@@ -1642,142 +1735,14 @@ void Exit(void)
     }
 }
 
-BOOL ReadAllAndDecode(HWND hWnd, TCHAR* szFileName, item_t** item)
-{
-    // read full file context
-    FILE* fp = _tfopen(szFileName, _T("rb"));
-    fseek(fp, 0, SEEK_END);
-    int len = ftell(fp);
-    char* buf = (char*)malloc(len+1);
-    if (!buf)
-    {
-        // Memory is not enough 
-        MessageBox(hWnd, _T("Memory is not enough."), _T("Error"), MB_OK);
-        return FALSE;
-    }
-    fseek(fp, 0, SEEK_SET);
-    int size = fread(buf, 1, len, fp);
-    buf[size] = 0;
-    fclose(fp);
-
-    // get md5
-    u128_t md5;
-    memset(&md5, 0, sizeof(u128_t));
-    Utils::get_md5(buf, size, &md5);
-
-    // check cache
-    if (NULL == *item)
-    {
-        *item = _Cache.find_item(&md5, szFileName);
-        if (*item) // already exist
-        {
-            if (_item && (*item)->id == _item->id) // current is opened
-            {
-                free(buf);
-                return FALSE;
-            }
-        }
-        else
-        {
-            *item = _Cache.new_item(&md5, szFileName);
-            _header = _Cache.get_header(); // after realloc the header address has been changed
-        }
-    }
-
-    // decode
-    type_t bom = Unknown;
-    char* tmp = buf;
-    wchar_t* result = (wchar_t*)buf;
-    if (Unknown != (bom = Utils::check_bom(buf, size)))
-    {
-        if (utf8 == bom)
-        {
-            tmp += 3;
-            size -= 3;
-            result = Utils::utf8_to_unicode(tmp, &_TextLen);
-            free(buf);
-        }
-        else if (utf16_le == bom)
-        {
-            //tmp += 2;
-            //size -= 2;
-            result = (wchar_t*)tmp;
-            _TextLen = size/2;
-        }
-        else if (utf16_be == bom)
-        {
-            //tmp += 2;
-            //size -= 2;
-            tmp = Utils::be_to_le(tmp, size);
-            result = (wchar_t*)tmp;
-            _TextLen = size/2;
-        }
-        else if (utf32_le == bom || utf32_be == bom)
-        {
-            tmp += 4;
-            size -= 4;
-            // not support
-            free(buf);
-            MessageBox(hWnd, _T("This file encoding is not support."), _T("Error"), MB_OK);
-            return FALSE;
-        }
-    }
-    else if (Utils::is_ascii(buf, size > 1024 ? 1024 : size))
-    {
-        result = Utils::utf8_to_unicode(tmp, &_TextLen);
-        free(buf);
-    }
-    else if (Utils::is_utf8(buf, size > 1024 ? 1024 : size))
-    {
-        result = Utils::utf8_to_unicode(tmp, &_TextLen);
-        free(buf);
-    }
-    else
-    {
-        result = Utils::ansi_to_unicode(tmp, &_TextLen);
-        free(buf);
-    }
-    if (_Text)
-    {
-        free(_Text);
-    }
-    _Text = result;
-    FormatText();
-    return TRUE;
-}
-
-void FormatText(void)
-{
-    TCHAR *buf = NULL;
-    int i, index = 0;
-    if (!_Text || _TextLen == 0)
-        return;
-
-    buf = (TCHAR *)malloc(_TextLen * sizeof(TCHAR));
-    for (i = 0; i < _TextLen; i++)
-    {
-        if (_Text[i] == 0x0D && _Text[i + 1] == 0x0A)
-            i++;
-        buf[index++] = _Text[i];
-    }
-#if 0
-    buf[index] = 0;
-#else
-    index--;
-#endif
-    _TextLen = index;
-    memcpy(_Text, buf, _TextLen * sizeof(TCHAR));
-    free(buf);
-}
-
 void UpdateProgess(void)
 {
     static TCHAR progress[32] = {0};
     double dprog = 0.0;
     int nprog = 0;
-    if (_item)
+    if (_item && _Book)
     {
-        dprog = (double)(_item->index+_PageCache.GetCurPageSize())*100.0/_TextLen;
+        dprog = (double)_Book->GetProgress();
         nprog = (int)(dprog * 100);
         dprog = (double)nprog / 100.0;
         _stprintf(progress, _T("Progress: %.2f%%"), dprog);
@@ -1801,134 +1766,6 @@ BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)
     return TRUE;
 }
 
-inline BOOL GetLine(TCHAR* buf, int len, int* line_size)
-{
-    if (!buf || len <= 0)
-        return FALSE;
-
-    for (int i=0; i<len; i++)
-    {
-        if (buf[i] == 0x0A)
-        {
-            if (i > 0)
-            {
-                *line_size = i;
-                return TRUE;
-            }
-        }
-        else if (i < len - 1
-            && buf[i] == 0x0D && buf[i+1] == 0x0A)
-        {
-            if (i > 0)
-            {
-                *line_size = i;
-                return TRUE;
-            }
-        }
-    }
-    *line_size = len;
-    return TRUE;
-}
-
-const TCHAR valid_chapter[] = {
-    _T(' '), _T('\t'),
-    _T('0'), _T('1'), _T('2'), _T('3'), _T('4'),
-    _T('5'), _T('6'), _T('7'), _T('8'), _T('9'),
-    _T('零'), _T('一'), _T('二'), _T('三'), _T('四'),
-    _T('五'), _T('六'), _T('七'), _T('八'), _T('九'), _T('十'),
-    _T('壹'), _T('贰'), _T('叁'), _T('肆'),
-    _T('伍'), _T('陆'), _T('柒'), _T('捌'), _T('玖'), _T('拾'),
-};
-
-inline BOOL IsChapter(TCHAR* buf, int len)
-{
-    BOOL bFound = FALSE;
-    if (!buf || len <= 0)
-        return FALSE;
-
-    for (int i=0; i<len; i++)
-    {
-        bFound = FALSE;
-        for (int j=0; j<sizeof(valid_chapter); j++)
-        {
-            if (buf[i] == valid_chapter[j])
-            {
-                bFound = TRUE;
-                break;
-            }
-        }
-        if (!bFound)
-        {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
-
-DWORD WINAPI ThreadProcChapter(LPVOID lpParam)
-{
-    HWND hWnd = (HWND)lpParam;
-    TCHAR title[MAX_CHAPTER_LENGTH] = {0};
-    int title_len = 0;
-    TCHAR* index = _Text;
-    int line_size;
-    int menu_begin_id = IDM_CHAPTER_BEGIN;
-
-    HMENU hMenuBar = GetMenu(hWnd);
-    HMENU hView = CreateMenu();
-
-    while (TRUE)
-    {
-        if (!GetLine(index, _TextLen-(index-_Text), &line_size))
-        {
-            break;
-        }
-
-        // check format
-        BOOL bFound = FALSE;
-        int idx_1 = -1, idx_2 = -1;
-        for (int i=0; i<line_size; i++)
-        {
-            if (index[i] == _T('第'))
-            {
-                idx_1 = i;
-            }
-            if (idx_1>-1
-                && ((line_size > i+1 && index[i+1] == _T(' ') 
-                || index[i+1] == _T('\t'))
-                || line_size <= i+1))
-            {
-                if (index[i] == _T('卷')
-                    || index[i] == _T('章')
-                    || index[i] == _T('部')
-                    || index[i] == _T('节'))
-                {
-                    idx_2 = i;
-                    bFound = TRUE;
-                    break;
-                }
-            }
-        }
-        if (bFound && IsChapter(index+idx_1+1, idx_2-idx_1-1))
-        {
-            title_len = line_size-idx_1 < MAX_CHAPTER_LENGTH ? line_size-idx_1 : MAX_CHAPTER_LENGTH-1;
-            memcpy(title, index+idx_1, title_len*sizeof(TCHAR));
-            title[title_len] = 0;
-            // update menu
-            AppendMenu(hView, MF_STRING, menu_begin_id, title);
-            _ChapterMap.insert(std::make_pair(menu_begin_id++, idx_1+(index-_Text)));
-        }
-
-        // set index
-        index += line_size;
-    }
-
-    DeleteMenu(hMenuBar, 1, MF_BYPOSITION);
-    InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
-    DrawMenuBar(hWnd);
-    return 0;
-}
-
 void WheelSpeedInit(HWND hDlg)
 {
     int i;
@@ -1936,10 +1773,21 @@ void WheelSpeedInit(HWND hDlg)
     TCHAR buf[8] = {0};
 
     hWnd = GetDlgItem(hDlg, IDC_COMBO_SPEED);
-    for (i=1; i<=_PageCache.GetOnePageLineCount(); i++)
+    if (_Book)
     {
-        _itot(i, buf, 10);
-        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+        for (i=1; i<=_Book->GetOnePageLineCount(); i++)
+        {
+            _itot(i, buf, 10);
+            SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+        }
+    }
+    else
+    {
+        for (i=1; i<=_header->wheel_speed; i++)
+        {
+            _itot(i, buf, 10);
+            SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
+        }
     }
     SendMessage(hWnd, CB_SETCURSEL, _header->wheel_speed - 1, NULL);
 }
