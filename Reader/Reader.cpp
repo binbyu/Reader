@@ -239,6 +239,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_OPEN:
             OnOpenFile(hWnd, message, wParam, lParam);
             break;
+        case IDM_CLEAR:
+            OnClearFileList(hWnd, message, wParam, lParam);
+            break;
         case IDM_FONT:
             OnSetFont(hWnd, message, wParam, lParam);
             break;
@@ -1104,6 +1107,8 @@ LRESULT OnUpdateMenu(HWND hWnd)
     }
     if (_header->size > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
+    AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("&Clear"));
+    AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFile, MF_STRING, IDM_EXIT, _T("E&xit"));
     InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"&File");
     DrawMenuBar(hWnd);
@@ -1177,6 +1182,23 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     OnOpenBook(hWnd, szFileName);
+    return 0;
+}
+
+LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    RECT rect;
+    if (_Book)
+    {
+        delete _Book;
+        _Book = NULL;
+    }
+    _Cache.delete_all_item();
+    OnUpdateMenu(hWnd);
+    PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
+    GetClientRectExceptStatusBar(hWnd, &rect);
+    InvalidateRect(hWnd, &rect, FALSE);
+    SetWindowText(hWnd, szTitle);
     return 0;
 }
 
@@ -1601,17 +1623,16 @@ LRESULT OnUpdateChapters(HWND hWnd)
     HMENU hMenuBar = NULL;
     HMENU hView = NULL;
 
-    if (!_Book)
-        return 1;
-
     hMenuBar = GetMenu(hWnd);
     hView = CreateMenu();
-    chapters = _Book->GetChapters();
-    for (itor = chapters->begin(); itor != chapters->end(); itor++)
+    if (_Book)
     {
-        AppendMenu(hView, MF_STRING, itor->first, itor->second.title.c_str());
+        chapters = _Book->GetChapters();
+        for (itor = chapters->begin(); itor != chapters->end(); itor++)
+        {
+            AppendMenu(hView, MF_STRING, itor->first, itor->second.title.c_str());
+        }
     }
-
     DeleteMenu(hMenuBar, 1, MF_BYPOSITION);
     InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
     DrawMenuBar(hWnd);
@@ -1622,6 +1643,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 {
     item_t *item = NULL;
     RECT rect;
+    TCHAR szNewTitle[MAX_LOADSTRING] = {0};
 
     StopLoadingImage(hWnd);
     //EnableWindow(hWnd, TRUE);
@@ -1655,11 +1677,9 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     // Update title
     TCHAR szFileName[MAX_PATH] = {0};
     memcpy(szFileName, _item->file_name, sizeof(szFileName));
-    if (!_szSrcTitle[0])
-        GetWindowText(hWnd, _szSrcTitle, MAX_PATH);
     PathRemoveExtension(szFileName);
-    _stprintf(szTitle, _T("%s - %s"), _szSrcTitle, PathFindFileName(szFileName));
-    SetWindowText(hWnd, szTitle);
+    _stprintf(szNewTitle, _T("%s - %s"), szTitle, PathFindFileName(szFileName));
+    SetWindowText(hWnd, szNewTitle);
 
     // update chapter
     PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);

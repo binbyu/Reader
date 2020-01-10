@@ -18,6 +18,7 @@ public:
     item_t* new_item(u128_t* item_md5, TCHAR* file_name);
     item_t* find_item(u128_t* item_md5, TCHAR* file_name);
     bool delete_item(int item_id);
+    bool delete_all_item(void);
     header_t* default_header();
 
 private:

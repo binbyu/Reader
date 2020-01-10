@@ -190,6 +190,16 @@ bool Cache::delete_item(int item_id)
     return true;
 }
 
+bool Cache::delete_all_item(void)
+{
+    header_t* header = get_header();
+
+    header->size = 0;
+    header->item_id = -1;
+    m_size = sizeof(header_t);
+    return true;
+}
+
 header_t* Cache::default_header()
 {
     header_t* header = NULL;
