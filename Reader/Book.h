@@ -29,9 +29,14 @@ public:
 
 public:
     virtual book_type_t GetBookType(void) = 0;
-    bool OpenBook(const TCHAR *fileName);
-    bool OpenBook(char *data, int size);
+    bool OpenBook(HWND hWnd);
+    bool OpenBook(char *data, int size, HWND hWnd);
     bool CloseBook(void);
+    bool IsLoading(void);
+    void SetMd5(u128_t *md5);
+    u128_t * GetMd5(void);
+    void SetFileName(const TCHAR *fileName);
+    TCHAR * GetFileName(void);
     wchar_t * GetText(void);
     int GetTextLength(void);
     chapters_t * GetChapters(void);
@@ -46,12 +51,25 @@ protected:
     virtual bool DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
     virtual bool FormatText(wchar_t *text, int *len);
     bool IsBlanks(wchar_t c);
+    void ForceKill(void);
+
+protected:
+    static unsigned __stdcall OpenBookThread(void* pArguments);
 
 protected:
     wchar_t m_fileName[MAX_PATH];
     chapters_t m_Chapters;
     char *m_Data;
     int m_Size;
+    HANDLE m_hThread;
+    u128_t m_md5;
+    bool m_bForceKill;
 };
+
+typedef struct ob_thread_param_t
+{
+    Book *_this;
+    HWND hWnd;
+} ob_thread_param_t;
 
 #endif

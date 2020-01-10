@@ -14,6 +14,10 @@
 #define IDM_OPEN_BEGIN              (IDM_CHAPTER_END + 1)
 #define IDM_OPEN_END                (IDM_OPEN_BEGIN + 2000)
 
+#define WM_NEW_VERSION              (WM_USER + 100)
+#define WM_UPDATE_CHAPTERS          (WM_USER + 101)
+#define WM_OPEN_BOOK                (WM_USER + 102)
+
 typedef unsigned char   u8;
 typedef unsigned long   u32;
 

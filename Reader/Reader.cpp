@@ -291,6 +291,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
             _header->rect = rc;
         }
+        // stop loading
+        StopLoadingImage(hWnd);
+        if (_loading)
+        {
+            if (_loading->hMemory)
+                ::GlobalFree(_loading->hMemory);
+            if (_loading->image)
+                delete _loading->image;
+            free(_loading->item);
+            free(_loading);
+            _loading = NULL;
+        }
+        // close book
+        if (_Book)
+        {
+            delete _Book;
+            _Book = NULL;
+        }
 		break;
     case WM_QUERYENDSESSION:
         Exit(); // save data when poweroff ?
@@ -331,6 +349,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetWindowRect(hWnd, &_header->rect);
         break;
     case WM_KEYDOWN:
+        if (_Book && _Book->IsLoading())
+            break;
         if (VK_LEFT == wParam)
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
@@ -516,6 +536,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDT_TIMER_UPGRADE:
             _Upgrade.Check(UpgradeCallback, hWnd);
             break;
+        case IDT_TIMER_LOADING:
+            {
+                GUID Guid;
+                KillTimer(hWnd, IDT_TIMER_LOADING);
+                Guid = FrameDimensionTime;
+                _loading->image->SelectActiveFrame(&Guid, _loading->frameIndex);
+                SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item[0].value)[_loading->frameIndex] * 10, NULL);
+                _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
+                GetClientRectExceptStatusBar(hWnd, &rc);
+                InvalidateRect(hWnd, &rc, FALSE);
+            }
+            break;
         default:
             break;
         }
@@ -525,6 +557,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_NEW_VERSION:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_UPGRADE), hWnd, UpgradeProc);
+        break;
+    case WM_OPEN_BOOK:
+        OnOpenBookResult(hWnd, wParam == 1);
         break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1041,7 +1076,7 @@ LRESULT OnCreate(HWND hWnd)
     if (_header->size > 0)
     {
         item_t* item = _Cache.get_item(0);
-        OnOpenFile(hWnd, item->file_name);
+        OnOpenBook(hWnd, item->file_name);
     }
 
     // check upgrade
@@ -1098,10 +1133,7 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
     {
         if (PathFileExists(item->file_name))
         {
-            if (!OnOpenBook(hWnd, item->file_name, &item))
-            {
-                bNotExist = TRUE;
-            }
+            OnOpenBook(hWnd, item->file_name);
         }
         else
         {
@@ -1116,51 +1148,8 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         OnUpdateMenu(hWnd);
         return 0L;
     }
-        
-    // update menu
-    OnUpdateMenu(hWnd);
-
-    // Update title
-    TCHAR szFileName[MAX_PATH] = {0};
-    memcpy(szFileName, _item->file_name, sizeof(szFileName));
-    if (!_szSrcTitle[0])
-        GetWindowText(hWnd, _szSrcTitle, MAX_PATH);
-    PathRemoveExtension(szFileName);
-    _stprintf(szTitle, _T("%s - %s"), _szSrcTitle, PathFindFileName(szFileName));
-    SetWindowText(hWnd, szTitle);
-
-    // repaint
-    _Book->ReDraw(hWnd);
 
 	return 0;
-}
-
-LRESULT OnOpenFile(HWND hWnd, TCHAR *filename)
-{
-    item_t* item = NULL;
-    TCHAR szFileName[MAX_PATH] = {0};
-
-    memcpy(szFileName, filename, MAX_PATH);
-
-    if (!OnOpenBook(hWnd, szFileName, &item))
-    {
-        return 0;
-    }
-
-    // update menu
-    OnUpdateMenu(hWnd);
-
-    // Update title
-    if (!_szSrcTitle[0])
-        GetWindowText(hWnd, _szSrcTitle, MAX_PATH);
-    PathRemoveExtension(szFileName);
-    _stprintf(szTitle, _T("%s - %s"), _szSrcTitle, PathFindFileName(szFileName));
-    SetWindowText(hWnd, szTitle);
-
-    // repaint
-    _Book->ReDraw(hWnd);
-
-    return 0;
 }
 
 LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1187,7 +1176,8 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    return OnOpenFile(hWnd, szFileName);
+    OnOpenBook(hWnd, szFileName);
+    return 0;
 }
 
 LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1280,6 +1270,10 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     Bitmap *image;
     EpubBook *epub = NULL;
     Bitmap *cover = NULL;
+    Graphics *g = NULL;
+    Rect rect;
+    UINT w,h;
+    double scale;
 
     GetClientRectExceptStatusBar(hWnd, &rc);
 
@@ -1311,8 +1305,32 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     
     SetBkMode(memdc, TRANSPARENT);
 
-    if (_Book)
+    if (_Book && !_Book->IsLoading())
         _Book->DrawPage(memdc);
+    if (_loading && _loading->enable)
+    {
+        g = new Graphics(memdc);
+        w = (UINT)(rc.right - rc.left) > _loading->image->GetWidth() ? _loading->image->GetWidth() : (UINT)(rc.right - rc.left);
+        h = (UINT)(rc.bottom - rc.top) > _loading->image->GetHeight() ? _loading->image->GetHeight() : (UINT)(rc.bottom - rc.top);
+        scale = ((double)_loading->image->GetWidth())/_loading->image->GetHeight();
+        if (((double)w)/h > scale)
+        {
+            // image is too high
+            w = (int)(scale * h);
+        }
+        else
+        {
+            // image is too wide
+            h = (int)(w / scale);
+        }
+
+        rect.X = (rc.right - rc.left - w)/2;
+        rect.Y = (rc.bottom - rc.top - h)/2;
+        rect.Width = w;
+        rect.Height = h;
+        g->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        g->DrawImage(_loading->image, rect, 0, 0, _loading->image->GetWidth(), _loading->image->GetHeight(), UnitPixel);
+    }
 
     BitBlt(hdc, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, memdc, rc.left, rc.top, SRCCOPY);
 
@@ -1320,6 +1338,8 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     DeleteObject(hFont);
     DeleteObject(hBrush);
     DeleteDC(memdc);
+    if (g)
+        delete g;
     UpdateProgess();
     return 0;
 }
@@ -1408,7 +1428,7 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
         // open file
-        OnOpenFile(hWnd, szFileName);
+        OnOpenBook(hWnd, szFileName);
 
         // just open first file
         break;
@@ -1598,50 +1618,99 @@ LRESULT OnUpdateChapters(HWND hWnd)
     return 0;
 }
 
-BOOL OnOpenBook(HWND hWnd, TCHAR *filename, item_t** item)
+LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 {
-    TCHAR *ext = NULL;
+    item_t *item = NULL;
     RECT rect;
+
+    StopLoadingImage(hWnd);
+    //EnableWindow(hWnd, TRUE);
+    if (!result)
+    {
+        delete _Book;
+        _Book = NULL;
+        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        return FALSE;
+    }
+
+    // create new item
+    item = _Cache.find_item(_Book->GetMd5(), _Book->GetFileName());
+    if (NULL == item)
+    {
+        item = _Cache.new_item(_Book->GetMd5(), _Book->GetFileName());
+        _header = _Cache.get_header(); // after realloc the header address has been changed
+    }
+
+    // open item
+    _item = _Cache.open_item(item->id);
+
+    // set param
+    GetClientRectExceptStatusBar(hWnd, &rect);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
+    _Book->SetRect(&rect);
+
+    // update menu
+    OnUpdateMenu(hWnd);
+
+    // Update title
+    TCHAR szFileName[MAX_PATH] = {0};
+    memcpy(szFileName, _item->file_name, sizeof(szFileName));
+    if (!_szSrcTitle[0])
+        GetWindowText(hWnd, _szSrcTitle, MAX_PATH);
+    PathRemoveExtension(szFileName);
+    _stprintf(szTitle, _T("%s - %s"), _szSrcTitle, PathFindFileName(szFileName));
+    SetWindowText(hWnd, szTitle);
+
+    // update chapter
+    PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
+
+    // repaint
+    _Book->ReDraw(hWnd);
+
+    return 0;
+}
+
+void OnOpenBook(HWND hWnd, TCHAR *filename)
+{
+    item_t *item = NULL;
+    TCHAR *ext = NULL;
     u128_t md5;
     char *data = NULL;
     int size = 0;
     TCHAR szFileName[MAX_PATH] = {0};
 
     _tcscpy(szFileName, filename);
+    ext = PathFindExtension(szFileName);
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+    {
+        MessageBox(hWnd, _T("Unknown file format."), _T("Error"), MB_OK|MB_ICONERROR);
+        return;
+    }
+
     if (!Book::CalcMd5(szFileName, &md5, &data, &size))
     {
         MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
-        return FALSE;
+        return;
     }
 
     if (size == 0)
     {
+        free(data);
         MessageBox(hWnd, _T("Open file failed.\r\nThis is a empty file."), _T("Error"), MB_OK|MB_ICONERROR);
-        return FALSE;
+        return;
     }
 
-    // check md5
-    if (NULL == *item)
+    // check md5, is already exist
+    item = _Cache.find_item(&md5, szFileName);
+    if (item)
     {
-        *item = _Cache.find_item(&md5, szFileName);
-        if (*item) // already exist
+        if (_item && item->id == _item->id) // current is opened
         {
-            if (_item && (*item)->id == _item->id) // current is opened
-            {
-                free(data);
-                OnUpdateMenu(hWnd);
-                return FALSE;
-            }
-        }
-        else
-        {
-            *item = _Cache.new_item(&md5, szFileName);
-            _header = _Cache.get_header(); // after realloc the header address has been changed
+            free(data);
+            OnUpdateMenu(hWnd);
+            return;
         }
     }
-
-    // open item
-    _item = _Cache.open_item((*item)->id);
 
     if (_Book)
     {
@@ -1649,56 +1718,28 @@ BOOL OnOpenBook(HWND hWnd, TCHAR *filename, item_t** item)
         _Book = NULL;
     }
 
-    ext = PathFindExtension(szFileName);
     if (_tcscmp(ext, _T(".txt")) == 0)
     {
         _Book = new TextBook;
-        if (!_Book->OpenBook(data, size))
-        {
-            free(data);
-            delete _Book;
-            _Book = NULL;
-            MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
-            return FALSE;
-        }
-    }
-    else if (_tcscmp(ext, _T(".epub")) == 0)
-    {
-        free(data);
-        data = NULL;
-        _Book = new EpubBook;
-        if (!_Book->OpenBook(szFileName))
-        {
-            delete _Book;
-            _Book = NULL;
-            MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
-            return FALSE;
-        }
+        _Book->SetMd5(&md5);
+        _Book->SetFileName(szFileName);
+        _Book->OpenBook(data, size, hWnd);
     }
     else
     {
         free(data);
-        MessageBox(hWnd, _T("Unknown file format."), _T("Error"), MB_OK|MB_ICONERROR);
-        return FALSE;
+        data = NULL;
+        _Book = new EpubBook;
+        _Book->SetMd5(&md5);
+        _Book->SetFileName(szFileName);
+        _Book->OpenBook(hWnd);
     }
-
-    if (!_Book)
-    {
-        if (data)
-            free(data);
-        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
-        return FALSE;
-    }
-
-    // set param
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
-    _Book->SetRect(&rect);
 
     // update chapter
     PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
 
-    return TRUE;
+    //EnableWindow(hWnd, FALSE);
+    PlayLoadingImage(hWnd);
 }
 
 UINT GetCacheVersion(void)
@@ -2144,5 +2185,113 @@ bool UpgradeCallback(void *param, json_item_data_t *item)
     HWND hWnd = (HWND)param;
 
     PostMessage(hWnd, WM_NEW_VERSION, 0, NULL);
+    return true;
+}
+
+bool PlayLoadingImage(HWND hWnd)
+{
+    UINT count;
+    GUID *pDimensionIDs = NULL;
+    bool ret = false;
+    WCHAR strGuid[39];
+    UINT size;
+    GUID Guid = FrameDimensionTime;
+    RECT rect;
+
+    if (!_loading)
+    {
+        // create loading data
+        _loading = (loading_data_t *)malloc(sizeof(loading_data_t));
+        memset(_loading, 0, sizeof(loading_data_t));
+
+        // load image from resource
+        {
+            HRSRC hResource;
+            DWORD imageSize;
+            const void* pResourceData = NULL;
+            void * buffer;
+            IStream* pStream = NULL;
+
+            hResource = ::FindResource(hInst, MAKEINTRESOURCE(IDR_GIF_LOADING), _T("GIF"));
+            if (!hResource)
+                return false;
+
+            imageSize = ::SizeofResource(hInst, hResource);
+            if (!imageSize)
+                return false;
+
+            pResourceData = ::LockResource(::LoadResource(hInst, hResource));
+            if (!pResourceData)
+                return false;
+
+            _loading->hMemory = ::GlobalAlloc(GMEM_MOVEABLE, imageSize);
+            if (!_loading->hMemory)
+                return false;
+
+            buffer = ::GlobalLock(_loading->hMemory);
+            if (!buffer)
+            {
+                ::GlobalFree(_loading->hMemory);
+                return false;
+            }
+
+            CopyMemory(buffer, pResourceData, imageSize);
+            if (::CreateStreamOnHGlobal(_loading->hMemory, FALSE, &pStream) == S_OK)
+            {
+                _loading->image = Gdiplus::Bitmap::FromStream(pStream);
+                pStream->Release();
+            }
+            ::GlobalUnlock(_loading->hMemory);
+            //::GlobalFree(_loading->hMemory);
+        }
+
+        if (!_loading->image)
+        {
+            //::GlobalFree(_loading->hMemory);
+            //free(_loading);
+            //_loading = NULL;
+            return false;
+        }
+        if (Gdiplus::Ok != _loading->image->GetLastStatus())
+        {
+            //::GlobalFree(_loading->hMemory);
+            //delete _loading->image;
+            //free(_loading);
+            //_loading = NULL;
+            return false;
+        }
+        count = _loading->image->GetFrameDimensionsCount();
+        pDimensionIDs = (GUID*)malloc(sizeof(GUID)*count);
+        _loading->image->GetFrameDimensionsList(pDimensionIDs, count);
+        StringFromGUID2(pDimensionIDs[0], strGuid, 39);
+        _loading->frameCount = _loading->image->GetFrameCount(&pDimensionIDs[0]);
+        free(pDimensionIDs);
+        size = _loading->image->GetPropertyItemSize(PropertyTagFrameDelay);
+        _loading->item = (PropertyItem*)malloc(size);
+        _loading->image->GetPropertyItem(PropertyTagFrameDelay, size, _loading->item);
+    }
+
+    _loading->enable = TRUE;
+    _loading->frameIndex = 0;
+    Guid = FrameDimensionTime;
+    _loading->image->SelectActiveFrame(&Guid, _loading->frameIndex);
+
+    SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item[0].value)[_loading->frameIndex] * 10, NULL);
+    _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
+    GetClientRectExceptStatusBar(hWnd, &rect);
+    InvalidateRect(hWnd, &rect, FALSE);
+    return true;
+}
+
+bool StopLoadingImage(HWND hWnd)
+{
+    RECT rect;
+
+    if (!_loading)
+        return false;
+    _loading->enable = FALSE;
+    KillTimer(hWnd, IDT_TIMER_LOADING);
+    GetClientRectExceptStatusBar(hWnd, &rect);
+    InvalidateRect(hWnd, &rect, FALSE);
     return true;
 }

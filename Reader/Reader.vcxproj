@@ -79,6 +79,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="book.ico" />
+    <None Include="loading.gif" />
     <None Include="Reader.ico" />
     <None Include="ReadMe.txt" />
     <None Include="small.ico" />

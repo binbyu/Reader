@@ -9,12 +9,21 @@
 #include "Book.h"
 #include <map>
 
+typedef struct loading_data_t
+{
+    BOOL enable;
+    Image *image;
+    PropertyItem *item;
+    UINT frameCount;
+    UINT frameIndex;
+    HGLOBAL hMemory;
+} loading_data_t;
+
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define ID_HOTKEY_TOP_WINDOW        101
 #define IDT_TIMER_PAGE              102
 #define IDT_TIMER_UPGRADE           103
-#define WM_NEW_VERSION              (WM_USER + 100)
-#define WM_UPDATE_CHAPTERS          (WM_USER + 101)
+#define IDT_TIMER_LOADING           104
 
 
 Cache               _Cache(CACHE_FILE_NAME);
@@ -28,12 +37,12 @@ window_info_t       _WndInfo                = {0};
 BOOL                _IsAutoPage             = FALSE;
 Upgrade             _Upgrade;
 Book *              _Book                   = NULL;
+loading_data_t *    _loading                = NULL;
 
 
 LRESULT             OnCreate(HWND);
 LRESULT             OnUpdateMenu(HWND);
 LRESULT             OnOpenItem(HWND, int);
-LRESULT             OnOpenFile(HWND, TCHAR*);
 LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
@@ -52,7 +61,8 @@ LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnHideBorder(HWND);
 LRESULT             OnFullScreen(HWND);
 LRESULT             OnUpdateChapters(HWND);
-BOOL                OnOpenBook(HWND, TCHAR *, item_t**);
+LRESULT             OnOpenBookResult(HWND, BOOL);
+void                OnOpenBook(HWND, TCHAR *);
 UINT                GetCacheVersion(void);
 BOOL                Init(void);
 void                Exit(void);
@@ -72,6 +82,8 @@ void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
 void                CheckUpgrade(HWND);
 bool                UpgradeCallback(void *, json_item_data_t *);
+bool                PlayLoadingImage(HWND);
+bool                StopLoadingImage(HWND);
 
 
 #endif

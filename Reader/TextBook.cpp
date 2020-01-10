@@ -20,6 +20,7 @@ TextBook::TextBook()
 
 TextBook::~TextBook()
 {
+    ForceKill();
 }
 
 book_type_t TextBook::GetBookType(void)
@@ -85,6 +86,9 @@ bool TextBook::ReadBook(void)
     if (!DecodeText(buf, len, &m_Text, &m_TextLength))
         goto end;
 
+    if (m_bForceKill)
+        goto end;
+
     ret = true;
 
 end:
@@ -112,6 +116,11 @@ bool TextBook::ParserChapters(void)
 
     while (true)
     {
+        if (m_bForceKill)
+        {
+            return false;
+        }
+
         if (!GetLine(text, m_TextLength - (text - m_Text), &line_size))
         {
             break;

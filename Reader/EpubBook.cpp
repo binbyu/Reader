@@ -6,7 +6,6 @@
 #include "libxml/xmlreader.h"
 #include "libxml/HTMLparser.h"
 #include "libxml/xpath.h"
-#include <process.h>
 #include <shlwapi.h>
 
 
@@ -26,6 +25,7 @@ EpubBook::EpubBook()
 
 EpubBook::~EpubBook()
 {
+    ForceKill();
     FreeFilelist();
     if (m_Cover)
     {
@@ -178,6 +178,12 @@ bool EpubBook::UnzipBook(void)
             if (err != UNZ_OK)
                 goto end;
         }
+
+        if (m_bForceKill)
+        {
+            err = UNZ_ERRNO;
+            goto end;
+        }
     }
 
 end:
@@ -210,12 +216,18 @@ bool EpubBook::ParserOcf(epub_t &epub)
     if (itor == m_flist.end())
         goto end;
 
-    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_NOBLANKS);
+    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_RECOVER | XML_PARSE_NOBLANKS);
     if (!doc)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpathctx = xmlXPathNewContext(doc);
     if (!xpathctx)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpath = BAD_CAST("//*[local-name()='rootfile']/@full-path");
@@ -275,12 +287,18 @@ bool EpubBook::ParserOpf(epub_t &epub)
     if (itor == m_flist.end())
         goto end;
 
-    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_NOBLANKS);
+    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_RECOVER | XML_PARSE_NOBLANKS);
     if (!doc)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpathctx = xmlXPathNewContext(doc);
     if (!xpathctx)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     // parser mainfest
@@ -319,6 +337,11 @@ bool EpubBook::ParserOpf(epub_t &epub)
                 }
                 if (keyword)
                     xmlFree(keyword);
+                if (m_bForceKill)
+                {
+                    delete item;
+                    goto end;
+                }
             }
             if (!item->id.empty() && !item->href.empty() && !item->media_type.empty())
             {
@@ -338,6 +361,8 @@ bool EpubBook::ParserOpf(epub_t &epub)
             xmlXPathFreeObject(xpathobj);
     }
     
+    if (m_bForceKill)
+        goto end;
 
     // parser spine
     {
@@ -364,6 +389,8 @@ bool EpubBook::ParserOpf(epub_t &epub)
             }
             if (keyword)
                 xmlFree(keyword);
+            if (m_bForceKill)
+                goto end;
         }
 
         if (epub.spine.empty())
@@ -374,6 +401,12 @@ bool EpubBook::ParserOpf(epub_t &epub)
     }
 
     ret = true;
+
+    if (m_bForceKill)
+    {
+        ret = false;
+        goto end;
+    }
 
     // parser ncx, ncx is not a required file
     {
@@ -439,12 +472,18 @@ bool EpubBook::ParserNcx(epub_t &epub)
     if (itor == m_flist.end())
         goto end;
 
-    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_NOBLANKS);
+    doc = xmlReadMemory((const char *)itor->second.data, itor->second.size, NULL, NULL, XML_PARSE_RECOVER | XML_PARSE_NOBLANKS);
     if (!doc)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpathctx = xmlXPathNewContext(doc);
     if (!xpathctx)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpath = BAD_CAST("//*[local-name()='navPoint']");
@@ -458,6 +497,7 @@ bool EpubBook::ParserNcx(epub_t &epub)
     nodeset = xpathobj->nodesetval;
     for (i = 0; i < nodeset->nodeNr; i++)
     {
+        src = NULL;
         node = nodeset->nodeTab[i];
         id = xmlGetProp(node, BAD_CAST"id");
         order = xmlGetProp(node, BAD_CAST"playOrder");
@@ -473,6 +513,7 @@ bool EpubBook::ParserNcx(epub_t &epub)
             node = node->next;
         }
 
+#if 0 // do not check this
         if (!id || !order || !text || !src
             || !id[0] || !order[0] || !text[0] || !src[0])
         {
@@ -486,18 +527,29 @@ bool EpubBook::ParserNcx(epub_t &epub)
                 xmlFree(src);
             goto end;
         }
+#endif
 
         navp = new navpoint_t;
-        navp->id = (const char *)id;
-        navp->order = atoi((const char *)order);
-        navp->text = (const char *)text;
-        navp->src = (const char *)src;
+        if (id)
+            navp->id = (const char *)id;
+        if (order)
+            navp->order = atoi((const char *)order);
+        if (text)
+            navp->text = (const char *)text;
+        if (src)
+            navp->src = (const char *)src;
         epub.navmap.insert(std::make_pair(navp->id, navp));
 
-        xmlFree(id);
-        xmlFree(order);
-        xmlFree(text);
-        xmlFree(src);
+        if (id)
+            xmlFree(id);
+        if (order)
+            xmlFree(order);
+        if (text)
+            xmlFree(text);
+        if (src)
+            xmlFree(src);
+        if (m_bForceKill)
+            goto end;
     }
 
     if (!epub.navmap.empty())
@@ -527,12 +579,18 @@ bool EpubBook::ParserOps(file_data_t *fdata, wchar_t **text, int *len, wchar_t *
     int i;
     bool ret = false;
     
-    doc = xmlReadMemory((const char *)fdata->data, fdata->size, NULL, NULL, 0/*XML_PARSE_NOBLANKS*/);
+    doc = xmlReadMemory((const char *)fdata->data, fdata->size, NULL, NULL, XML_PARSE_RECOVER/* | XML_PARSE_NOBLANKS*/);
     if (!doc)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     xpathctx = xmlXPathNewContext(doc);
     if (!xpathctx)
+        goto end;
+
+    if (m_bForceKill)
         goto end;
 
     if (parsertitle)
@@ -560,6 +618,9 @@ bool EpubBook::ParserOps(file_data_t *fdata, wchar_t **text, int *len, wchar_t *
             break;
         }
     }
+
+    if (m_bForceKill)
+        goto end;
 
 body:
     if (xpathobj)
@@ -624,6 +685,8 @@ bool EpubBook::ParserChapters(epub_t &epub)
     buffer = (buffer_t *)malloc(epub.spine.size() * sizeof(buffer_t));
     for (itspine = epub.spine.begin(); itspine != epub.spine.end(); itspine++)
     {
+        if (m_bForceKill)
+            goto end;
         itmfest = epub.mainfest.find(*itspine);
         if (itmfest != epub.mainfest.end())
         {
@@ -659,6 +722,16 @@ bool EpubBook::ParserChapters(epub_t &epub)
         }
     }
 
+end:
+    if (m_bForceKill)
+    {
+        for (i = 0; i < index; i++)
+        {
+            free(buffer[i].text);
+        }
+        free(buffer);
+        return false;
+    }
     if (index > 0)
     {
         len = 1; // add one wchar_t '0x0a' new line for cover
@@ -682,6 +755,7 @@ bool EpubBook::ParserCover(epub_t &epub)
     mainfest_t::iterator itmfest;
     file_data_t *fdata;
     IStream *pStream = NULL;
+    bool found = false;
 
     if (m_Cover)
     {
@@ -689,25 +763,33 @@ bool EpubBook::ParserCover(epub_t &epub)
         m_Cover = NULL;
     }
 
-    itmfest = epub.mainfest.find("cover-image");
-    if (itmfest != epub.mainfest.end())
+    for (itmfest = epub.mainfest.begin(); itmfest != epub.mainfest.end(); itmfest++)
     {
-        itflist = m_flist.find(epub.path + itmfest->second->href);
-        if (itflist != m_flist.end())
+        if (strstr(itmfest->first.c_str(), "cover") && strstr(itmfest->second->media_type.c_str(), "image/"))
         {
-            fdata = &(itflist->second);
-            pStream = SHCreateMemStream((const BYTE *)fdata->data, fdata->size);
-            m_Cover = new Bitmap(pStream);
-            if (m_Cover)
-            {
-                if (Gdiplus::Ok != m_Cover->GetLastStatus())
-                {
-                    delete m_Cover;
-                    m_Cover = NULL;
-                }
-            }
-            pStream->Release();
+            found = true;
+            break;
         }
+    }
+
+    if (!found)
+        return false;
+
+    itflist = m_flist.find(epub.path + itmfest->second->href);
+    if (itflist != m_flist.end())
+    {
+        fdata = &(itflist->second);
+        pStream = SHCreateMemStream((const BYTE *)fdata->data, fdata->size);
+        m_Cover = new Bitmap(pStream);
+        if (m_Cover)
+        {
+            if (Gdiplus::Ok != m_Cover->GetLastStatus())
+            {
+                delete m_Cover;
+                m_Cover = NULL;
+            }
+        }
+        pStream->Release();
     }
 
     return m_Cover != NULL;

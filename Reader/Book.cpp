@@ -2,32 +2,53 @@
 #include "Book.h"
 #include "types.h"
 #include "Utils.h"
+#include <process.h>
 
 
 Book::Book()
     : m_Data(NULL)
     , m_Size(0)
+    , m_hThread(NULL)
+    , m_bForceKill(FALSE)
 {
     memset(m_fileName, 0, sizeof(m_fileName));
     m_Chapters.clear();
+    memset(&m_md5, 0, sizeof(u128_t));
 }
 
 Book::~Book()
 {
+    ForceKill();
     CloseBook();
 }
 
-bool Book::OpenBook(const TCHAR *fileName)
+bool Book::OpenBook(HWND hWnd)
 {
-    _tcscpy(m_fileName, fileName);
-    return ParserBook();
+    unsigned threadID;
+    ob_thread_param_t *param;
+
+    ForceKill();
+    param = (ob_thread_param_t *)malloc(sizeof(ob_thread_param_t));
+    param->_this = this;
+    param->hWnd = hWnd;
+    m_hThread = (HANDLE)_beginthreadex(NULL, 0, OpenBookThread, param, 0, &threadID);
+    return true;
 }
 
-bool Book::OpenBook(char *data, int size)
+bool Book::OpenBook(char *data, int size, HWND hWnd)
 {
+    unsigned threadID;
+    ob_thread_param_t *param;
+
     m_Data = data;
     m_Size = size;
-    return ParserBook();
+
+    ForceKill();
+    param = (ob_thread_param_t *)malloc(sizeof(ob_thread_param_t));
+    param->_this = this;
+    param->hWnd = hWnd;
+    m_hThread = (HANDLE)_beginthreadex(NULL, 0, OpenBookThread, param, 0, &threadID);
+    return true;
 }
 
 bool Book::CloseBook(void)
@@ -43,9 +64,34 @@ bool Book::CloseBook(void)
     return true;
 }
 
+bool Book::IsLoading(void)
+{
+    return m_hThread != NULL;
+}
+
+void Book::SetMd5(u128_t *md5)
+{
+    memcpy(&m_md5, md5, sizeof(u128_t));
+}
+
+u128_t * Book::GetMd5(void)
+{
+    return &m_md5;
+}
+
 wchar_t * Book::GetText(void)
 {
     return m_Text;
+}
+
+void Book::SetFileName(const TCHAR *fileName)
+{
+    _tcscpy(m_fileName, fileName);
+}
+
+TCHAR * Book::GetFileName(void)
+{
+    return m_fileName;
 }
 
 int Book::GetTextLength(void)
@@ -199,6 +245,20 @@ bool Book::IsBlanks(wchar_t c)
     return false;
 }
 
+void Book::ForceKill(void)
+{
+    if (m_hThread)
+    {
+        m_bForceKill = TRUE;
+        if (WAIT_TIMEOUT == WaitForSingleObject(m_hThread, 3000))
+        {
+            TerminateThread(m_hThread, 0);
+        }
+        CloseHandle(m_hThread);
+        m_hThread = NULL;
+    }
+}
+
 bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
 {
     FILE *fp = NULL;
@@ -234,4 +294,22 @@ bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
     *data = _data;
     *size = _size;
     return true;
+}
+
+unsigned __stdcall Book::OpenBookThread(void* pArguments)
+{
+    ob_thread_param_t *param = (ob_thread_param_t *)pArguments;
+    Book *_this = param->_this;
+    bool result = false;
+
+    _this->m_bForceKill = false;
+    result = _this->ParserBook();
+    if (param->hWnd && !_this->m_bForceKill)
+    {
+        PostMessage(param->hWnd, WM_OPEN_BOOK, result ? 1 : 0, NULL);
+    }
+    free(param);
+    CloseHandle(_this->m_hThread);
+    _this->m_hThread = NULL;
+    return 0;
 }

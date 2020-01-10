@@ -472,11 +472,17 @@ void PageCache::RemoveAllLine(BOOL freemem)
 
 BOOL PageCache::IsValid(void)
 {
+    Book *book;
     if (!m_Text || m_TextLength == 0)
         return FALSE;
     if (m_Rect.right - m_Rect.left == 0)
         return FALSE;
     if (m_Rect.bottom - m_Rect.top == 0)
+        return FALSE;
+    book = dynamic_cast<Book *>(this);
+    if (!book)
+        return FALSE;
+    if (book->IsLoading())
         return FALSE;
     return TRUE;
 }
