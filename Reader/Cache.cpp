@@ -258,6 +258,8 @@ header_t* Cache::default_header()
     header->page_mode = 1;
     header->uElapse = 3000;
 
+    header->bg_image.enable = 0;
+
     return header;
 }
 

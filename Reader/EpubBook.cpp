@@ -715,7 +715,8 @@ bool EpubBook::ParserChapters(epub_t &epub)
                         }
                         if (title)
                             free(title);
-                        m_Chapters.insert(std::make_pair(IDM_CHAPTER_BEGIN + index++, chapter));
+                        if (!chapter.title.empty())
+                            m_Chapters.insert(std::make_pair(IDM_CHAPTER_BEGIN + index++, chapter));
                     }
                 }
             }

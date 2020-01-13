@@ -34,7 +34,9 @@ INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Proxy(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    BgImage(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
+#if ENABLE_NETWORK
 INT_PTR CALLBACK    UpgradeProc(HWND, UINT, WPARAM, LPARAM);
+#endif
 
 
 
@@ -200,6 +202,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
+    static BOOL MouseTracking = FALSE;
 
     if (message == _uFindReplaceMsg)
     {
@@ -511,6 +514,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 StartAutoPage(hWnd);
             }
         }
+        else if ('P' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000
+                && GetAsyncKeyState(VK_SHIFT) & 0x8000
+                && GetAsyncKeyState(18) & 0x8000) // alt
+            {
+                MouseTracking = !MouseTracking;
+                if (!MouseTracking && !_bShowText)
+                {
+                    _bShowText = TRUE;
+                    GetClientRectExceptStatusBar(hWnd, &rc);
+                    InvalidateRect(hWnd, &rc, FALSE);
+                }
+            }
+        }
         break;
     case WM_HOTKEY:
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
@@ -615,6 +633,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    case WM_MOUSEMOVE:
+        {
+            if (MouseTracking)
+            {
+                TRACKMOUSEEVENT tme = {0};
+                tme.cbSize = sizeof(TRACKMOUSEEVENT);
+                tme.dwFlags = TME_HOVER | TME_LEAVE;
+                tme.dwHoverTime = 1;
+                tme.hwndTrack = hWnd;
+                _TrackMouseEvent(&tme);
+            }
+            else
+            {
+                return DefWindowProc(hWnd, message, wParam, lParam);
+            }
+        }
+        break;
+    case WM_MOUSEHOVER:
+        if (MouseTracking)
+        {
+            _bShowText = TRUE;
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, FALSE);
+        }
+        else
+        {
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+        break;
+    case WM_MOUSELEAVE:
+        if (MouseTracking)
+        {
+            _bShowText = FALSE;
+            GetClientRectExceptStatusBar(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, FALSE);
+        }
+        else
+        {
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+        break;
     case WM_ERASEBKGND:
         if (!_Book)
             DefWindowProc(hWnd, message, wParam, lParam);
@@ -630,9 +689,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (_Book && _Book->IsLastPage())
                 StopAutoPage(hWnd);
             break;
+#if ENABLE_NETWORK
         case IDT_TIMER_UPGRADE:
             _Upgrade.Check(UpgradeCallback, hWnd);
             break;
+#endif
         case IDT_TIMER_LOADING:
             {
                 GUID Guid;
@@ -652,9 +713,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_UPDATE_CHAPTERS:
         OnUpdateChapters(hWnd);
         break;
+#if ENABLE_NETWORK
     case WM_NEW_VERSION:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_UPGRADE), hWnd, UpgradeProc);
         break;
+#endif
     case WM_OPEN_BOOK:
         OnOpenBookResult(hWnd, wParam == 1);
         break;
@@ -1124,6 +1187,7 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return (INT_PTR)FALSE;
 }
 
+#if ENABLE_NETWORK
 INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     json_item_data_t *vinfo;
@@ -1159,6 +1223,7 @@ INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
     }
     return (INT_PTR)FALSE;
 }
+#endif
 
 LRESULT OnCreate(HWND hWnd)
 {
@@ -1434,9 +1499,9 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     
     SetBkMode(memdc, TRANSPARENT);
 
-    if (_Book && !_Book->IsLoading())
+    if (_Book && !_Book->IsLoading() && _bShowText)
         _Book->DrawPage(memdc);
-    if (_loading && _loading->enable)
+    if (_loading && _loading->enable && _bShowText)
     {
         g = new Graphics(memdc);
         w = (UINT)(rc.right - rc.left) > _loading->image->GetWidth() ? _loading->image->GetWidth() : (UINT)(rc.right - rc.left);
@@ -2325,6 +2390,7 @@ void ResumeAutoPage(HWND hWnd)
     }
 }
 
+#if ENABLE_NETWORK
 void CheckUpgrade(HWND hWnd)
 {
     // set proxy & check upgrade
@@ -2341,6 +2407,7 @@ bool UpgradeCallback(void *param, json_item_data_t *item)
     PostMessage(hWnd, WM_NEW_VERSION, 0, NULL);
     return true;
 }
+#endif
 
 bool PlayLoadingImage(HWND hWnd)
 {

@@ -14,9 +14,14 @@
 #define IDM_OPEN_BEGIN              (IDM_CHAPTER_END + 1)
 #define IDM_OPEN_END                (IDM_OPEN_BEGIN + 2000)
 
+#if ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
+#endif
 #define WM_UPDATE_CHAPTERS          (WM_USER + 101)
 #define WM_OPEN_BOOK                (WM_USER + 102)
+
+#define USING_MENU_CHAPTERS         0
+#define ENABLE_NETWORK              0
 
 typedef unsigned char   u8;
 typedef unsigned long   u32;

@@ -5,7 +5,9 @@
 #include "resource.h"
 #include "Cache.h"
 #include "Utils.h"
+#if ENABLE_NETWORK
 #include "Upgrade.h"
+#endif
 #include "Book.h"
 #include <map>
 
@@ -19,12 +21,13 @@ typedef struct loading_data_t
     HGLOBAL hMemory;
 } loading_data_t;
 
-#define USING_MENU_CHAPTERS         0
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define ID_HOTKEY_TOP_WINDOW        101
 #define IDT_TIMER_PAGE              102
+#if ENABLE_NETWORK
 #define IDT_TIMER_UPGRADE           103
+#endif
 #define IDT_TIMER_LOADING           104
 
 
@@ -37,9 +40,12 @@ HWND                _hTreeView              = NULL;
 UINT                _uFindReplaceMsg        = 0;
 window_info_t       _WndInfo                = {0};
 BOOL                _IsAutoPage             = FALSE;
+#if ENABLE_NETWORK
 Upgrade             _Upgrade;
+#endif
 Book *              _Book                   = NULL;
 loading_data_t *    _loading                = NULL;
+BOOL                _bShowText              = TRUE;
 
 
 LRESULT             OnCreate(HWND);
@@ -83,8 +89,10 @@ void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
 void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
+#if ENABLE_NETWORK
 void                CheckUpgrade(HWND);
 bool                UpgradeCallback(void *, json_item_data_t *);
+#endif
 bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);
 
