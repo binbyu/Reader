@@ -4,8 +4,8 @@ A win32 txt file reader
 ****
 最新release版本：`v1.5.0.0`<br/>
 (百度网盘)<br/>
-链接: [暂无](暂无)<br/>
-提取码: `r994`
+链接: [https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg](https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg)<br/>
+提取码: `hf9b`
 ****
 <br/>
 <br/>
