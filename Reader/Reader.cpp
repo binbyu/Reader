@@ -20,16 +20,16 @@
 #define MAX_LOADSTRING              100
 
 // Global Variables:
-HINSTANCE hInst;								// current instance
-TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
-TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
-TCHAR szStatusClass[MAX_LOADSTRING];			// the status window class name
+HINSTANCE hInst;                                // current instance
+TCHAR szTitle[MAX_LOADSTRING];                    // The title bar text
+TCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+TCHAR szStatusClass[MAX_LOADSTRING];            // the status window class name
 
 // Forward declarations of functions included in this code module:
-ATOM				MyRegisterClass(HINSTANCE hInstance);
-BOOL				InitInstance(HINSTANCE, int);
-LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+ATOM                MyRegisterClass(HINSTANCE hInstance);
+BOOL                InitInstance(HINSTANCE, int);
+LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Proxy(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    BgImage(HWND, UINT, WPARAM, LPARAM);
@@ -43,12 +43,12 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
                      LPTSTR    lpCmdLine,
                      int       nCmdShow)
 {
-	UNREFERENCED_PARAMETER(hPrevInstance);
-	UNREFERENCED_PARAMETER(lpCmdLine);
+    UNREFERENCED_PARAMETER(hPrevInstance);
+    UNREFERENCED_PARAMETER(lpCmdLine);
 
- 	// TODO: Place code here.
-	MSG msg;
-	HACCEL hAccelTable;
+     // TODO: Place code here.
+    MSG msg;
+    HACCEL hAccelTable;
 
     // init gdiplus
     GdiplusStartupInput gdiplusStartupInput;
@@ -61,39 +61,39 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
         return FALSE;
     }
 
-	// Initialize global strings
-	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-	LoadString(hInstance, IDC_READER, szWindowClass, MAX_LOADSTRING);
+    // Initialize global strings
+    LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    LoadString(hInstance, IDC_READER, szWindowClass, MAX_LOADSTRING);
     LoadString(hInstance, IDC_STATUSBAR, szStatusClass, MAX_LOADSTRING);
-	MyRegisterClass(hInstance);
+    MyRegisterClass(hInstance);
 
-	// Perform application initialization:
-	if (!InitInstance (hInstance, nCmdShow))
-	{
-		return FALSE;
-	}
+    // Perform application initialization:
+    if (!InitInstance (hInstance, nCmdShow))
+    {
+        return FALSE;
+    }
 
-	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_READER));
+    hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_READER));
 
-	// Main message loop:
-	while (GetMessage(&msg, NULL, 0, 0))
-	{
+    // Main message loop:
+    while (GetMessage(&msg, NULL, 0, 0))
+    {
         if (!_hFindDlg || !IsDialogMessage(_hFindDlg, &msg))
         {
             if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-		    {
-			    TranslateMessage(&msg);
-			    DispatchMessage(&msg);
-		    }
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
         }
-	}
+    }
 
     Exit();
 
     // uninit gdiplus
     GdiplusShutdown(gdiplusToken);
 
-	return (int) msg.wParam;
+    return (int) msg.wParam;
 }
 
 //
@@ -111,23 +111,23 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-	WNDCLASSEX wcex;
+    WNDCLASSEX wcex;
 
-	wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.cbSize = sizeof(WNDCLASSEX);
 
-	wcex.style			= CS_HREDRAW | CS_VREDRAW /*| CS_DBLCLKS*/;
-	wcex.lpfnWndProc	= WndProc;
-	wcex.cbClsExtra		= 0;
-	wcex.cbWndExtra		= 0;
-	wcex.hInstance		= hInstance;
-	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
-	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= CreateSolidBrush(_header->bg_color);//(HBRUSH)(COLOR_WINDOW+1);
-	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_READER);
-	wcex.lpszClassName	= szWindowClass;
-	wcex.hIconSm		= LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_BOOK));
+    wcex.style            = CS_HREDRAW | CS_VREDRAW /*| CS_DBLCLKS*/;
+    wcex.lpfnWndProc    = WndProc;
+    wcex.cbClsExtra        = 0;
+    wcex.cbWndExtra        = 0;
+    wcex.hInstance        = hInstance;
+    wcex.hIcon            = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
+    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground    = CreateSolidBrush(_header->bg_color);//(HBRUSH)(COLOR_WINDOW+1);
+    wcex.lpszMenuName    = MAKEINTRESOURCE(IDC_READER);
+    wcex.lpszClassName    = szWindowClass;
+    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_BOOK));
 
-	return RegisterClassEx(&wcex);
+    return RegisterClassEx(&wcex);
 }
 
 //
@@ -187,16 +187,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //  PURPOSE:  Processes messages for the main window.
 //
-//  WM_COMMAND	- process the application menu
-//  WM_PAINT	- Paint the main window
-//  WM_DESTROY	- post a quit message and return
+//  WM_COMMAND    - process the application menu
+//  WM_PAINT    - Paint the main window
+//  WM_DESTROY    - post a quit message and return
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	int wmId, wmEvent;
-	PAINTSTRUCT ps;
-	HDC hdc;
+    int wmId, wmEvent;
+    PAINTSTRUCT ps;
+    HDC hdc;
     LRESULT hit;
     POINT pt;
     RECT rc;
@@ -207,13 +207,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-	switch (message)
-	{
-	case WM_COMMAND:
-        //PauseAutoPage(hWnd);
+    switch (message)
+    {
+    case WM_COMMAND:
+        PauseAutoPage(hWnd);
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
-		// Parse the menu selections:
+        // Parse the menu selections:
         if (wmId >= IDM_CHAPTER_BEGIN && wmId <= IDM_CHAPTER_END)
         {
             if (_Book)
@@ -228,14 +228,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ResumeAutoPage(hWnd);
             break;
         }
-		switch (wmId)
-		{
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			break;
+        switch (wmId)
+        {
+        case IDM_ABOUT:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            break;
+        case IDM_EXIT:
+            DestroyWindow(hWnd);
+            break;
         case IDM_OPEN:
             OnOpenFile(hWnd, message, wParam, lParam);
             break;
@@ -260,28 +260,98 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_DEFAULT:
             OnRestoreDefault(hWnd, message, wParam, lParam);
             break;
-		default:
+        case IDM_VIEW:
+            if (IsWindowVisible(_hTreeView))
+            {
+                ShowWindow(_hTreeView, SW_HIDE);
+            }
+            else
+            {
+                if (_Book && !_Book->IsLoading())
+                {
+                    TVITEM tvi;
+                    HTREEITEM hti;
+                    int index = _Book->GetCurChapterIndex();
+                    if (index == 0)
+                    {
+                        hti = TreeView_GetRoot(_hTreeView);
+                        TreeView_EnsureVisible(_hTreeView, hti);
+                        TreeView_SelectItem(_hTreeView, hti);
+                    }
+                    else
+                    {
+                        hti = TreeView_GetRoot(_hTreeView);
+                        do 
+                        {
+                            tvi.mask       = TVIF_PARAM;
+                            tvi.hItem      = hti;
+                            TreeView_GetItem(_hTreeView, &tvi);
+                            if (tvi.lParam == index)
+                            {
+                                TreeView_EnsureVisible(_hTreeView, hti);
+                                TreeView_SelectItem(_hTreeView, hti);
+                                break;
+                            }
+                            hti = TreeView_GetNextSibling(_hTreeView, hti);
+                        } while (hti);
+                    }
+
+                    GetClientRectExceptStatusBar(hWnd, &rc);
+                    SetWindowPos(_hTreeView, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_SHOWWINDOW);
+                    SetFocus(_hTreeView);
+                }
+            }
+            break;
+        default:
             ResumeAutoPage(hWnd);
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
         ResumeAutoPage(hWnd);
-		break;
+        break;
+    case WM_NOTIFY:
+        switch (((LPNMHDR)lParam)->code)
+        {
+        case TVN_SELCHANGED:
+            if (IsWindowVisible(_hTreeView))
+            {
+                HTREEITEM Selected;
+                TVITEM item;
+                Selected = TreeView_GetSelection(_hTreeView);
+                if (Selected)
+                {
+                    item.mask       = TVIF_PARAM;
+                    item.hItem      = Selected;
+                    TreeView_GetItem(_hTreeView, &item);
+                    if (_Book)
+                        _Book->JumpChapter(hWnd, item.lParam);
+                    ShowWindow(_hTreeView, SW_HIDE);
+                }
+            }
+            break;
+        default:
+            return FALSE;
+        }
+        break;
+    case WM_KILLFOCUS:
+        if (!IsWindowVisible(_hTreeView))
+            SetFocus(hWnd);
+        break;
     case WM_CREATE:
         OnCreate(hWnd);
         // register hot key
         RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
         break;
-	case WM_PAINT:
-		hdc = BeginPaint(hWnd, &ps);
-		// TODO: Add any drawing code here...
+    case WM_PAINT:
+        hdc = BeginPaint(hWnd, &ps);
+        // TODO: Add any drawing code here...
         OnPaint(hWnd, hdc);
-		EndPaint(hWnd, &ps);
-		break;
-	case WM_DESTROY:
+        EndPaint(hWnd, &ps);
+        break;
+    case WM_DESTROY:
         StopAutoPage(hWnd);
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
-		PostQuitMessage(0);
+        PostQuitMessage(0);
         // save rect
         if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
         {
@@ -312,7 +382,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             delete _Book;
             _Book = NULL;
         }
-		break;
+        break;
     case WM_QUERYENDSESSION:
         Exit(); // save data when poweroff ?
         return TRUE;
@@ -484,6 +554,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnPageUp(hWnd);
         }
         break;
+    case WM_NCLBUTTONDOWN:
+        if (IsWindowVisible(_hTreeView))
+        {
+            ShowWindow(_hTreeView, SW_HIDE);
+            GetCursorPos(&pt);
+            GetMenuItemRect(hWnd, GetMenu(hWnd), 1, &rc);
+            if (PtInRect(&rc, pt))
+            {
+                break;
+            }
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    case WM_NCRBUTTONDOWN:
+        if (IsWindowVisible(_hTreeView))
+        {
+            ShowWindow(_hTreeView, SW_HIDE);
+            GetCursorPos(&pt);
+            GetMenuItemRect(hWnd, GetMenu(hWnd), 1, &rc);
+            if (PtInRect(&rc, pt))
+            {
+                break;
+            }
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_MOUSEWHEEL:
         {
             const BYTE MIN_ALPHA = 0x0F;
@@ -564,10 +658,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_OPEN_BOOK:
         OnOpenBookResult(hWnd, wParam == 1);
         break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
-	return 0;
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;
 }
 
 // Message handler for about box.
@@ -577,18 +671,18 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     HWND hWnd;
     RECT rc;
 
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        return (INT_PTR)TRUE;
 
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
     case WM_LBUTTONDOWN:
         pt.x = LOWORD(lParam);
         pt.y = HIWORD(lParam);
@@ -602,8 +696,8 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     default:
         break;
-	}
-	return (INT_PTR)FALSE;
+    }
+    return (INT_PTR)FALSE;
 }
 
 INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1073,6 +1167,17 @@ LRESULT OnCreate(HWND hWnd)
     _WndInfo.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
     // register find text dialog
     _uFindReplaceMsg = RegisterWindowMessage(FINDMSGSTRING);
+    // create chapters tree view
+    _hTreeView = CreateWindow(WC_TREEVIEW, _T("Tree View"), 
+        /*WS_VISIBLE | */WS_CHILD /*| WS_BORDER*/ | TVS_HASLINES | TVS_NOHSCROLL | TVS_NOTOOLTIPS | TVS_LINESATROOT,
+        0, 0, 200, 300, hWnd, NULL, hInst, NULL);
+    //TreeView_SetBkColor(_hTreeView, GetSysColor(COLOR_MENU));
+    NONCLIENTMETRICS theMetrics;
+    theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
+    SendMessage(_hTreeView, WM_SETFONT, (WPARAM)CreateFontIndirect(&(theMetrics.lfMenuFont)), NULL);
+    SendMessage(_hTreeView, TVM_SETITEMHEIGHT, 22, NULL);
+
     OnUpdateMenu(hWnd);
 
     // open the last file
@@ -1123,7 +1228,7 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         DestroyWindow(_hFindDlg);
         _hFindDlg = NULL;
     }
-    if (_item && _item->id == item_id)
+    if (_item && _item->id == item_id && _Book && !_Book->IsLoading())
     {
         return 0;
     }
@@ -1154,7 +1259,7 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         return 0L;
     }
 
-	return 0;
+    return 0;
 }
 
 LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1199,6 +1304,8 @@ LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     GetClientRectExceptStatusBar(hWnd, &rect);
     InvalidateRect(hWnd, &rect, FALSE);
     SetWindowText(hWnd, szTitle);
+    StopLoadingImage(hWnd);
+    StopAutoPage(hWnd);
     return 0;
 }
 
@@ -1620,6 +1727,7 @@ LRESULT OnUpdateChapters(HWND hWnd)
 {
     chapters_t *chapters;
     chapters_t::iterator itor;
+#if USING_MENU_CHAPTERS
     HMENU hMenuBar = NULL;
     HMENU hView = NULL;
 
@@ -1636,6 +1744,32 @@ LRESULT OnUpdateChapters(HWND hWnd)
     DeleteMenu(hMenuBar, 1, MF_BYPOSITION);
     InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
     DrawMenuBar(hWnd);
+#else
+    TVITEM tvi = {0};
+    TVINSERTSTRUCT tvins = {0};
+    HTREEITEM hPrev = (HTREEITEM)TVI_FIRST;
+    
+    TreeView_DeleteAllItems(_hTreeView);
+    if (_Book)
+    {
+        tvi.mask = TVIF_TEXT /*| TVIF_IMAGE | TVIF_SELECTEDIMAGE */| TVIF_PARAM;
+
+        chapters = _Book->GetChapters();
+        for (itor = chapters->begin(); itor != chapters->end(); itor++)
+        {
+            tvi.pszText = (TCHAR *)itor->second.title.c_str(); 
+            tvi.cchTextMax = sizeof(tvi.pszText)/sizeof(tvi.pszText[0]);
+            tvi.lParam = (LPARAM)itor->first; 
+            tvins.item = tvi; 
+            tvins.hInsertAfter = hPrev;
+            tvins.hParent = TVI_ROOT;
+
+            // Add the item to the tree-view control. 
+            hPrev = (HTREEITEM)SendMessage(_hTreeView, TVM_INSERTITEM, 0, (LPARAM)(LPTVINSERTSTRUCT)&tvins);
+        }
+    }
+#endif
+
     return 0;
 }
 
@@ -1724,7 +1858,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
     item = _Cache.find_item(&md5, szFileName);
     if (item)
     {
-        if (_item && item->id == _item->id) // current is opened
+        if (_item && item->id == _item->id && !_Book->IsLoading()) // current is opened
         {
             free(data);
             OnUpdateMenu(hWnd);

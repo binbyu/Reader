@@ -19,6 +19,8 @@ typedef struct loading_data_t
     HGLOBAL hMemory;
 } loading_data_t;
 
+#define USING_MENU_CHAPTERS         0
+
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define ID_HOTKEY_TOP_WINDOW        101
 #define IDT_TIMER_PAGE              102
@@ -31,6 +33,7 @@ header_t*           _header                 = NULL;
 item_t*             _item                   = NULL;
 HWND                _hWndStatus             = NULL;
 HWND                _hFindDlg               = NULL;
+HWND                _hTreeView              = NULL;
 UINT                _uFindReplaceMsg        = 0;
 window_info_t       _WndInfo                = {0};
 BOOL                _IsAutoPage             = FALSE;

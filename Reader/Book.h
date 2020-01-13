@@ -43,6 +43,7 @@ public:
     void JumpChapter(HWND hWnd, int index);
     void JumpPrevChapter(HWND hWnd);
     void JumpNextChapter(HWND hWnd);
+    int GetCurChapterIndex(void);
     static bool CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size);
 
 protected:

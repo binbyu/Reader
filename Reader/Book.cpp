@@ -152,6 +152,30 @@ void Book::JumpNextChapter(HWND hWnd)
     }
 }
 
+int Book::GetCurChapterIndex(void)
+{
+    int index = 0;
+    chapters_t::iterator itor;
+
+    if (!m_Text)
+        return index;
+
+    if (m_Chapters.size() < 0)
+        return index;
+
+    itor = m_Chapters.begin();
+    index = itor->first;
+    for (itor = m_Chapters.begin(); itor != m_Chapters.end(); itor++)
+    {
+        if (itor->second.index > (*m_CurrentPos))
+        {
+            break;
+        }
+        index = itor->first;
+    }
+    return index;
+}
+
 bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
 {
     type_t bom = Unknown;
