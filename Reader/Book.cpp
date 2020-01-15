@@ -154,13 +154,13 @@ void Book::JumpNextChapter(HWND hWnd)
 
 int Book::GetCurChapterIndex(void)
 {
-    int index = 0;
+    int index = -1;
     chapters_t::iterator itor;
 
     if (!m_Text)
         return index;
 
-    if (m_Chapters.size() < 0)
+    if (m_Chapters.size() <= 0)
         return index;
 
     itor = m_Chapters.begin();

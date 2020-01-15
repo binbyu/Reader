@@ -9,9 +9,12 @@ wchar_t TextBook::m_ValidChapter[] =
     _T('0'), _T('1'), _T('2'), _T('3'), _T('4'),
     _T('5'), _T('6'), _T('7'), _T('8'), _T('9'),
     _T('Áã'), _T('Ò»'), _T('¶þ'), _T('Èý'), _T('ËÄ'),
-    _T('Îå'), _T('Áù'), _T('Æß'), _T('°Ë'), _T('¾Å'), _T('Ê®'),
+    _T('Îå'), _T('Áù'), _T('Æß'), _T('°Ë'), _T('¾Å'),
+    _T('Ê®'), _T('°Ù'), _T('Ç§'), _T('Íò'), _T('ÒÚ'),
     _T('Ò¼'), _T('·¡'), _T('Èþ'), _T('ËÁ'),
-    _T('Îé'), _T('Â½'), _T('Æâ'), _T('°Æ'), _T('¾Á'), _T('Ê°'),
+    _T('Îé'), _T('Â½'), _T('Æâ'), _T('°Æ'), _T('¾Á'),
+    _T('Ê°'), _T('°Û'), _T('Çª'), _T('Èf'), _T('ƒ|'),
+    0x3000
 };
 
 TextBook::TextBook()
@@ -135,11 +138,11 @@ bool TextBook::ParserChapters(void)
             if (text[i] == _T('µÚ'))
             {
                 idx_1 = i;
-                //idx_1 = 0;
             }
             if (idx_1 > -1
                 && ((line_size > i + 1 && text[i + 1] == _T(' ')
                     || text[i + 1] == _T('\t'))
+                    || text[i + 1] == 0x3000 // Full Angle space
                     || line_size <= i + 1))
             {
                 if (text[i] == _T('¾í')
@@ -152,20 +155,31 @@ bool TextBook::ParserChapters(void)
                     break;
                 }
             }
+            if (idx_1 == -1 && line_size > i + 2 && text[i] == _T('Ð¨') && text[i+1] == _T('×Ó')
+                && ((text[i + 2] == _T(' ')
+                || text[i + 2] == _T('\t'))
+                || text[i + 2] == 0x3000 // Full Angle space
+                || line_size <= i + 1))
+            {
+                idx_1 = i;
+                idx_2 = line_size - 1;
+                bFound = true;
+                break;
+            }
         }
-        if (bFound && IsChapter(text + idx_1 + 1, idx_2 - idx_1 - 1))
+        if (bFound && (text[idx_1] == _T('Ð¨') || (IsChapter(text + idx_1 + 1, idx_2 - idx_1 - 1))))
         {
-            title_len = line_size - idx_1 < MAX_CHAPTER_LENGTH ? line_size - idx_1 : MAX_CHAPTER_LENGTH - 1;
+            title_len = line_size - idx_1 < (MAX_CHAPTER_LENGTH - 1) ? line_size - idx_1 : MAX_CHAPTER_LENGTH - 1;
             memcpy(title, text + idx_1, title_len * sizeof(wchar_t));
             title[title_len] = 0;
 
-            chapter.index = idx_1 + (text - m_Text);
+            chapter.index = /*idx_1 +*/ (text - m_Text);
             chapter.title = title;
             m_Chapters.insert(std::make_pair(menu_begin_id++, chapter));
         }
 
         // set index
-        text += line_size;
+        text += line_size + 1; // add 0x0a
     }
     return true;
 }
@@ -179,20 +193,8 @@ bool TextBook::GetLine(wchar_t* text, int len, int* line_size)
     {
         if (text[i] == 0x0A)
         {
-            if (i > 0)
-            {
-                *line_size = i;
-                return true;
-            }
-        }
-        else if (i < len - 1
-            && text[i] == 0x0D && text[i + 1] == 0x0A)
-        {
-            if (i > 0)
-            {
-                *line_size = i;
-                return true;
-            }
+            *line_size = i;
+            return true;
         }
     }
     *line_size = len;
@@ -208,7 +210,7 @@ bool TextBook::IsChapter(wchar_t* text, int len)
     for (int i = 0; i < len; i++)
     {
         bFound = false;
-        for (int j = 0; j < sizeof(m_ValidChapter); j++)
+        for (int j = 0; j < sizeof(m_ValidChapter)/sizeof(m_ValidChapter[0]); j++)
         {
             if (text[i] == m_ValidChapter[j])
             {

@@ -4,7 +4,7 @@
 #pragma pack(1)
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
-#define MAX_CHAPTER_LENGTH          32
+#define MAX_CHAPTER_LENGTH          256
 
 
 #define IDM_CUSTOM_BEGIN            (50000)

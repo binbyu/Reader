@@ -275,7 +275,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     TVITEM tvi;
                     HTREEITEM hti;
                     int index = _Book->GetCurChapterIndex();
-                    if (index == 0)
+                    if (index == -1)
+                    {
+                        break;
+                    }
+                    else if (index == 0)
                     {
                         hti = TreeView_GetRoot(_hTreeView);
                         TreeView_EnsureVisible(_hTreeView, hti);
@@ -327,17 +331,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     TreeView_GetItem(_hTreeView, &item);
                     if (_Book)
                         _Book->JumpChapter(hWnd, item.lParam);
-                    ShowWindow(_hTreeView, SW_HIDE);
+                    //ShowWindow(_hTreeView, SW_HIDE);
+                    PostMessage(hWnd, WM_COMMAND, IDM_VIEW, NULL);
                 }
             }
             break;
         default:
-            return FALSE;
+            return DefWindowProc(hWnd, message, wParam, lParam);
         }
-        break;
-    case WM_KILLFOCUS:
-        if (!IsWindowVisible(_hTreeView))
-            SetFocus(hWnd);
         break;
     case WM_CREATE:
         OnCreate(hWnd);
@@ -1742,6 +1743,8 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (fr.Flags & FR_DIALOGTERM)
         {
             // close dlg
+            DestroyWindow(_hFindDlg);
+            _hFindDlg = NULL;
         }
         else if (fr.Flags & FR_DOWN) // back search
         {
@@ -1757,7 +1760,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else // front search
         {
-            for (int i=_item->index-3; i>=0; i--)
+            for (int i=_item->index-1; i>=0; i--)
             {
                 if (0 == memcmp(szFindWhat, _Book->GetText()+i, len*sizeof(TCHAR)))
                 {
