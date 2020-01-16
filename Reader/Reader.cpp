@@ -202,6 +202,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
+    static INT leftline = 0;
 
     if (message == _uFindReplaceMsg)
     {
@@ -530,6 +531,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     UnhookWindowsHookEx(_hMouseHook);
                     _hMouseHook = NULL;
+                }
+            }
+        }
+        else if ('L' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000
+                && GetAsyncKeyState(VK_SHIFT) & 0x8000
+                && GetAsyncKeyState(18) & 0x8000) // alt
+            {
+                leftline = leftline == 0 ? 2 : 0;
+                if (_Book)
+                {
+                    _Book->SetLeftLine(leftline);
                 }
             }
         }

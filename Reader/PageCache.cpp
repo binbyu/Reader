@@ -14,6 +14,7 @@ PageCache::PageCache()
     , m_CurrentPos(NULL)
     , m_lineGap(NULL)
     , m_InternalBorder(NULL)
+    , m_LeftLineCount(0)
 {
     memset(&m_Rect, 0, sizeof(m_Rect));
     memset(&m_PageInfo, 0, sizeof(m_PageInfo));
@@ -48,6 +49,11 @@ void PageCache::SetRect(RECT *rect)
         RemoveAllLine();
 }
 
+void PageCache::SetLeftLine(int lines)
+{
+    m_LeftLineCount = lines;
+}
+
 void PageCache::Reset(HWND hWnd, BOOL redraw)
 {
     RemoveAllLine();
@@ -62,12 +68,12 @@ void PageCache::ReDraw(HWND hWnd)
 
 void PageCache::PageUp(HWND hWnd)
 {
-    return LineUp(hWnd, m_OnePageLineCount);
+    return LineUp(hWnd, m_OnePageLineCount - m_LeftLineCount);
 }
 
 void PageCache::PageDown(HWND hWnd)
 {
-    return LineDown(hWnd, m_OnePageLineCount);
+    return LineDown(hWnd, m_OnePageLineCount - m_LeftLineCount);
 }
 
 void PageCache::LineUp(HWND hWnd, INT n)

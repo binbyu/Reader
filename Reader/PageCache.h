@@ -34,6 +34,7 @@ public:
 public:
     void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib);
     void SetRect(RECT *rect);
+    void SetLeftLine(int lines);
     void Reset(HWND hWnd, BOOL redraw = TRUE);
     void ReDraw(HWND hWnd);
     void PageUp(HWND hWnd);
@@ -72,6 +73,7 @@ protected:
     INT *m_CurrentPos;
     INT *m_lineGap;
     INT *m_InternalBorder;
+    INT m_LeftLineCount;
     page_info_t m_PageInfo;
 };
 
