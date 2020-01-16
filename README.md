@@ -2,12 +2,18 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.5.0.0`<br/>
+最新release版本：`v1.5.1.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg](https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg)<br/>
-提取码: `hf9b`
+链接: [https://pan.baidu.com/s/186Acygk16nts5lJOFMI2rg](https://pan.baidu.com/s/186Acygk16nts5lJOFMI2rg)<br/>
+提取码: `9gpd`
 ****
 <br/>
+<br/>
+<br/>
+<br/>
+# v1.5.1.0 2020/1/16 bug修复<br/>
+1. 修复v1.5.0.0版本引入的，Ctrl+F搜索框无焦点bug（搜索框无法使用和关闭）
+2. 修复小说目录部分章节丢失bug
 <br/>
 <br/>
 <br/>
@@ -20,6 +26,10 @@ A win32 txt file reader
 2. 修改目录为 TreeView<br/>
   2.1 支持 鼠标滚轮操作<br/>
   2.2 支持 打开时定位到当前章节<br/>
+<br/>
+版本：`v1.5.0.0`<br/>
+链接: https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg<br/>
+提取码: hf9b<br/>
 <br/>
 <br/>
 <br/>

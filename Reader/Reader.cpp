@@ -177,7 +177,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
-
+   _hWnd = hWnd;
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -202,7 +202,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
-    static BOOL MouseTracking = FALSE;
 
     if (message == _uFindReplaceMsg)
     {
@@ -354,7 +353,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         StopAutoPage(hWnd);
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
-        UnregisterHotKey(hWnd, ID_HOTKEY_TOP_WINDOW);
+        if (_hMouseHook)
+        {
+            UnhookWindowsHookEx(_hMouseHook);
+            _hMouseHook = NULL;
+        }
         PostQuitMessage(0);
         // save rect
         if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
@@ -521,12 +524,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 && GetAsyncKeyState(VK_SHIFT) & 0x8000
                 && GetAsyncKeyState(18) & 0x8000) // alt
             {
-                MouseTracking = !MouseTracking;
-                if (!MouseTracking && !_bShowText)
+                if (!_hMouseHook)
+                    _hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseProc, hInst, NULL);
+                else
                 {
-                    _bShowText = TRUE;
-                    GetClientRectExceptStatusBar(hWnd, &rc);
-                    InvalidateRect(hWnd, &rc, FALSE);
+                    UnhookWindowsHookEx(_hMouseHook);
+                    _hMouseHook = NULL;
                 }
             }
         }
@@ -535,7 +538,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
         {
             // show or hide window
-            static bool isShow = true;
+            BOOL isShow = IsWindowVisible(hWnd);
             ShowWindow(hWnd, isShow ? SW_HIDE : SW_SHOW);
             SetForegroundWindow(hWnd);
             isShow = !isShow;
@@ -574,6 +577,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_NCLBUTTONDOWN:
+        if (_hMouseHook)
+        {
+            switch (wParam)
+            {
+            case HTMINBUTTON:
+                //PostMessage(hWnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+                return FALSE;
+            case HTMAXBUTTON:
+                //PostMessage(hWnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+                return FALSE;
+            case HTCLOSE:
+                UnhookWindowsHookEx(_hMouseHook);
+                _hMouseHook = NULL;
+                break;
+            default:
+                break;
+            }
+        }
         if (IsWindowVisible(_hTreeView))
         {
             ShowWindow(_hTreeView, SW_HIDE);
@@ -602,6 +623,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             const BYTE MIN_ALPHA = 0x0F;
             const BYTE MAX_ALPHA = 0xff;
             const BYTE UNIT_STEP = 0x05;
+            if (IsWindowVisible(_hTreeView))
+            {
+                SetFocus(_hTreeView);
+                break;
+            }
             if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
             {
                 if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
@@ -632,47 +658,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     OnLineDown(hWnd);
                 }
             }
-        }
-        break;
-    case WM_MOUSEMOVE:
-        {
-            if (MouseTracking)
-            {
-                TRACKMOUSEEVENT tme = {0};
-                tme.cbSize = sizeof(TRACKMOUSEEVENT);
-                tme.dwFlags = TME_HOVER | TME_LEAVE;
-                tme.dwHoverTime = 1;
-                tme.hwndTrack = hWnd;
-                _TrackMouseEvent(&tme);
-            }
-            else
-            {
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_MOUSEHOVER:
-        if (MouseTracking)
-        {
-            _bShowText = TRUE;
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, FALSE);
-        }
-        else
-        {
-            return DefWindowProc(hWnd, message, wParam, lParam);
-        }
-        break;
-    case WM_MOUSELEAVE:
-        if (MouseTracking)
-        {
-            _bShowText = FALSE;
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, FALSE);
-        }
-        else
-        {
-            return DefWindowProc(hWnd, message, wParam, lParam);
         }
         break;
     case WM_ERASEBKGND:
@@ -1890,6 +1875,37 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     _Book->ReDraw(hWnd);
 
     return 0;
+}
+
+LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    LPMOUSEHOOKSTRUCT mh = NULL;
+    RECT rect;
+
+    if (nCode == HC_ACTION)
+    {
+        switch (wParam)
+        {
+        case WM_MOUSEMOVE:
+            mh = (LPMOUSEHOOKSTRUCT)lParam;
+            GetWindowRect(_hWnd, &rect);
+            if (PtInRect(&rect, mh->pt))
+            {
+                if (!IsWindowVisible(_hWnd))
+                    ShowWindow(_hWnd, SW_SHOW);
+            }
+            else
+            {
+                if (IsWindowVisible(_hWnd))
+                    ShowWindow(_hWnd, SW_HIDE);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    
+    return CallNextHookEx(_hMouseHook, nCode, wParam, lParam);
 }
 
 void OnOpenBook(HWND hWnd, TCHAR *filename)

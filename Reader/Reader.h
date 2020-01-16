@@ -23,7 +23,6 @@ typedef struct loading_data_t
 
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
-#define ID_HOTKEY_TOP_WINDOW        101
 #define IDT_TIMER_PAGE              102
 #if ENABLE_NETWORK
 #define IDT_TIMER_UPGRADE           103
@@ -46,6 +45,8 @@ Upgrade             _Upgrade;
 Book *              _Book                   = NULL;
 loading_data_t *    _loading                = NULL;
 BOOL                _bShowText              = TRUE;
+HHOOK               _hMouseHook             = NULL;
+HWND                _hWnd                   = NULL;
 
 
 LRESULT             OnCreate(HWND);
@@ -71,6 +72,7 @@ LRESULT             OnHideBorder(HWND);
 LRESULT             OnFullScreen(HWND);
 LRESULT             OnUpdateChapters(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
+LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
 void                OnOpenBook(HWND, TCHAR *);
 UINT                GetCacheVersion(void);
 BOOL                Init(void);
