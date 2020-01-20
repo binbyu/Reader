@@ -2,10 +2,10 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.5.1.0`<br/>
+最新release版本：`v1.5.3.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/186Acygk16nts5lJOFMI2rg](https://pan.baidu.com/s/186Acygk16nts5lJOFMI2rg)<br/>
-提取码: `9gpd`
+链接: [https://pan.baidu.com/s/1astdGSbrGfr3a8vQfdP3Lg](https://pan.baidu.com/s/1astdGSbrGfr3a8vQfdP3Lg)<br/>
+提取码: `zb7d`
 ****
 <br/>
 <br/>
