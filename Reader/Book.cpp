@@ -106,7 +106,7 @@ chapters_t * Book::GetChapters(void)
 
 void Book::JumpChapter(HWND hWnd, int index)
 {
-    if (!m_Text)
+    if (!m_Text || IsLoading())
         return;
 
     if (m_Chapters.end() != m_Chapters.find(index))
@@ -120,7 +120,7 @@ void Book::JumpPrevChapter(HWND hWnd)
 {
     chapters_t::reverse_iterator itor;
 
-    if (!m_Text || IsFirstPage())
+    if (!m_Text || IsFirstPage() || IsLoading())
         return;
 
     for (itor = m_Chapters.rbegin(); itor != m_Chapters.rend(); itor++)
@@ -138,7 +138,7 @@ void Book::JumpNextChapter(HWND hWnd)
 {
     chapters_t::iterator itor;
 
-    if (!m_Text || IsLastPage())
+    if (!m_Text || IsLastPage() || IsLoading())
         return;
 
     for (itor = m_Chapters.begin(); itor != m_Chapters.end(); itor++)
@@ -246,11 +246,15 @@ bool Book::FormatText(wchar_t *text, int *len)
     buf = (wchar_t *)malloc(((*len) + 1) * sizeof(wchar_t));
     for (i = 0; i < (*len); i++)
     {
+#if 1
         if (flag && IsBlanks(text[i]))
             continue;
         flag = false;
-        if (text[i] == 0x0D && text[i + 1] == 0x0A)
-            i++;
+#endif
+        if (text[i] == 0x0D)
+            continue; // 0x0d 0x0a -> 0x0a
+        if (index > 1 && buf[index-1] == text[i] && buf[index-2] == text[i] && IsBlanks(text[i]))
+            continue; // max tow same blanks
         buf[index++] = text[i];
     }
     buf[index] = 0;
@@ -262,7 +266,7 @@ bool Book::FormatText(wchar_t *text, int *len)
 
 bool Book::IsBlanks(wchar_t c)
 {
-    if (/*c == 0x20 ||*/ c == 0x09 || c == 0x0A || c == 0x0D)
+    if (c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D || c == 0x3000)
     {
         return true;
     }

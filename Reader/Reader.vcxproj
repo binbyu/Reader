@@ -90,6 +90,7 @@
     <ClInclude Include="..\opensrc\cjson\cJSON.h" />
     <ClInclude Include="Book.h" />
     <ClInclude Include="Cache.h" />
+    <ClInclude Include="dump.h" />
     <ClInclude Include="EpubBook.h" />
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="Reader.h" />
@@ -105,6 +106,7 @@
     <ClCompile Include="..\opensrc\cjson\cJSON.cpp" />
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="Cache.cpp" />
+    <ClCompile Include="dump.cpp" />
     <ClCompile Include="EpubBook.cpp" />
     <ClCompile Include="PageCache.cpp" />
     <ClCompile Include="Reader.cpp" />

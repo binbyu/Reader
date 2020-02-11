@@ -11,6 +11,9 @@
 #include <commctrl.h>
 #include <vector>
 #include <shellapi.h>
+#ifdef _DEBUG
+#include "dump.h"
+#endif
 
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "Comctl32.lib")
@@ -49,6 +52,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
      // TODO: Place code here.
+#ifdef _DEBUG
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)ApplicationCrashHandler);
+#endif
     MSG msg;
     HACCEL hAccelTable;
 

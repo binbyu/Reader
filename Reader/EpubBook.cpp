@@ -578,14 +578,36 @@ bool EpubBook::ParserOps(file_data_t *fdata, wchar_t **text, int *len, wchar_t *
     xmlNodeSetPtr nodeset;
     int i;
     bool ret = false;
-    
-    doc = xmlReadMemory((const char *)fdata->data, fdata->size, NULL, NULL, XML_PARSE_RECOVER/* | XML_PARSE_NOBLANKS*/);
+    xmlChar *format_str = NULL;
+    int size;
+
+    xmlKeepBlanksDefault(0);
+    xmlIndentTreeOutput = 0;
+    doc = xmlReadMemory((const char *)fdata->data, fdata->size, NULL, NULL, XML_PARSE_RECOVER | XML_PARSE_NOBLANKS);
     if (!doc)
         goto end;
 
     if (m_bForceKill)
         goto end;
 
+#if 1 // format xml
+    xmlDocDumpFormatMemory(doc, &format_str, &size, 1);
+    xmlFreeDoc(doc);
+    if (!format_str || size <= 0)
+    {
+        if (format_str)
+            xmlFree(format_str);
+        goto end;
+    }
+    
+    xmlKeepBlanksDefault(1);
+    xmlIndentTreeOutput = 0;
+    doc = xmlReadMemory((const char *)format_str, size, NULL, NULL, XML_PARSE_RECOVER/* | XML_PARSE_NOBLANKS*/);
+    xmlFree(format_str);
+    if (!doc)
+        goto end;
+#endif
+    
     xpathctx = xmlXPathNewContext(doc);
     if (!xpathctx)
         goto end;

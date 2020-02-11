@@ -259,7 +259,9 @@ BOOL PageCache::IsLastPage(void)
 double PageCache::GetProgress(void)
 {
     if (!m_CurrentPos)
-        return 0.0;
+        return 0.0f;
+    if (m_TextLength == 0)
+        return 0.0f;
     return (double)((*m_CurrentPos) + m_CurPageSize)*100.0/m_TextLength;
 }
 
