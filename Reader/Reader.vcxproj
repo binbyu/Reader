@@ -87,6 +87,7 @@
     <None Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\opensrc\cjson\cJSON.h" />
     <ClInclude Include="Book.h" />
     <ClInclude Include="Cache.h" />
     <ClInclude Include="EpubBook.h" />
@@ -97,9 +98,11 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TextBook.h" />
     <ClInclude Include="types.h" />
+    <ClInclude Include="Upgrade.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\opensrc\cjson\cJSON.cpp" />
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="Cache.cpp" />
     <ClCompile Include="EpubBook.cpp" />
@@ -110,6 +113,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="TextBook.cpp" />
+    <ClCompile Include="Upgrade.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -3,7 +3,7 @@
 
 #include <string>
 #include <map>
-#include "HttpClient.h"
+#include "types.h"
 
 
 typedef struct json_item_data_t 
@@ -33,15 +33,19 @@ public:
 
 private:
     std::wstring GetApplicationVersion(void);
+    void CancelRequest(void);
+    int ParserJson(const char *json);
+    static unsigned __stdcall DoRequest(void* param);
 
-private:
-    static unsigned int GetVersionListCompleter(bool result, request_t *req);
-    static unsigned int writer_string(void *data, unsigned int size, unsigned int nmemb, void *stream);
     
 private:
-    HttpClient m_HttpClient;
     TCHAR *m_IngoreVersion;
     json_item_data_t m_VersionInfo;
+    proxy_t* m_proxy;
+    upgrade_callback_t m_cb;
+    void* m_param;
+    HANDLE m_hThread;
+    BOOL m_bForceKill;
 };
 
 #endif

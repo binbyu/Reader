@@ -885,24 +885,15 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     BOOL bResult = FALSE;
     int value = 0;
     TCHAR buf[64] = {0};
-    wchar_t *uni = NULL;
-    char *utf8 = NULL;
-    int len;
     switch (message)
     {
     case WM_INITDIALOG:
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("不使用代理"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("使用代理"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_SETCURSEL, _header->proxy.enable ? 1 : 0, NULL);
-        uni = Utils::utf8_to_utf16(_header->proxy.addr, &len);
-        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), uni);
-        free(uni);
-        uni = Utils::utf8_to_utf16(_header->proxy.user, &len);
-        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), uni);
-        free(uni);
-        uni = Utils::utf8_to_utf16(_header->proxy.pass, &len);
-        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), uni);
-        free(uni);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), _header->proxy.addr);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), _header->proxy.user);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), _header->proxy.pass);
         if (_header->proxy.port == 0)
             SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PORT), _T(""));
         else
@@ -953,17 +944,11 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->proxy.enable = FALSE;
             }
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), buf, 64-1);
-            utf8 = Utils::utf16_to_utf8(buf, &len);
-            strcpy(_header->proxy.addr, utf8);
-            free(utf8);
+            wcscpy(_header->proxy.addr, buf);
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), buf, 64-1);
-            utf8 = Utils::utf16_to_utf8(buf, &len);
-            strcpy(_header->proxy.user, utf8);
-            free(utf8);
+            wcscpy(_header->proxy.user, buf);
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), buf, 64-1);
-            utf8 = Utils::utf16_to_utf8(buf, &len);
-            strcpy(_header->proxy.pass, utf8);
-            free(utf8);
+            wcscpy(_header->proxy.pass, buf);
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1211,6 +1196,8 @@ INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
         case IDC_BUTTON_UPGRADE_INGORE:
             vinfo = _Upgrade.GetVersionInfo();
             wcscpy(_header->ingore_version, vinfo->version.c_str());
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
             break;
         case IDC_BUTTON_UPGRADE_DOWN:
             vinfo = _Upgrade.GetVersionInfo();
@@ -1243,6 +1230,11 @@ LRESULT OnCreate(HWND hWnd)
     SendMessage(_hTreeView, WM_SETFONT, (WPARAM)CreateFontIndirect(&(theMetrics.lfMenuFont)), NULL);
     SendMessage(_hTreeView, TVM_SETITEMHEIGHT, 22, NULL);
 
+#if !ENABLE_NETWORK
+    HMENU hHelp = GetSubMenu(_WndInfo.hMenu, 3);
+    RemoveMenu(hHelp, IDM_PROXY, MF_BYCOMMAND);
+    RemoveMenu(hHelp, GetMenuItemCount(hHelp) - 2, MF_BYPOSITION);
+#endif
     OnUpdateMenu(hWnd);
 
     // open the last file
@@ -1253,7 +1245,9 @@ LRESULT OnCreate(HWND hWnd)
     }
 
     // check upgrade
-    //CheckUpgrade(hWnd);
+#if ENABLE_NETWORK
+    CheckUpgrade(hWnd);
+#endif
     return 0;
 }
 

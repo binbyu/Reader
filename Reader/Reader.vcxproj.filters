@@ -63,6 +63,12 @@
     <ClInclude Include="TextBook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Upgrade.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\opensrc\cjson\cJSON.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -87,6 +93,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TextBook.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\opensrc\cjson\cJSON.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Upgrade.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

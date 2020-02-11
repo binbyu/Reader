@@ -244,16 +244,22 @@ INT PageCache::GetTextLength(void)
 
 BOOL PageCache::IsFirstPage(void)
 {
+    if (!m_CurrentPos)
+        return FALSE;
     return (*m_CurrentPos) == 0;
 }
 
 BOOL PageCache::IsLastPage(void)
 {
+    if (!m_CurrentPos)
+        return FALSE;
     return (*m_CurrentPos) + m_CurPageSize == m_TextLength;
 }
 
 double PageCache::GetProgress(void)
 {
+    if (!m_CurrentPos)
+        return 0.0;
     return (double)((*m_CurrentPos) + m_CurPageSize)*100.0/m_TextLength;
 }
 
@@ -261,6 +267,8 @@ LONG PageCache::GetLineHeight(HDC hdc)
 {
     SIZE sz = { 0 };
     GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
+    if (!m_lineGap)
+        return sz.cy;
     return sz.cy + (*m_lineGap);
 }
 

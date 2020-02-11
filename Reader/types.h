@@ -6,6 +6,8 @@
 #define CACHE_FILE_NAME             _T(".cache.dat")
 #define MAX_CHAPTER_LENGTH          256
 
+#define USING_MENU_CHAPTERS         0
+#define ENABLE_NETWORK              1
 
 #define IDM_CUSTOM_BEGIN            (50000)
 #define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)
@@ -20,8 +22,6 @@
 #define WM_UPDATE_CHAPTERS          (WM_USER + 101)
 #define WM_OPEN_BOOK                (WM_USER + 102)
 
-#define USING_MENU_CHAPTERS         0
-#define ENABLE_NETWORK              0
 
 typedef unsigned char   u8;
 typedef unsigned long   u32;
@@ -56,10 +56,10 @@ typedef struct
 typedef struct  
 {
     BOOL enable;
-    char addr[64];
+    WCHAR addr[64];
     int port;
-    char user[64];
-    char pass[64];
+    WCHAR user[64];
+    WCHAR pass[64];
 } proxy_t;
 
 typedef struct 
