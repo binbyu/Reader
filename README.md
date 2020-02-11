@@ -2,18 +2,30 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.5.3.0`<br/>
+最新release版本：`v1.6.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1astdGSbrGfr3a8vQfdP3Lg](https://pan.baidu.com/s/1astdGSbrGfr3a8vQfdP3Lg)<br/>
-提取码: `zb7d`
+链接: [https://pan.baidu.com/s/1GLkNicVM8DU9WFAHFS6uEQ](https://pan.baidu.com/s/1GLkNicVM8DU9WFAHFS6uEQ)<br/>
+提取码: `igbm`
 ****
 <br/>
 <br/>
 <br/>
 <br/>
-# v1.5.1.0 2020/1/16 bug修复<br/>
+# v1.6.0.0 2020/2/11 bug修复<br/>
+1. 修复部分用户电脑再次打开软件时crash bug<br/>
+2. 增加版本更新推送功能<br/>
+  2.1 如果使用代理上网，需要配置网络代理：菜单help > proxy<br/>
+  2.2 由于没有自己的服务器，这里只能使用github中转获取真实下载地址<br/>
+<br/>
+<br/>
+<br/>
+# v1.5.3.0 2020/1/16 bug修复<br/>
 1. 修复v1.5.0.0版本引入的，Ctrl+F搜索框无焦点bug（搜索框无法使用和关闭）<br/>
 2. 修复小说目录部分章节丢失bug<br/>
+<br/>
+版本：`v1.5.3.0`<br/>
+链接: https://pan.baidu.com/s/1vDQCNNK6Z8F4_D-ZzWgTGg<br/>
+提取码: zb7d<br/>
 <br/>
 <br/>
 <br/>
