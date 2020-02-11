@@ -490,6 +490,8 @@ BOOL PageCache::IsValid(void)
         return FALSE;
     if (book->IsLoading())
         return FALSE;
+    if (!m_lineGap || !m_CurrentPos || !m_InternalBorder)
+        return FALSE;
     return TRUE;
 }
 

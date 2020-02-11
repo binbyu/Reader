@@ -462,7 +462,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             OnLineDown(hWnd);
         }
-        else if ('F' == wParam && _Book)
+        else if ('F' == wParam && _Book && !_Book->IsLoading())
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
             {
@@ -486,7 +486,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnOpenFile(hWnd, message, wParam, lParam);
             }
         }
-        else if ('G' == wParam && _Book)
+        else if ('G' == wParam && _Book && !_Book->IsLoading())
         {
             if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
             {
@@ -1997,7 +1997,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','5','0','0'};
+    char version[4] = {'1','6','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -2051,7 +2051,7 @@ void UpdateProgess(void)
     static TCHAR progress[32] = {0};
     double dprog = 0.0;
     int nprog = 0;
-    if (_item && _Book)
+    if (_item && _Book && !_Book->IsLoading())
     {
         dprog = (double)_Book->GetProgress();
         nprog = (int)(dprog * 100);

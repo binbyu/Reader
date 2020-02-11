@@ -70,9 +70,7 @@ typedef enum {
     XPATH_INVALID_CHAR_ERROR,
     XPATH_INVALID_CTXT,
     XPATH_STACK_ERROR,
-    XPATH_FORBID_VARIABLE_ERROR,
-    XPATH_OP_LIMIT_EXCEEDED,
-    XPATH_RECURSION_LIMIT_EXCEEDED
+    XPATH_FORBID_VARIABLE_ERROR
 } xmlXPathError;
 
 /*
@@ -84,7 +82,7 @@ struct _xmlNodeSet {
     int nodeNr;			/* number of nodes in the set */
     int nodeMax;		/* size of the array as allocated */
     xmlNodePtr *nodeTab;	/* array of nodes in no particular order */
-    /* @@ with_ns to check whether namespace nodes should be looked at @@ */
+    /* @@ with_ns to check wether namespace nodes should be looked at @@ */
 };
 
 /*
@@ -354,13 +352,6 @@ struct _xmlXPathContext {
 
     /* Cache for reusal of XPath objects */
     void *cache;
-
-    /* Resource limits */
-    unsigned long opLimit;
-    unsigned long opCount;
-    int depth;
-    int maxDepth;
-    int maxParserDepth;
 };
 
 /*
