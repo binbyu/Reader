@@ -17,6 +17,7 @@ public:
 	static wchar_t* ansi_to_utf16(const char* str, int* len);
 	static char* utf16_to_ansi(const wchar_t* str, int* len);
 	static wchar_t* utf8_to_utf16(const char* str, int* len);
+	static wchar_t* utf8_to_utf16_ex(const char* str, int size, int* len);
 	static char* utf16_to_utf8(const wchar_t* str, int* len);
 	static void free_buffer(void* buffer);
 

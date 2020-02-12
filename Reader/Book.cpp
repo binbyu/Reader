@@ -221,7 +221,8 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
     }
     else if (Utils::is_utf8(src, srcsize > 1024 ? 1024 : srcsize))
     {
-        *dst = Utils::utf8_to_utf16(src, dstsize);
+        //*dst = Utils::utf8_to_utf16(src, dstsize);
+        *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize); // fixed bug : invalid utf8 text
         (*dstsize)--;
     }
     else
@@ -251,6 +252,8 @@ bool Book::FormatText(wchar_t *text, int *len)
             continue;
         flag = false;
 #endif
+        if (i < ((*len) - 1) && text[i] == 0x00)
+            continue; // fixed bug : invalid utf8 text
         if (text[i] == 0x0D)
             continue; // 0x0d 0x0a -> 0x0a
         if (index > 1 && buf[index-1] == text[i] && buf[index-2] == text[i] && IsBlanks(text[i]))
