@@ -4,8 +4,8 @@ A win32 txt file reader
 ****
 最新release版本：`v1.6.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1GLkNicVM8DU9WFAHFS6uEQ](https://pan.baidu.com/s/1GLkNicVM8DU9WFAHFS6uEQ)<br/>
-提取码: `igbm`
+链接: [https://pan.baidu.com/s/1KbzVW-x4-TmWRh7hPaxaAA](https://pan.baidu.com/s/1KbzVW-x4-TmWRh7hPaxaAA)<br/>
+提取码: `vpe3`
 ****
 <br/>
 <br/>

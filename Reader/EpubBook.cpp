@@ -117,7 +117,7 @@ bool EpubBook::UnzipBook(void)
     unz_global_info64 gi = {0};
     int err = UNZ_ERRNO;
     unz_file_info64 file_info;
-    char filename_inzip[256] = {0};
+    char filename_inzip[MAX_PATH] = {0};
     char *buf = NULL;
     file_data_t fdata;
 
