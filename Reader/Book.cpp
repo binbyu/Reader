@@ -221,9 +221,12 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
     }
     else if (Utils::is_utf8(src, srcsize > 1024 ? 1024 : srcsize))
     {
-        //*dst = Utils::utf8_to_utf16(src, dstsize);
-        *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize); // fixed bug : invalid utf8 text
+#if 0
+        *dst = Utils::utf8_to_utf16(src, dstsize);
         (*dstsize)--;
+#else
+        *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize); // fixed bug : invalid utf8 text
+#endif
     }
     else
     {

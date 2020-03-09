@@ -90,8 +90,8 @@ wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
 {
     wchar_t* result;
     *len = MultiByteToWideChar(CP_UTF8, 0, str, size, NULL, 0);
-    result = (wchar_t*)malloc((*len) * sizeof(wchar_t));
-    memset(result, 0, (*len) * sizeof(wchar_t));
+    result = (wchar_t*)malloc(((*len)+1) * sizeof(wchar_t));
+    memset(result, 0, ((*len)+1) * sizeof(wchar_t));
     MultiByteToWideChar(CP_UTF8, 0, str, size, (LPWSTR)result, *len);
     return result;
 }

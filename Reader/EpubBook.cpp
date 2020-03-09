@@ -463,6 +463,7 @@ bool EpubBook::ParserNcx(epub_t &epub)
     navpoint_t *navp = NULL;
     int i;
     bool ret = false;
+    int flag = 0;
 
     // not exist ncx
     if (epub.ncx.empty())
@@ -498,18 +499,27 @@ bool EpubBook::ParserNcx(epub_t &epub)
     for (i = 0; i < nodeset->nodeNr; i++)
     {
         src = NULL;
+        text = NULL;
         node = nodeset->nodeTab[i];
         id = xmlGetProp(node, BAD_CAST"id");
         order = xmlGetProp(node, BAD_CAST"playOrder");
-        text = xmlNodeGetContent(node);
+        //text = xmlNodeGetContent(node);
         node = node->children;
+        flag = 0;
         while (node)
         {
             if (xmlStrcasecmp(node->name, BAD_CAST"content") == 0)
             {
                 src = xmlGetProp(node, BAD_CAST"src");
-                break;
+                flag++;
             }
+            if (xmlStrcasecmp(node->name, BAD_CAST"navLabel") == 0)
+            {
+                text = xmlNodeGetContent(node->children);
+                flag++;
+            }
+            if (flag >= 2)
+                break;
             node = node->next;
         }
 
@@ -538,7 +548,7 @@ bool EpubBook::ParserNcx(epub_t &epub)
             navp->text = (const char *)text;
         if (src)
             navp->src = (const char *)src;
-        epub.navmap.insert(std::make_pair(navp->id, navp));
+        epub.navmap.insert(std::make_pair(navp->src, navp));
 
         if (id)
             xmlFree(id);
@@ -700,7 +710,7 @@ bool EpubBook::ParserChapters(epub_t &epub)
     wchar_t *text = NULL;
     wchar_t *title = NULL;
     int len = 0, tlen = 0;
-    int index = 0, i=0;
+    int index = 0, i=0, cidx=0;
     buffer_t *buffer = NULL;
 
     m_TextLength = 1; // add one wchar_t '0x0a' new line for cover
@@ -714,7 +724,7 @@ bool EpubBook::ParserChapters(epub_t &epub)
         {
             filename = epub.path + itmfest->second->href;
             itflist = m_flist.find(filename);
-            itnav = epub.navmap.find(itmfest->second->id);
+            itnav = epub.navmap.find(itmfest->second->href);
             if (itflist != m_flist.end() /*&& itnav != epub.navmap.end()*/)
             {
                 fdata = &(itflist->second);
@@ -738,7 +748,8 @@ bool EpubBook::ParserChapters(epub_t &epub)
                         if (title)
                             free(title);
                         if (!chapter.title.empty())
-                            m_Chapters.insert(std::make_pair(IDM_CHAPTER_BEGIN + index++, chapter));
+                            m_Chapters.insert(std::make_pair(IDM_CHAPTER_BEGIN + cidx++, chapter));
+                        index++;
                     }
                 }
             }
