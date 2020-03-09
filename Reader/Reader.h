@@ -73,6 +73,7 @@ LRESULT             OnFullScreen(HWND);
 LRESULT             OnUpdateChapters(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
+void                ShowHideWindow(HWND);
 void                OnOpenBook(HWND, TCHAR *);
 UINT                GetCacheVersion(void);
 BOOL                Init(void);

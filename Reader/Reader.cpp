@@ -557,14 +557,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_HOTKEY:
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
         {
-            // show or hide window
-            BOOL isShow = IsWindowVisible(hWnd);
-            ShowWindow(hWnd, isShow ? SW_HIDE : SW_SHOW);
-            SetForegroundWindow(hWnd);
-            isShow = !isShow;
+            ShowHideWindow(hWnd);
         }
         break;
     case WM_LBUTTONDOWN:
+        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON))
+        {
+            ShowHideWindow(hWnd);
+            break;
+        }
         if (_header->page_mode == 1)
         {
             OnPageDown(hWnd);
@@ -591,6 +592,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_RBUTTONDOWN:
+        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON))
+        {
+            ShowHideWindow(hWnd);
+            break;
+        }
         if (_header->page_mode == 1)
         {
             OnPageUp(hWnd);
@@ -1920,6 +1926,15 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
     
     return CallNextHookEx(_hMouseHook, nCode, wParam, lParam);
+}
+
+void ShowHideWindow(HWND hWnd)
+{
+    // show or hide window
+    BOOL isShow = IsWindowVisible(hWnd);
+    ShowWindow(hWnd, isShow ? SW_HIDE : SW_SHOW);
+    if (!isShow)
+        SetForegroundWindow(hWnd);
 }
 
 void OnOpenBook(HWND hWnd, TCHAR *filename)
