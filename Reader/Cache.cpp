@@ -81,6 +81,11 @@ bool Cache::exit()
     return result;
 }
 
+bool Cache::save()
+{
+    return write();
+}
+
 header_t* Cache::get_header()
 {
     return (header_t*)m_buffer;
@@ -227,7 +232,7 @@ header_t* Cache::default_header()
         hFont = CreateFont(20, 0, 0, 0,
             FW_THIN,false,false,false,
             ANSI_CHARSET,OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,
+            CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
             DEFAULT_PITCH | FF_SWISS,_T("Consolas"));
         GetObject(hFont, sizeof(lf), &lf);
     }

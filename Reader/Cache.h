@@ -12,6 +12,7 @@ public:
 
     bool init();
     bool exit();
+    bool save();
     header_t* get_header();
     item_t* get_item(int item_id);
     item_t* open_item(int item_id);

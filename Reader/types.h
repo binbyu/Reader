@@ -16,11 +16,17 @@
 #define IDM_OPEN_BEGIN              (IDM_CHAPTER_END + 1)
 #define IDM_OPEN_END                (IDM_OPEN_BEGIN + 2000)
 
+#define IDI_SYSTRAY                 (IDM_OPEN_END + 1)
+#define IDM_ST_OPEN                 (IDM_OPEN_END + 2)
+#define IDM_ST_EXIT                 (IDM_OPEN_END + 3)
+
 #if ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
 #endif
 #define WM_UPDATE_CHAPTERS          (WM_USER + 101)
 #define WM_OPEN_BOOK                (WM_USER + 102)
+#define WM_SYSTRAY                  (WM_USER + 103)
+#define WM_TASKBAR_CREATED          (RegisterWindowMessage(_T("TaskbarCreated")))
 
 
 typedef unsigned char   u8;

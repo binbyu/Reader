@@ -10,7 +10,6 @@
 #include <CommDlg.h>
 #include <commctrl.h>
 #include <vector>
-#include <shellapi.h>
 #ifdef _DEBUG
 #include "dump.h"
 #endif
@@ -57,6 +56,25 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 #endif
     MSG msg;
     HACCEL hAccelTable;
+    HANDLE hMutex;
+
+    // Initialize global strings
+    LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    LoadString(hInstance, IDC_READER, szWindowClass, MAX_LOADSTRING);
+    LoadString(hInstance, IDC_STATUSBAR, szStatusClass, MAX_LOADSTRING);
+
+    // check if application is already running
+    hMutex = OpenMutex(MUTEX_ALL_ACCESS, TRUE, szTitle);
+    if (hMutex == NULL && ERROR_FILE_NOT_FOUND == GetLastError())
+    {
+        hMutex = CreateMutex(NULL, TRUE, szTitle);
+    }
+    else
+    {
+        // There's another instance running.
+        EnumWindows(EnumWindowsProc, 0);
+        return 0;
+    }
 
     // init gdiplus
     GdiplusStartupInput gdiplusStartupInput;
@@ -69,10 +87,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
         return FALSE;
     }
 
-    // Initialize global strings
-    LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadString(hInstance, IDC_READER, szWindowClass, MAX_LOADSTRING);
-    LoadString(hInstance, IDC_STATUSBAR, szStatusClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -101,6 +115,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     // uninit gdiplus
     GdiplusShutdown(gdiplusToken);
 
+    ReleaseMutex(hMutex);
+    CloseHandle(hMutex);
+
     return (int) msg.wParam;
 }
 
@@ -124,16 +141,16 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbSize = sizeof(WNDCLASSEX);
 
     wcex.style            = CS_HREDRAW | CS_VREDRAW /*| CS_DBLCLKS*/;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra        = 0;
-    wcex.cbWndExtra        = 0;
+    wcex.lpfnWndProc      = WndProc;
+    wcex.cbClsExtra       = 0;
+    wcex.cbWndExtra       = 0;
     wcex.hInstance        = hInstance;
     wcex.hIcon            = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
-    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
+    wcex.hCursor          = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground    = CreateSolidBrush(_header->bg_color);//(HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName    = MAKEINTRESOURCE(IDC_READER);
+    wcex.lpszMenuName     = MAKEINTRESOURCE(IDC_READER);
     wcex.lpszClassName    = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_BOOK));
+    wcex.hIconSm          = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_BOOK));
 
     return RegisterClassEx(&wcex);
 }
@@ -153,6 +170,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    HWND hWnd;
 
    hInst = hInstance; // Store instance handle in our global variable
+
+   // prepare for XP style controls
+   InitCommonControls();
 
    // check rect
    if (_header->rect.left < 0
@@ -177,13 +197,31 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       _header->rect.bottom - _header->rect.top,
       NULL, NULL, hInstance, NULL);
 
-   SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
-
    if (!hWnd)
    {
       return FALSE;
    }
    _hWnd = hWnd;
+
+   SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+
+   // create a systray
+   ULONGLONG ullVersion = GetDllVersion(_T("Shell32.dll"));
+   ZeroMemory(&_nid, sizeof(NOTIFYICONDATA));
+   if(ullVersion >= MAKEDLLVERULL(6,0,0,0))
+       _nid.cbSize = sizeof(NOTIFYICONDATA);
+   else if(ullVersion >= MAKEDLLVERULL(5,0,0,0))
+       _nid.cbSize = NOTIFYICONDATA_V2_SIZE;
+   else
+       _nid.cbSize = NOTIFYICONDATA_V1_SIZE;
+   _nid.hWnd = hWnd;
+   _nid.uID = IDI_SYSTRAY;
+   _nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_INFO;
+   _nid.uCallbackMessage = WM_SYSTRAY;
+   _nid.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
+   _tcscpy(_nid.szTip, szTitle);
+   Shell_NotifyIcon(NIM_ADD, &_nid);
+
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -215,7 +253,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnFindText(hWnd, message, wParam, lParam);
         return 0;
     }
-
+    if (WM_TASKBAR_CREATED == message)
+    {
+        Shell_NotifyIcon(NIM_ADD, &_nid);
+    }
     switch (message)
     {
     case WM_COMMAND:
@@ -357,7 +398,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnPaint(hWnd, hdc);
         EndPaint(hWnd, &ps);
         break;
+    case WM_CLOSE:
+        _tcscpy(_nid.szInfoTitle, _T("Reader"));
+        _tcscpy(_nid.szInfo, _T("I'm here!"));
+        _nid.uTimeout = 1000;
+        Shell_NotifyIcon(NIM_MODIFY, &_nid);
+        ShowHideWindow(hWnd);
+        _Cache.save();
+        break;
     case WM_DESTROY:
+        _nid.uFlags = 0;
+        Shell_NotifyIcon(NIM_DELETE, &_nid);
         StopAutoPage(hWnd);
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         if (_hMouseHook)
@@ -732,6 +783,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #endif
     case WM_OPEN_BOOK:
         OnOpenBookResult(hWnd, wParam == 1);
+        break;
+    case WM_SYSTRAY:
+        switch(lParam)
+        {
+        case WM_LBUTTONUP:
+            if (!IsWindowVisible(hWnd))
+                ShowWindow(hWnd, SW_SHOW);
+            SetForegroundWindow(hWnd);
+            break;
+        case WM_RBUTTONDOWN:
+        case WM_CONTEXTMENU:
+            {
+                int ret;
+                POINT pt;
+                GetCursorPos(&pt);
+                HMENU hMenu = CreatePopupMenu();
+                if(hMenu)
+                {
+                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_ST_OPEN, _T("Open"));
+                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_ST_EXIT, _T("Exit"));
+                    SetForegroundWindow(hWnd);
+                    ret = TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_RETURNCMD, pt.x, pt.y, 0, hWnd, NULL);
+                    DestroyMenu(hMenu);
+                    if (IDM_ST_OPEN == ret)
+                    {
+                        if (!IsWindowVisible(hWnd))
+                            ShowWindow(hWnd, SW_SHOW);
+                        SetForegroundWindow(hWnd);
+                    }
+                    else if (IDM_ST_EXIT == ret)
+                    {
+                        DestroyWindow(hWnd);
+                    }
+                }
+            }
+            break;
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1403,6 +1491,7 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             _header->font_color = cf.rgbColors;
             bUpdate = TRUE;
         }
+        _header->font.lfQuality = PROOF_QUALITY;
 
         if (0 != memcmp(&logFont, &_header->font, sizeof(LOGFONT)))
         {
@@ -2563,4 +2652,55 @@ bool StopLoadingImage(HWND hWnd)
     GetClientRectExceptStatusBar(hWnd, &rect);
     InvalidateRect(hWnd, &rect, FALSE);
     return true;
+}
+
+ULONGLONG GetDllVersion(LPCTSTR lpszDllName)
+{
+    ULONGLONG ullVersion = 0;
+    HINSTANCE hinstDll;
+    hinstDll = LoadLibrary(lpszDllName);
+    if(hinstDll)
+    {
+        DLLGETVERSIONPROC pDllGetVersion;
+        pDllGetVersion = (DLLGETVERSIONPROC)GetProcAddress(hinstDll, "DllGetVersion");
+        if(pDllGetVersion)
+        {
+            DLLVERSIONINFO dvi;
+            HRESULT hr;
+            ZeroMemory(&dvi, sizeof(dvi));
+            dvi.cbSize = sizeof(dvi);
+            hr = (*pDllGetVersion)(&dvi);
+            if(SUCCEEDED(hr))
+                ullVersion = MAKEDLLVERULL(dvi.dwMajorVersion, dvi.dwMinorVersion,0,0);
+        }
+        FreeLibrary(hinstDll);
+    }
+    return ullVersion;
+}
+
+BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
+{
+    DWORD ProcessId;
+    TCHAR szProcessName[MAX_PATH] = _T("<unknown>");
+    
+    GetWindowThreadProcessId(hWnd, &ProcessId);
+
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ProcessId);
+    if (hProcess)
+    {
+        HMODULE hMod;
+        DWORD cbNeeded;
+
+        if (EnumProcessModules(hProcess, &hMod, sizeof(hMod), &cbNeeded))
+        {
+            GetModuleBaseName(hProcess, hMod, szProcessName, sizeof(szProcessName)/sizeof(TCHAR));
+            if (_tcscmp(_T("Reader.exe"), szProcessName) == 0)
+            {
+                ShowWindow(hWnd, SW_SHOW);
+                SetForegroundWindow(hWnd);
+                return FALSE;
+            }
+        }
+    }
+    return TRUE;
 }

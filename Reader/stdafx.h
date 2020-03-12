@@ -28,4 +28,7 @@ using namespace Gdiplus;
 #include <Winsock2.h>
 #pragma comment(lib, "Ws2_32.lib")
 
+#include <psapi.h>
+#pragma comment(lib, "Psapi.lib")
+
 

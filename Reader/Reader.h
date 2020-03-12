@@ -10,6 +10,7 @@
 #endif
 #include "Book.h"
 #include <map>
+#include <shellapi.h>
 
 typedef struct loading_data_t
 {
@@ -37,7 +38,7 @@ HWND                _hWndStatus             = NULL;
 HWND                _hFindDlg               = NULL;
 HWND                _hTreeView              = NULL;
 UINT                _uFindReplaceMsg        = 0;
-window_info_t       _WndInfo                = {0};
+window_info_t       _WndInfo                = { 0 };
 BOOL                _IsAutoPage             = FALSE;
 #if ENABLE_NETWORK
 Upgrade             _Upgrade;
@@ -47,6 +48,7 @@ loading_data_t *    _loading                = NULL;
 BOOL                _bShowText              = TRUE;
 HHOOK               _hMouseHook             = NULL;
 HWND                _hWnd                   = NULL;
+NOTIFYICONDATA      _nid                    = { 0 };
 
 
 LRESULT             OnCreate(HWND);
@@ -98,6 +100,8 @@ bool                UpgradeCallback(void *, json_item_data_t *);
 #endif
 bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);
+ULONGLONG           GetDllVersion(LPCTSTR lpszDllName);
+BOOL CALLBACK       EnumWindowsProc(HWND hWnd, LPARAM lParam);
 
 
 #endif
