@@ -102,6 +102,8 @@ bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);
 ULONGLONG           GetDllVersion(LPCTSTR lpszDllName);
 BOOL CALLBACK       EnumWindowsProc(HWND hWnd, LPARAM lParam);
+void                ShowInTaskbar(HWND hWnd, BOOL bShow);
+void                ShowSysTray(HWND hWnd, BOOL bShow);
 
 
 #endif

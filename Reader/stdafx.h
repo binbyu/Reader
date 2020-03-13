@@ -31,4 +31,6 @@ using namespace Gdiplus;
 #include <psapi.h>
 #pragma comment(lib, "Psapi.lib")
 
+#include <Shobjidl.h>
+
 

@@ -81,6 +81,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
+    // init com
+    CoInitialize(NULL);
+
     // load cache file
     if (!Init())
     {
@@ -111,6 +114,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     }
 
     Exit();
+
+    // uninit com
+    CoUninitialize();
 
     // uninit gdiplus
     GdiplusShutdown(gdiplusToken);
@@ -190,7 +196,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        _header->rect.right = _header->rect.left + width;
        _header->rect.bottom = _header->rect.top + height;
    }
-
+   
    hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
       _header->rect.right - _header->rect.left,
@@ -205,22 +211,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
 
-   // create a systray
-   ULONGLONG ullVersion = GetDllVersion(_T("Shell32.dll"));
-   ZeroMemory(&_nid, sizeof(NOTIFYICONDATA));
-   if(ullVersion >= MAKEDLLVERULL(6,0,0,0))
-       _nid.cbSize = sizeof(NOTIFYICONDATA);
-   else if(ullVersion >= MAKEDLLVERULL(5,0,0,0))
-       _nid.cbSize = NOTIFYICONDATA_V2_SIZE;
-   else
-       _nid.cbSize = NOTIFYICONDATA_V1_SIZE;
-   _nid.hWnd = hWnd;
-   _nid.uID = IDI_SYSTRAY;
-   _nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_INFO;
-   _nid.uCallbackMessage = WM_SYSTRAY;
-   _nid.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_BOOK));
-   _tcscpy(_nid.szTip, szTitle);
-   Shell_NotifyIcon(NIM_ADD, &_nid);
+   ShowSysTray(hWnd, _header->show_systray);
+   ShowInTaskbar(hWnd, !_header->hide_taskbar);
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
@@ -255,7 +247,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     if (WM_TASKBAR_CREATED == message)
     {
-        Shell_NotifyIcon(NIM_ADD, &_nid);
+        ShowSysTray(hWnd, TRUE);
     }
     switch (message)
     {
@@ -399,16 +391,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
-        _tcscpy(_nid.szInfoTitle, _T("Reader"));
-        _tcscpy(_nid.szInfo, _T("I'm here!"));
-        _nid.uTimeout = 1000;
-        Shell_NotifyIcon(NIM_MODIFY, &_nid);
-        ShowHideWindow(hWnd);
-        _Cache.save();
+        if (_header->show_systray)
+        {
+            _tcscpy(_nid.szInfoTitle, _T("Reader"));
+            _tcscpy(_nid.szInfo, _T("I'm here!"));
+            _nid.uTimeout = 1000;
+            Shell_NotifyIcon(NIM_MODIFY, &_nid);
+            ShowHideWindow(hWnd);
+            _Cache.save();
+        }
+        else
+        {
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
         break;
     case WM_DESTROY:
-        _nid.uFlags = 0;
-        Shell_NotifyIcon(NIM_DELETE, &_nid);
+        ShowSysTray(hWnd, FALSE);
         StopAutoPage(hWnd);
         UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
         if (_hMouseHook)
@@ -790,6 +788,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_LBUTTONUP:
             if (!IsWindowVisible(hWnd))
                 ShowWindow(hWnd, SW_SHOW);
+            if (IsIconic(hWnd))
+                ShowWindow(hWnd, SW_RESTORE);
             SetForegroundWindow(hWnd);
             break;
         case WM_RBUTTONDOWN:
@@ -810,6 +810,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     {
                         if (!IsWindowVisible(hWnd))
                             ShowWindow(hWnd, SW_SHOW);
+                        if (IsIconic(hWnd))
+                            ShowWindow(hWnd, SW_RESTORE);
                         SetForegroundWindow(hWnd);
                     }
                     else if (IDM_ST_EXIT == ret)
@@ -886,91 +888,129 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         WheelSpeedInit(hDlg);
         // init hotkey
         HotkeyInit(hDlg);
+        // init window style
+        if (_header->show_systray)
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_UNCHECKED, NULL);
+        if (_header->hide_taskbar)
+        {
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, BST_CHECKED, NULL);
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
+            EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), FALSE);
+        }
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, BST_UNCHECKED, NULL);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        switch (LOWORD(wParam))
         {
-            switch (LOWORD(wParam))
+        case IDOK:
+            GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
+            if (!bResult)
             {
-            case IDOK:
-                GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
-                if (!bResult)
-                {
-                    MessageBox(hDlg, _T("Invalid line gap value!"), _T("Error"), MB_OK|MB_ICONERROR);
-                    return (INT_PTR)TRUE;
-                }
-                GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
-                if (!bResult)
-                {
-                    MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
-                    return (INT_PTR)TRUE;
-                }
-                value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
-                if (!bResult || value == 0)
-                {
-                    MessageBox(hDlg, _T("Invalid auto page time value!"), _T("Error"), MB_OK|MB_ICONERROR);
-                    return (INT_PTR)TRUE;
-                }
-                // save hot key
-                if (!HotkeySave(hDlg))
-                {
-                    return (INT_PTR)TRUE;
-                }
-                if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
-                {
-                    _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) + 1;
-                }
-                res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE1), BM_GETCHECK, 0, NULL);
+                MessageBox(hDlg, _T("Invalid line gap value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                return (INT_PTR)TRUE;
+            }
+            GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
+            if (!bResult)
+            {
+                MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                return (INT_PTR)TRUE;
+            }
+            value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
+            if (!bResult || value == 0)
+            {
+                MessageBox(hDlg, _T("Invalid auto page time value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                return (INT_PTR)TRUE;
+            }
+            // save hot key
+            if (!HotkeySave(hDlg))
+            {
+                return (INT_PTR)TRUE;
+            }
+            if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
+            {
+                _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) + 1;
+            }
+            res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE1), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+            {
+                _header->page_mode = 0;
+            }
+            else
+            {
+                res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE2), BM_GETCHECK, 0, NULL);
                 if (res == BST_CHECKED)
                 {
-                    _header->page_mode = 0;
+                    _header->page_mode = 1;
                 }
                 else
                 {
-                    res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE2), BM_GETCHECK, 0, NULL);
-                    if (res == BST_CHECKED)
-                    {
-                        _header->page_mode = 1;
-                    }
-                    else
-                    {
-                        _header->page_mode = 2;
-                    }
+                    _header->page_mode = 2;
                 }
-                value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
-                if (value != _header->line_gap)
-                {
-                    _header->line_gap = value;
-                    bUpdated = TRUE;
-                }
-                value = GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
-                if (value != _header->internal_border)
-                {
-                    _header->internal_border = value;
-                    bUpdated = TRUE;
-                }
-                value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
-                if (value != _header->uElapse)
-                {
-                    _header->uElapse = value;
-                }
-                break;
-            case IDCANCEL:
-                break;
-            default:
-                break;
             }
-
-            EndDialog(hDlg, LOWORD(wParam));
-
+            value = GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
+            if (value != _header->line_gap)
+            {
+                _header->line_gap = value;
+                bUpdated = TRUE;
+            }
+            value = GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
+            if (value != _header->internal_border)
+            {
+                _header->internal_border = value;
+                bUpdated = TRUE;
+            }
+            value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
+            if (value != _header->uElapse)
+            {
+                _header->uElapse = value;
+            }
+            // show taskbar/tray or not
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_GETCHECK, 0, NULL);
+            if ((res == BST_CHECKED && _header->hide_taskbar == 0)
+                || (res == BST_UNCHECKED && _header->hide_taskbar == 1))
+            {
+                _header->hide_taskbar = !_header->hide_taskbar;
+                ShowInTaskbar(GetParent(hDlg), !_header->hide_taskbar);
+            }
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_GETCHECK, 0, NULL);
+            if ((res == BST_CHECKED && _header->show_systray == 0)
+                || (res == BST_UNCHECKED && _header->show_systray == 1))
+            {
+                _header->show_systray = !_header->show_systray;
+                ShowSysTray(GetParent(hDlg), _header->show_systray);
+            }
             if (bUpdated)
             {
                 if (_Book)
                     _Book->Reset(GetParent(hDlg));
             }
-
+            EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
+            break;
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDC_CHECK_TASKBAR:
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+            {
+                SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
+                EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), FALSE);
+            }
+            else
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), TRUE);
+            }
+            break;
+        case IDC_CHECK_TRAY:
+            break;
+        default:
+            break;
         }
         break;
     default:
@@ -1546,6 +1586,8 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (_Book)
         _Book->Reset(hWnd);
     RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
+    ShowSysTray(hWnd, _header->show_systray);
+    ShowInTaskbar(hWnd, !_header->hide_taskbar);
     return 0;
 }
 
@@ -2023,7 +2065,11 @@ void ShowHideWindow(HWND hWnd)
     BOOL isShow = IsWindowVisible(hWnd);
     ShowWindow(hWnd, isShow ? SW_HIDE : SW_SHOW);
     if (!isShow)
+    {
+        if (IsIconic(hWnd))
+            ShowWindow(hWnd, SW_RESTORE);
         SetForegroundWindow(hWnd);
+    }
 }
 
 void OnOpenBook(HWND hWnd, TCHAR *filename)
@@ -2101,7 +2147,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','6','0','0'};
+    char version[4] = {'1','7','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -2703,4 +2749,59 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
         }
     }
     return TRUE;
+}
+
+void ShowInTaskbar(HWND hWnd, BOOL bShow)
+{
+    HRESULT hr;
+    ITaskbarList* pTaskbarList;
+    hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList, (void**)&pTaskbarList );
+
+    if(SUCCEEDED(hr))
+    {
+        pTaskbarList->HrInit();
+        if(bShow)
+            pTaskbarList->AddTab(hWnd);
+        else
+            pTaskbarList->DeleteTab(hWnd);
+
+        pTaskbarList->Release();
+    }
+}
+
+void ShowSysTray(HWND hWnd, BOOL bShow)
+{
+    if (bShow)
+    {
+        if (!_nid.hWnd)
+        {
+            // create a systray
+            ULONGLONG ullVersion = GetDllVersion(_T("Shell32.dll"));
+            ZeroMemory(&_nid, sizeof(NOTIFYICONDATA));
+            if(ullVersion >= MAKEDLLVERULL(6,0,0,0))
+                _nid.cbSize = sizeof(NOTIFYICONDATA);
+            else if(ullVersion >= MAKEDLLVERULL(5,0,0,0))
+                _nid.cbSize = NOTIFYICONDATA_V2_SIZE;
+            else
+                _nid.cbSize = NOTIFYICONDATA_V1_SIZE;
+            _nid.hWnd = hWnd;
+            _nid.uID = IDI_SYSTRAY;
+            _nid.uCallbackMessage = WM_SYSTRAY;
+            _nid.hIcon = LoadIcon(hInst, MAKEINTRESOURCE(IDI_BOOK));
+            _tcscpy(_nid.szTip, szTitle);
+        }
+        if (_nid.uFlags == 0)
+        {
+            _nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_INFO;
+            Shell_NotifyIcon(NIM_ADD, &_nid);
+        }
+    }
+    else
+    {
+        if (_nid.uFlags)
+        {
+            _nid.uFlags = 0;
+            Shell_NotifyIcon(NIM_DELETE, &_nid);
+        }
+    }
 }

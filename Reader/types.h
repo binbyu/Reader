@@ -90,6 +90,8 @@ typedef struct
     UINT uElapse;
     proxy_t proxy;
     TCHAR ingore_version[16];
+    int hide_taskbar;
+    int show_systray;
     int reserved[64];
 } header_t;
 

@@ -265,6 +265,9 @@ header_t* Cache::default_header()
 
     header->bg_image.enable = 0;
 
+    header->show_systray = 0;
+    header->hide_taskbar = 0;
+
     return header;
 }
 
