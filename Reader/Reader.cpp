@@ -348,6 +348,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             break;
+        case IDM_MARK:
+            if (IsWindowVisible(_hTreeMark))
+            {
+                ShowWindow(_hTreeMark, SW_HIDE);
+            }
+            else
+            {
+                if (_Book && !_Book->IsLoading())
+                {
+                    if (_item->mark_size <= 0)
+                        break;
+                    GetClientRectExceptStatusBar(hWnd, &rc);
+                    SetWindowPos(_hTreeMark, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_SHOWWINDOW);
+                    SetFocus(_hTreeMark);
+                }
+            }
+            break;
         default:
             ResumeAutoPage(hWnd);
             return DefWindowProc(hWnd, message, wParam, lParam);
@@ -358,25 +375,91 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (((LPNMHDR)lParam)->code)
         {
         case TVN_SELCHANGED:
-            if (IsWindowVisible(_hTreeView))
+            if (((LPNMHDR)lParam)->hwndFrom == _hTreeView)
             {
-                HTREEITEM Selected;
-                TVITEM item;
-                Selected = TreeView_GetSelection(_hTreeView);
-                if (Selected)
+                if (IsWindowVisible(_hTreeView))
                 {
-                    item.mask       = TVIF_PARAM;
-                    item.hItem      = Selected;
-                    TreeView_GetItem(_hTreeView, &item);
-                    if (_Book)
-                        _Book->JumpChapter(hWnd, item.lParam);
-                    //ShowWindow(_hTreeView, SW_HIDE);
-                    PostMessage(hWnd, WM_COMMAND, IDM_VIEW, NULL);
+                    HTREEITEM Selected;
+                    TVITEM item;
+                    Selected = TreeView_GetSelection(_hTreeView);
+                    if (Selected)
+                    {
+                        item.mask       = TVIF_PARAM;
+                        item.hItem      = Selected;
+                        TreeView_GetItem(_hTreeView, &item);
+                        if (_Book && !_Book->IsLoading())
+                            _Book->JumpChapter(hWnd, item.lParam);
+                        //ShowWindow(_hTreeView, SW_HIDE);
+                        PostMessage(hWnd, WM_COMMAND, IDM_VIEW, NULL);
+                    }
+                }
+            }
+            break;
+        case NM_RCLICK:
+            if (((LPNMHDR)lParam)->hwndFrom == _hTreeMark)
+            {
+                HTREEITEM hItem = TreeView_GetNextItem(((LPNMHDR)lParam)->hwndFrom, 0, TVGN_DROPHILITE);
+                if(hItem)
+                    TreeView_SelectItem(((LPNMHDR)lParam)->hwndFrom, hItem);
+            }
+            break;
+        case NM_DBLCLK:
+            if (((LPNMHDR)lParam)->hwndFrom == _hTreeMark)
+            {
+                if (IsWindowVisible(_hTreeMark))
+                {
+                    HTREEITEM Selected;
+                    TVITEM item;
+                    Selected = TreeView_GetSelection(_hTreeMark);
+                    if (Selected)
+                    {
+                        item.mask       = TVIF_PARAM;
+                        item.hItem      = Selected;
+                        TreeView_GetItem(_hTreeMark, &item);
+                        if (_Book && !_Book->IsLoading())
+                        {
+                            _item->index = _item->mark[item.lParam];
+                            _Book->Reset(hWnd);
+                        }
+                        //ShowWindow(_hTreeMark, SW_HIDE);
+                        PostMessage(hWnd, WM_COMMAND, IDM_MARK, NULL);
+                    }
                 }
             }
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+        break;
+    case WM_CONTEXTMENU:
+        if (wParam == (WPARAM)_hTreeMark)
+        {
+            POINT pt;
+            pt.x = LOWORD(lParam); 
+            pt.y = HIWORD(lParam);
+            HMENU hMenu = CreatePopupMenu();
+            if(hMenu)
+            {
+                InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_MK_DEL, _T("Delete"));
+                SetForegroundWindow(hWnd);
+                int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, _hTreeMark, NULL);
+                DestroyMenu(hMenu);
+                if (IDM_MK_DEL == ret)
+                {
+                    HTREEITEM Selected;
+                    TVITEM item;
+                    Selected = TreeView_GetSelection(_hTreeMark);
+                    if (Selected)
+                    {
+                        item.mask       = TVIF_PARAM;
+                        item.hItem      = Selected;
+                        TreeView_GetItem(_hTreeMark, &item);
+
+                        if (_Cache.del_mark(_item, item.lParam))
+                            OnUpdateBookMark(hWnd);
+                    }
+                }
+            }
         }
         break;
     case WM_CREATE:
@@ -602,6 +685,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        else if ('M' == wParam)
+        {
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            {
+                if (_Cache.add_mark(_item, _item->index))
+                    OnUpdateBookMark(hWnd);
+            }
+        }
         break;
     case WM_HOTKEY:
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
@@ -680,6 +771,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             }
         }
+        if (IsWindowVisible(_hTreeMark))
+        {
+            ShowWindow(_hTreeMark, SW_HIDE);
+            GetCursorPos(&pt);
+            GetMenuItemRect(hWnd, GetMenu(hWnd), 2, &rc);
+            if (PtInRect(&rc, pt))
+            {
+                break;
+            }
+        }
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_NCRBUTTONDOWN:
         if (IsWindowVisible(_hTreeView))
@@ -687,6 +788,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ShowWindow(_hTreeView, SW_HIDE);
             GetCursorPos(&pt);
             GetMenuItemRect(hWnd, GetMenu(hWnd), 1, &rc);
+            if (PtInRect(&rc, pt))
+            {
+                break;
+            }
+        }
+        if (IsWindowVisible(_hTreeMark))
+        {
+            ShowWindow(_hTreeMark, SW_HIDE);
+            GetCursorPos(&pt);
+            GetMenuItemRect(hWnd, GetMenu(hWnd), 2, &rc);
             if (PtInRect(&rc, pt))
             {
                 break;
@@ -701,6 +812,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (IsWindowVisible(_hTreeView))
             {
                 SetFocus(_hTreeView);
+                break;
+            }
+            if (IsWindowVisible(_hTreeMark))
+            {
+                SetFocus(_hTreeMark);
                 break;
             }
             if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
@@ -773,6 +889,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_UPDATE_CHAPTERS:
         OnUpdateChapters(hWnd);
+        OnUpdateBookMark(hWnd);
         break;
 #if ENABLE_NETWORK
     case WM_NEW_VERSION:
@@ -1363,12 +1480,20 @@ LRESULT OnCreate(HWND hWnd)
     _hTreeView = CreateWindow(WC_TREEVIEW, _T("Tree View"), 
         /*WS_VISIBLE | */WS_CHILD /*| WS_BORDER*/ | TVS_HASLINES | TVS_NOHSCROLL | TVS_NOTOOLTIPS | TVS_LINESATROOT,
         0, 0, 200, 300, hWnd, NULL, hInst, NULL);
+    _hTreeMark = CreateWindow(WC_TREEVIEW, _T("Tree Mark"), 
+        /*WS_VISIBLE | */WS_CHILD /*| WS_BORDER*/ | TVS_HASLINES | TVS_NOHSCROLL /*| TVS_NOTOOLTIPS*/ | TVS_LINESATROOT,
+        0, 0, 200, 300, hWnd, NULL, hInst, NULL);
     //TreeView_SetBkColor(_hTreeView, GetSysColor(COLOR_MENU));
+    //TreeView_SetBkColor(_hTreeMark, GetSysColor(COLOR_MENU));
     NONCLIENTMETRICS theMetrics;
     theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
-    SendMessage(_hTreeView, WM_SETFONT, (WPARAM)CreateFontIndirect(&(theMetrics.lfMenuFont)), NULL);
+    HFONT hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
+    SendMessage(_hTreeView, WM_SETFONT, (WPARAM)hFont, NULL);
     SendMessage(_hTreeView, TVM_SETITEMHEIGHT, 22, NULL);
+    SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)hFont, NULL);
+    SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, 22, NULL);
+    //DeleteObject(hFont);
 
 #if !ENABLE_NETWORK
     HMENU hHelp = GetSubMenu(_WndInfo.hMenu, 3);
@@ -1973,6 +2098,43 @@ LRESULT OnUpdateChapters(HWND hWnd)
         }
     }
 #endif
+
+    return 0;
+}
+
+LRESULT OnUpdateBookMark(HWND hWnd)
+{
+    const int MAX_MARK_TEXT = 256;
+    TVITEM tvi = {0};
+    TVINSERTSTRUCT tvins = {0};
+    HTREEITEM hPrev = (HTREEITEM)TVI_FIRST;
+    int i;
+    TCHAR szText[MAX_MARK_TEXT] = {0};
+    int len;
+
+    TreeView_DeleteAllItems(_hTreeMark);
+    if (_Book && !_Book->IsLoading())
+    {
+        tvi.mask = TVIF_TEXT /*| TVIF_IMAGE | TVIF_SELECTEDIMAGE */| TVIF_PARAM;
+
+        for (i=0; i<_item->mark_size; i++)
+        {
+            len = _item->mark[i] + (MAX_MARK_TEXT - 1) > _Book->GetTextLength() ? _Book->GetTextLength() - _item->index : (MAX_MARK_TEXT - 1);
+            memcpy(szText, _Book->GetText()+_item->mark[i], sizeof(TCHAR)*len);
+            szText[len] = 0;
+
+            tvi.pszText = szText; 
+            tvi.cchTextMax = MAX_MARK_TEXT;
+            tvi.lParam = (LPARAM)i; 
+            tvins.item = tvi; 
+            tvins.hInsertAfter = hPrev;
+            tvins.hParent = TVI_ROOT;
+
+            // Add the item to the tree-view control. 
+
+            hPrev = (HTREEITEM)SendMessage(_hTreeMark, TVM_INSERTITEM, 0, (LPARAM)(LPTVINSERTSTRUCT)&tvins);
+        }
+    }
 
     return 0;
 }

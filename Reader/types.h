@@ -5,6 +5,7 @@
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
 #define MAX_CHAPTER_LENGTH          256
+#define MAX_MARK_COUNT              256
 
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
@@ -19,6 +20,7 @@
 #define IDI_SYSTRAY                 (IDM_OPEN_END + 1)
 #define IDM_ST_OPEN                 (IDM_OPEN_END + 2)
 #define IDM_ST_EXIT                 (IDM_OPEN_END + 3)
+#define IDM_MK_DEL                  (IDM_OPEN_END + 4)
 
 #if ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
@@ -43,6 +45,8 @@ typedef struct
 	int id;
 	int index; // save text current pos
     TCHAR file_name[MAX_PATH];
+    int mark_size;
+    int mark[MAX_MARK_COUNT]; // book mark
 } item_t;
 
 typedef enum

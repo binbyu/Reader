@@ -271,6 +271,43 @@ header_t* Cache::default_header()
     return header;
 }
 
+bool Cache::add_mark(item_t *item, int value)
+{
+    int i;
+
+    if (!item)
+        return false;
+    if (item->mark_size >= MAX_MARK_COUNT)
+        return false;
+    for (i=0; i<item->mark_size; i++)
+    {
+        if (value == item->mark[i])
+            return false;
+    }
+    item->mark[item->mark_size] = value;
+    item->mark_size++;
+    return true;
+}
+
+bool Cache::del_mark(item_t *item, int index)
+{
+    if (!item)
+        return false;
+    if (item->mark_size <= 0)
+        return false;
+    if (index >= item->mark_size)
+        return false;
+
+    // delete
+    if (item->mark_size - index - 1 > 0)
+    {
+        memcpy(item->mark+index, item->mark+index+1, (item->mark_size-index-1)*sizeof(int));
+    }
+    item->mark_size--;
+    item->mark[item->mark_size] = 0;
+    return true;
+}
+
 bool Cache::move_item(int from, int to)
 {
     // from and to is exist

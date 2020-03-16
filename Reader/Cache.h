@@ -21,6 +21,8 @@ public:
     bool delete_item(int item_id);
     bool delete_all_item(void);
     header_t* default_header();
+    bool add_mark(item_t *item, int value);
+    bool del_mark(item_t *item, int index);
 
 private:
     bool move_item(int from, int to);
