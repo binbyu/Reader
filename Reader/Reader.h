@@ -61,6 +61,8 @@ LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnRestoreDefault(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPaint(HWND, HDC);
+void                OnDraw(HWND);
+void                ResetLayerd(HWND);
 LRESULT             OnSize(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnMove(HWND);
 LRESULT             OnPageUp(HWND);
@@ -90,7 +92,7 @@ BOOL                HotkeySave(HWND);
 int                 HotKeyMap_IndexToKey(int, int);
 int                 HotKeyMap_KeyToIndex(int, int);
 TCHAR*              HotKeyMap_KeyToString(int, int);
-Bitmap*             LoadBGImage(int, int);
+Bitmap*             LoadBGImage(int, int, BYTE alpha=0xFF);
 BOOL                FileExists(TCHAR *);
 void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
@@ -106,6 +108,7 @@ ULONGLONG           GetDllVersion(LPCTSTR lpszDllName);
 BOOL CALLBACK       EnumWindowsProc(HWND hWnd, LPARAM lParam);
 void                ShowInTaskbar(HWND hWnd, BOOL bShow);
 void                ShowSysTray(HWND hWnd, BOOL bShow);
+HBITMAP             CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int height);
 
 
 #endif

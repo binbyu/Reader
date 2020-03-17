@@ -220,7 +220,7 @@ void PageCache::DrawPage(HDC hdc)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
-        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT);
+        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_NOCLIP);
         rect.top += h;
         m_CurPageSize += line->length;
     }
@@ -254,6 +254,15 @@ BOOL PageCache::IsLastPage(void)
     if (!m_CurrentPos)
         return FALSE;
     return (*m_CurrentPos) + m_CurPageSize == m_TextLength;
+}
+
+BOOL PageCache::IsCoverPage(void)
+{
+    if (!m_CurrentPos)
+        return FALSE;
+    if (!GetCover())
+        return FALSE;
+    return (*m_CurrentPos) == 0;
 }
 
 double PageCache::GetProgress(void)

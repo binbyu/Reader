@@ -18,6 +18,7 @@
 #pragma comment(lib, "Comctl32.lib")
 #pragma comment(lib, "shell32.lib")
 
+#define MIN_ALPHA_VALUE             0x64
 
 #define MAX_LOADSTRING              100
 
@@ -209,7 +210,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    }
    _hWnd = hWnd;
 
-   SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+   SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
 
    ShowSysTray(hWnd, _header->show_systray);
    ShowInTaskbar(hWnd, !_header->hide_taskbar);
@@ -470,10 +471,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         // TODO: Add any drawing code here...
-        OnPaint(hWnd, hdc);
+        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+        {
+            ResetLayerd(hWnd);
+            OnDraw(hWnd);
+        }
+        else
+        {
+            ResetLayerd(hWnd);
+            OnPaint(hWnd, hdc);
+        }
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
+        StopAutoPage(hWnd);
         if (_header->show_systray)
         {
             _tcscpy(_nid.szInfoTitle, _T("Reader"));
@@ -636,10 +647,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             // show or hiden border
             OnHideBorder(hWnd);
+            if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+            {
+                ResetLayerd(hWnd);
+                OnDraw(hWnd);
+            }
+            else
+            {
+                ResetLayerd(hWnd);
+                SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
         }
         else if (VK_F11 == wParam)
         {
             OnFullScreen(hWnd);
+            if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+            {
+                ResetLayerd(hWnd);
+                OnDraw(hWnd);
+            }
+            else
+            {
+                ResetLayerd(hWnd);
+                SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
         }
         else if (VK_ESCAPE == wParam)
         {
@@ -806,7 +839,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_MOUSEWHEEL:
         {
-            const BYTE MIN_ALPHA = 0x0F;
+            const BYTE MIN_ALPHA = 0x01;
             const BYTE MAX_ALPHA = 0xff;
             const BYTE UNIT_STEP = 0x05;
             if (IsWindowVisible(_hTreeView))
@@ -823,11 +856,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
                 {
-                    if (_header->alpha < MAX_ALPHA - UNIT_STEP)
-                        _header->alpha += UNIT_STEP;
-                    else
+                    if (GetAsyncKeyState(VK_SHIFT) & 0x8000)
+                    {
                         _header->alpha = MAX_ALPHA;
-                    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                        {
+                            ResetLayerd(hWnd);
+                            OnDraw(hWnd);
+                        }
+                        else
+                        {
+                            ResetLayerd(hWnd);
+                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                        }
+                    }
+                    else
+                    {
+                        if (_header->alpha < MAX_ALPHA - UNIT_STEP)
+                            _header->alpha += UNIT_STEP;
+                        else
+                            _header->alpha = MAX_ALPHA;
+                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                        {
+                            ResetLayerd(hWnd);
+                            OnDraw(hWnd);
+                        }
+                        else
+                        {
+                            ResetLayerd(hWnd);
+                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                        }
+                    }
                 }
                 else
                 {
@@ -838,11 +897,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
                 {
-                    if (_header->alpha > MIN_ALPHA + UNIT_STEP)
-                        _header->alpha -= UNIT_STEP;
-                    else
+                    if (GetAsyncKeyState(VK_SHIFT) & 0x8000)
+                    {
                         _header->alpha = MIN_ALPHA;
-                    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
+                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                        {
+                            ResetLayerd(hWnd);
+                            OnDraw(hWnd);
+                        }
+                        else
+                        {
+                            ResetLayerd(hWnd);
+                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                        }
+                    }
+                    else
+                    {
+                        if (_header->alpha > MIN_ALPHA + UNIT_STEP)
+                            _header->alpha -= UNIT_STEP;
+                        else
+                            _header->alpha = MIN_ALPHA;
+                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                        {
+                            ResetLayerd(hWnd);
+                            OnDraw(hWnd);
+                        }
+                        else
+                        {
+                            ResetLayerd(hWnd);
+                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                        }
+                    }
                 }
                 else
                 {
@@ -1702,17 +1787,27 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (IsZoomed(hWnd))
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     _Cache.default_header();
-    SetLayeredWindowAttributes(hWnd, 0, _header->alpha, LWA_ALPHA);
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
         _header->rect.right - _header->rect.left,
         _header->rect.bottom - _header->rect.top,
-        SWP_DRAWFRAME);
+        /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     if (_Book)
         _Book->Reset(hWnd);
     RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
     ShowSysTray(hWnd, _header->show_systray);
     ShowInTaskbar(hWnd, !_header->hide_taskbar);
+    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+    {
+        ResetLayerd(hWnd);
+        OnDraw(hWnd);
+    }
+    else
+    {
+        ResetLayerd(hWnd);
+        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+        InvalidateRect(hWnd, NULL, TRUE);
+    }
     return 0;
 }
 
@@ -1724,8 +1819,6 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     HBITMAP hBmp = NULL;
     HFONT hFont = NULL;
     Bitmap *image;
-    EpubBook *epub = NULL;
-    Bitmap *cover = NULL;
     Graphics *g = NULL;
     Rect rect;
     UINT w,h;
@@ -1740,7 +1833,7 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     image = LoadBGImage(rc.right-rc.left,rc.bottom-rc.top);
     if (image)
     {
-        image->GetHBITMAP(Color(255, 255, 255), &hBmp);
+        image->GetHBITMAP(Color(0, 0, 0, 0), &hBmp);
         SelectObject(memdc, hBmp);
     }
     else
@@ -1798,6 +1891,210 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
         delete g;
     UpdateProgess();
     return 0;
+}
+
+void OnDraw(HWND hWnd)
+{
+    RECT rc;
+    HBRUSH hBrush = NULL;
+    HDC memdc = NULL;
+    HBITMAP hBmp = NULL;
+    HFONT hFont = NULL;
+    Bitmap *image;
+    Graphics *g = NULL;
+    Rect rect;
+    INT w,h;
+    double scale;
+    HDC hdcScreen = NULL;
+    HBITMAP hTextBmp = NULL;
+    static u32 s_bgColor = 0;
+    static Bitmap *s_bgColorImage = NULL;
+    static int s_width = 0;
+    static int s_height = 0;
+
+    GetClientRectExceptStatusBar(hWnd, &rc);
+
+    w = rc.right-rc.left;
+    h = rc.bottom-rc.top;
+
+#if 1
+    // load bg image
+    image = LoadBGImage(w, h, _header->alpha);
+    if (!image)
+    {
+        if (s_bgColorImage && s_width == w && s_height == h && s_bgColor == _header->bg_color)
+        {
+            image = s_bgColorImage;
+        }
+        else
+        {
+            if (s_bgColorImage)
+                delete s_bgColorImage;
+            s_bgColorImage = new Bitmap(w, h, PixelFormat32bppARGB);
+            // set bg color
+            Gdiplus::Color color;
+            Gdiplus::ARGB argb;
+            Gdiplus::Graphics *g = Gdiplus::Graphics::FromImage(s_bgColorImage);
+            color.SetFromCOLORREF(_header->bg_color);
+            argb = color.GetValue();
+            argb &= 0x00FFFFFF;
+            argb |= (((DWORD)_header->alpha) << 24);
+            color.SetValue(argb);
+            Gdiplus::SolidBrush brush_tr(color);
+            g->FillRectangle(&brush_tr, 0, 0, w, h);
+            delete g;
+            image = s_bgColorImage;
+        }
+    }
+
+    // memory dc
+    hdcScreen = GetDC(NULL);
+    memdc = CreateCompatibleDC(hdcScreen);
+    image->GetHBITMAP(Color(0, 0, 0, 0), &hBmp);
+    SelectObject(memdc, hBmp);
+#else
+    // memory dc
+    hdcScreen = GetDC(NULL);
+    memdc = CreateCompatibleDC(hdcScreen);
+
+    // load bg image
+    image = LoadBGImage(w, h, _header->alpha);
+    if (image)
+    {
+        image->GetHBITMAP(Color(0, 0, 0, 0), &hBmp);
+        SelectObject(memdc, hBmp);
+    }
+    else
+    {
+        hBmp = CreateCompatibleBitmap(hdcScreen, rc.right-rc.left, rc.bottom-rc.top);
+        SelectObject(memdc, hBmp);
+
+        // set bg color
+        COLORREF color = _header->bg_color;
+        hBrush = CreateSolidBrush(_header->bg_color);
+        color &= 0x00FFFFFF;
+        color |= (((DWORD)_header->alpha) << 24);
+        SelectObject(memdc, hBrush);
+        FillRect(memdc, &rc, hBrush);
+    }
+#endif
+
+#if 0  // move to LoadBGImage() and Brush color
+    // set bitmap alpha
+    Gdiplus::Color color;
+    Gdiplus::ARGB argb;
+    for (INT i=0; i<h; i++)
+    {
+        for (INT j=0; j<w; j++)
+        {
+            image->GetPixel(j, i, &color);
+            argb = color.GetValue();
+            argb &= 0x00FFFFFF;
+            argb |= (((DWORD)_header->alpha) << 24);
+            color.SetValue(argb);
+            image->SetPixel(j, i, color);
+        }
+    }
+#endif
+
+    // draw text
+    if (_Book && !_Book->IsLoading() && _bShowText)
+    {
+        hFont = CreateFontIndirect(&_header->font);
+        hTextBmp = CreateAlphaTextBitmap(hFont, _header->font_color, w, h);
+    }
+    if (_loading && _loading->enable && _bShowText)
+    {
+        g = new Graphics(memdc);
+        w = (UINT)(rc.right - rc.left) > _loading->image->GetWidth() ? _loading->image->GetWidth() : (UINT)(rc.right - rc.left);
+        h = (UINT)(rc.bottom - rc.top) > _loading->image->GetHeight() ? _loading->image->GetHeight() : (UINT)(rc.bottom - rc.top);
+        scale = ((double)_loading->image->GetWidth())/_loading->image->GetHeight();
+        if (((double)w)/h > scale)
+        {
+            // image is too high
+            w = (int)(scale * h);
+        }
+        else
+        {
+            // image is too wide
+            h = (int)(w / scale);
+        }
+
+        rect.X = (rc.right - rc.left - w)/2;
+        rect.Y = (rc.bottom - rc.top - h)/2;
+        rect.Width = w;
+        rect.Height = h;
+        g->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        g->DrawImage(_loading->image, rect, 0, 0, _loading->image->GetWidth(), _loading->image->GetHeight(), UnitPixel);
+    }
+
+    // alpha blend text to backgroud image
+    if (hTextBmp)
+    {
+        HDC hTempDC = CreateCompatibleDC(hdcScreen);
+        HBITMAP hOldBMP = (HBITMAP)SelectObject(hTempDC, hTextBmp);
+        if (hOldBMP)
+        {
+#if 1
+            // Fill blend function and blend new text to window 
+            BLENDFUNCTION bf;
+            bf.BlendOp = AC_SRC_OVER;
+            bf.BlendFlags = 0;
+            bf.SourceConstantAlpha = 0xFF; 
+            bf.AlphaFormat = AC_SRC_ALPHA;
+            AlphaBlend(memdc, 0, 0, w, h, hTempDC, 0, 0, w, h, bf);
+#else
+            BitBlt(memdc, 0, 0, w, h, hTempDC, 0, 0, SRCCOPY);
+#endif
+
+            // Clean up 
+            SelectObject(hTempDC, hOldBMP); 
+            DeleteObject(hTextBmp); 
+            DeleteDC(hTempDC); 
+        }
+    }
+
+    // update layered
+    RECT winRect;
+    GetWindowRect(hWnd, &winRect);
+    BLENDFUNCTION blend = { 0 };
+    blend.BlendOp = AC_SRC_OVER;
+    blend.BlendFlags = 0;
+    blend.SourceConstantAlpha = 0xFF;
+    blend.AlphaFormat = AC_SRC_ALPHA;
+    POINT ptPos = {winRect.left, winRect.top};
+    SIZE sizeWnd = {winRect.right - winRect.left, winRect.bottom - winRect.top};
+    POINT ptSrc = {0, 0};
+    BOOL ret = UpdateLayeredWindow(hWnd, hdcScreen, &ptPos, &sizeWnd, memdc, &ptSrc, 0, &blend, ULW_ALPHA);
+    
+
+    DeleteObject(hBmp);
+    DeleteObject(hBrush);
+    DeleteObject(hFont);
+    DeleteDC(memdc);
+    ReleaseDC(NULL, hdcScreen);
+    if (g)
+        delete g;
+    UpdateProgess();
+
+    return;
+}
+
+void ResetLayerd(HWND hWnd)
+{
+    static BOOL s_bHideBorder = FALSE;
+    static BOOL s_bFullScreen = FALSE;
+
+    if (s_bHideBorder != _WndInfo.bHideBorder || s_bFullScreen != _WndInfo.bFullScreen)
+    {
+        DWORD exstyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+        exstyle &= ~WS_EX_LAYERED;
+        SetWindowLong(hWnd, GWL_EXSTYLE, exstyle);
+        exstyle |= WS_EX_LAYERED;
+        SetWindowLong(hWnd, GWL_EXSTYLE, exstyle);
+        s_bHideBorder = _WndInfo.bHideBorder;
+        s_bFullScreen = _WndInfo.bFullScreen;
+    }
 }
 
 LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1934,7 +2231,7 @@ LRESULT OnHideBorder(HWND hWnd)
         SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
         SetMenu(hWnd, NULL);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
-        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     }
     // show border
     else
@@ -1943,7 +2240,7 @@ LRESULT OnHideBorder(HWND hWnd)
         SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
         SetMenu(hWnd, _WndInfo.hMenu);
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
-        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     }
     return 0;
 }
@@ -2612,13 +2909,14 @@ TCHAR* HotKeyMap_KeyToString(int key, int cid)
     }
 }
 
-Bitmap* LoadBGImage(int w, int h)
+Bitmap* LoadBGImage(int w, int h, BYTE alpha)
 {
     static Bitmap *bgimg = NULL;
     static TCHAR curfile[MAX_PATH] = {0};
     static int curWidth = 0;
     static int curHeight = 0;
     static int curmode = Stretch;
+    static BYTE s_alpha = 0xFF;
     Bitmap *image = NULL;
     Graphics *graphics = NULL;
     ImageAttributes ImgAtt;
@@ -2630,7 +2928,7 @@ Bitmap* LoadBGImage(int w, int h)
     }
 
     if (_tcscmp(_header->bg_image.file_name, curfile) == 0 && curWidth == w && curHeight == h 
-        && curmode == _header->bg_image.mode && bgimg)
+        && curmode == _header->bg_image.mode && bgimg && alpha == s_alpha)
     {
         return bgimg;
     }
@@ -2650,6 +2948,7 @@ Bitmap* LoadBGImage(int w, int h)
     curWidth = w;
     curHeight = h;
     curmode = _header->bg_image.mode;
+    s_alpha = alpha;
     
     // load image file
     image = Bitmap::FromFile(curfile);
@@ -2663,7 +2962,7 @@ Bitmap* LoadBGImage(int w, int h)
     }
 
     // create bg image
-    bgimg = new Bitmap(curWidth, curHeight);
+    bgimg = new Bitmap(curWidth, curHeight, PixelFormat32bppARGB);
     rcDrawRect.X=0.0;
     rcDrawRect.Y=0.0;
     rcDrawRect.Width=(float)curWidth;
@@ -2671,10 +2970,18 @@ Bitmap* LoadBGImage(int w, int h)
     graphics = Graphics::FromImage(bgimg);
     graphics->SetInterpolationMode(InterpolationModeHighQualityBicubic);
 
+    ColorMatrix colorMatrix = {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, alpha/255.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+    ImgAtt.SetColorMatrix(&colorMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
     switch (curmode)
     {
     case Stretch:
-        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel);
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel,&ImgAtt);
         break;
     case Tile:
         ImgAtt.SetWrapMode(WrapModeTile);
@@ -2685,7 +2992,7 @@ Bitmap* LoadBGImage(int w, int h)
         graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)curWidth,(float)curHeight,UnitPixel,&ImgAtt);
         break;
     default:
-        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel);
+        graphics->DrawImage(image,rcDrawRect,0.0,0.0,(float)image->GetWidth(),(float)image->GetHeight(),UnitPixel,&ImgAtt);
         break;
     }
 
@@ -2966,4 +3273,73 @@ void ShowSysTray(HWND hWnd, BOOL bShow)
             Shell_NotifyIcon(NIM_DELETE, &_nid);
         }
     }
+}
+
+HBITMAP CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int height)
+{
+    // Create DC and select font into it
+    HDC hTextDC = CreateCompatibleDC(NULL);
+    HFONT hOldFont = (HFONT)SelectObject(hTextDC, inFont);
+    HBITMAP hDIB = NULL;
+    BITMAPINFOHEADER BMIH;
+    void *pvBits = NULL;
+    HBITMAP hOldBMP = NULL;
+    BYTE* DataPtr = NULL;
+    BYTE FillR,FillG,FillB,ThisA;
+    int x,y;
+
+    // Specify DIB setup
+    memset(&BMIH, 0x0, sizeof(BITMAPINFOHEADER));
+    BMIH.biSize = sizeof(BMIH);
+    BMIH.biWidth = width;
+    BMIH.biHeight = height;
+    BMIH.biPlanes = 1;
+    BMIH.biBitCount = 32;
+    BMIH.biCompression = BI_RGB;
+
+    // Create and select DIB into DC
+    hDIB = CreateDIBSection(hTextDC, (LPBITMAPINFO)&BMIH, 0, (LPVOID*)&pvBits, NULL, 0); 
+    hOldBMP = (HBITMAP)SelectObject(hTextDC, hDIB);
+    if (hOldBMP)
+    {
+        // Set up DC properties 
+        SetTextColor(hTextDC, 0x00FFFFFF);
+        SetBkColor(hTextDC, 0x00000000);
+        SetBkMode(hTextDC, OPAQUE);
+
+        // Draw text to buffer
+        _Book->DrawPage(hTextDC);
+        if (!_Book->IsCoverPage())
+        {
+            DataPtr = (BYTE*)pvBits;
+            FillR = GetRValue(inColour);
+            FillG = GetGValue(inColour);
+            FillB = GetBValue(inColour);
+            for (y = 0; y < BMIH.biHeight; y++)
+            { 
+                for (x = 0; x < BMIH.biWidth; x++)
+                { 
+                    ThisA = *DataPtr; // Move alpha and pre-multiply with RGB 
+                    *DataPtr++ = (FillB * ThisA) >> 8; 
+                    *DataPtr++ = (FillG * ThisA) >> 8; 
+                    *DataPtr++ = (FillR * ThisA) >> 8;
+#if 1
+                    *DataPtr++ = ThisA; // Set Alpha 
+#else
+                    *DataPtr++ = ThisA == 0 ? 1 : ThisA; // Set Alpha 
+#endif
+                }
+            }
+        }
+
+        // De-select bitmap
+        SelectObject(hTextDC, hOldBMP);
+    }
+
+    // De-select font and destroy temp DC
+    SelectObject(hTextDC, hOldFont);
+    DeleteDC(hTextDC);
+
+    // Return DIBSection 
+    return hDIB;
 }

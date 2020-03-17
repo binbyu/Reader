@@ -2,12 +2,36 @@
 A win32 txt file reader
 
 ****
-最新release版本：`v1.6.1.0`<br/>
+最新release版本：`v1.7.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1f_vlXXWO3BDEjiLinaOAXg](https://pan.baidu.com/s/1f_vlXXWO3BDEjiLinaOAXg)<br/>
-提取码: `thd7`
+链接: [https://pan.baidu.com/s/1MLD2FPzDUwbbgGwSHpZtSA](https://pan.baidu.com/s/1MLD2FPzDUwbbgGwSHpZtSA)<br/>
+提取码: `5q98`
 ****
 <br/>
+<br/>
+<br/>
+<br/>
+# v1.7.0.0 2020/3/17 功能更新<br/>
+1. 增加鼠标左右键同时点击时，快速隐藏窗口<br/>
+   1.1 注意：隐藏后需要使用热键才能再次显示窗口<br/>
+2. 增加简单的书签功能<br/>
+   2.1 Ctrl + M：添加书签<br/>
+   2.2 菜单栏 > Mark：为书签列表<br/>
+   2.3 在书签列表上面鼠标右击，可以删除书签<br/>
+3. 增加最小化托盘功能<br/>
+   3.1 默认不开启此功能<br/>
+   3.2 开启方式：菜单栏 > setting > config > 窗口设置 > 勾选“最小化托盘”<br/>
+   3.3 如果勾选，点标题栏“X”，不会直接退出程序，而是最小化托盘<br/>
+4. 增加隐藏任务图标功能（此功能暂不支持windows xp及以下系统）<br/>
+   4.1 默认不开启此功能<br/>
+   4.2 开启方式：菜单栏 > setting > config > 窗口设置 > 勾选“隐藏任务图标”<br/>
+   4.3 勾选此功能，会强制勾选“最小化托盘”，方便用户点击打开窗口<br/>
+5. 支持窗口背景全透明，而字体不透明功能。<br/>
+   5.1 注意：此功能暂时只能在“隐藏边框 或者 全屏模式”下支持<br/>
+   5.2 新增 Ctrl + Shift + 鼠标滚动：直接设置最高/最低透明度。方便快速背景全透明<br/>
+       5.2.1 向上滚动：透明度直接最低(alpha = 0xff)<br/>
+       5.2.2 向下滚动：透明度直接最高(alpha = 0x01)，基本全透明<br/>
+   5.3 绘图效率相比有边框时有所下降<br/>
 <br/>
 <br/>
 <br/>
@@ -16,6 +40,10 @@ A win32 txt file reader
 2. 增加版本更新推送功能<br/>
   2.1 如果使用代理上网，需要配置网络代理：菜单help > proxy<br/>
   2.2 由于没有自己的服务器，这里只能使用github中转获取真实下载地址<br/>
+<br/>
+版本：`v1.6.1.0`<br/>
+链接: https://pan.baidu.com/s/1f_vlXXWO3BDEjiLinaOAXg<br/>
+提取码: thd7<br/>
 <br/>
 <br/>
 <br/>

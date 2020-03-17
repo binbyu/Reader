@@ -42,11 +42,13 @@ public:
     void LineUp(HWND hWnd, INT n);
     void LineDown(HWND hWnd, INT n);
     void DrawPage(HDC hdc);
+    void DrawPage(Gdiplus::Graphics g, Gdiplus::Font f, Gdiplus::SolidBrush b);
     INT GetCurPageSize(void);
     INT GetOnePageLineCount(void);
     INT GetTextLength(void);
     BOOL IsFirstPage(void);
     BOOL IsLastPage(void);
+    BOOL IsCoverPage(void);
     double GetProgress(void);
 
 protected:
