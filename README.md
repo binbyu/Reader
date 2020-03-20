@@ -1,11 +1,11 @@
 # Reader
-A win32 txt file reader
+A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.7.0.0`<br/>
+最新release版本：`v1.7.1.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1MLD2FPzDUwbbgGwSHpZtSA](https://pan.baidu.com/s/1MLD2FPzDUwbbgGwSHpZtSA)<br/>
-提取码: `5q98`
+链接: [https://pan.baidu.com/s/14F5LBqMD3YUnYQYg-WpAlA](https://pan.baidu.com/s/14F5LBqMD3YUnYQYg-WpAlA)<br/>
+提取码: `xnj8`
 ****
 <br/>
 <br/>

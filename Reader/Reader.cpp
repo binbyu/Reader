@@ -356,7 +356,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-                if (_Book && !_Book->IsLoading())
+                if (_Book && !_Book->IsLoading() && _item)
                 {
                     if (_item->mark_size <= 0)
                         break;
@@ -417,7 +417,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         item.mask       = TVIF_PARAM;
                         item.hItem      = Selected;
                         TreeView_GetItem(_hTreeMark, &item);
-                        if (_Book && !_Book->IsLoading())
+                        if (_Book && !_Book->IsLoading() && _item)
                         {
                             _item->index = _item->mark[item.lParam];
                             _Book->Reset(hWnd);
@@ -2410,7 +2410,7 @@ LRESULT OnUpdateBookMark(HWND hWnd)
     int len;
 
     TreeView_DeleteAllItems(_hTreeMark);
-    if (_Book && !_Book->IsLoading())
+    if (_Book && !_Book->IsLoading() && _item)
     {
         tvi.mask = TVIF_TEXT /*| TVIF_IMAGE | TVIF_SELECTEDIMAGE */| TVIF_PARAM;
 
