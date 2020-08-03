@@ -66,6 +66,16 @@ wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
 	return result;
 }
 
+wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
+{
+    wchar_t* result;
+    *len = MultiByteToWideChar(CP_ACP, 0, str, size, NULL, 0);
+    result = (wchar_t*)malloc(((*len)+1)*sizeof(wchar_t));
+    memset(result, 0, ((*len)+1)*sizeof(wchar_t));
+    MultiByteToWideChar(CP_ACP, 0, str, size, (LPWSTR)result, *len);
+    return result;
+}
+
 char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
 {
 	char* result;

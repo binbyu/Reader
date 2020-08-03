@@ -23,14 +23,6 @@ typedef struct loading_data_t
 } loading_data_t;
 
 
-#define ID_HOTKEY_SHOW_HIDE_WINDOW  100
-#define IDT_TIMER_PAGE              102
-#if ENABLE_NETWORK
-#define IDT_TIMER_UPGRADE           103
-#endif
-#define IDT_TIMER_LOADING           104
-
-
 Cache               _Cache(CACHE_FILE_NAME);
 header_t*           _header                 = NULL;
 item_t*             _item                   = NULL;
@@ -50,12 +42,12 @@ BOOL                _bShowText              = TRUE;
 HHOOK               _hMouseHook             = NULL;
 HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
+BYTE                _textAlpha              = 0xFF;
 
 
 LRESULT             OnCreate(HWND);
 LRESULT             OnUpdateMenu(HWND);
 LRESULT             OnOpenItem(HWND, int);
-LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnClearFileList(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
@@ -65,16 +57,25 @@ void                OnDraw(HWND);
 void                ResetLayerd(HWND);
 LRESULT             OnSize(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnMove(HWND);
-LRESULT             OnPageUp(HWND);
-LRESULT             OnPageDown(HWND);
-LRESULT             OnLineUp(HWND);
-LRESULT             OnLineDown(HWND);
-LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnGotoPrevChapter(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnGotoNextChapter(HWND, UINT, WPARAM, LPARAM);
+// WM_KEYWORD begin
+LRESULT             OnHideWin(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnHideBorder(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnFullScreen(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnTopmost(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnAddMark(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnAutoPage(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnSearch(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnJump(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnPageUp(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnPageDown(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnLineUp(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnLineDown(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnChapterUp(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnChapterDown(HWND, UINT, WPARAM, LPARAM);
+// WM_KEYWORD end
 LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnHideBorder(HWND);
-LRESULT             OnFullScreen(HWND);
+LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnUpdateChapters(HWND);
 LRESULT             OnUpdateBookMark(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
@@ -87,11 +88,6 @@ void                Exit(void);
 void                UpdateProgess(void);
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
 void                WheelSpeedInit(HWND);
-void                HotkeyInit(HWND);
-BOOL                HotkeySave(HWND);
-int                 HotKeyMap_IndexToKey(int, int);
-int                 HotKeyMap_KeyToIndex(int, int);
-TCHAR*              HotKeyMap_KeyToString(int, int);
 Bitmap*             LoadBGImage(int, int, BYTE alpha=0xFF);
 BOOL                FileExists(TCHAR *);
 void                StartAutoPage(HWND);

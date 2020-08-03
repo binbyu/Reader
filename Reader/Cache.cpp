@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 #include "Cache.h"
+#include "Keyset.h"
+#include "Upgrade.h"
 #include <stdio.h>
 #include <string.h>
 #include <shlwapi.h>
@@ -122,6 +124,7 @@ item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
     header_t* header = NULL;
     item_t* item = find_item(item_md5, file_name);
     int item_id = -1;
+    void *oldAddr = NULL;
 
     // already exist
     if (item)
@@ -131,9 +134,12 @@ item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
     }
 
     // new item
+    oldAddr = m_buffer;
     m_buffer = realloc(m_buffer, m_size+sizeof(item_t));
     if (!m_buffer)
         return NULL;
+    if (oldAddr != m_buffer)
+        update_addr();
     m_size += sizeof(item_t);
     header = get_header();
     item_id = header->size++;
@@ -255,18 +261,20 @@ header_t* Cache::default_header()
     header->internal_border = 0;
     header->version = GetCacheVersion();
 
-    // default hotkey
-    header->hk_show_1 = 0;
-    header->hk_show_2 = MOD_ALT;
-    header->hk_show_3 = 'H';
+    // default others
     header->wheel_speed = 1;
     header->page_mode = 1;
+    header->autopage_mode = 0;
     header->uElapse = 3000;
 
     header->bg_image.enable = 0;
+    header->disable_lrhide = 1;
 
     header->show_systray = 0;
     header->hide_taskbar = 0;
+
+    // default hotkey
+    KS_GetDefaultKeyBuff(header->keyset);
 
     return header;
 }
@@ -452,4 +460,15 @@ bool Cache::write()
 
     CloseHandle(hFile);
     return true;
+}
+
+void Cache::update_addr(void)
+{
+    extern Upgrade _Upgrade;
+    header_t* header = NULL;
+
+    header = (header_t*)m_buffer;
+
+    KS_UpdateBuffAddr(header->keyset);
+    _Upgrade.SetProxy(&header->proxy);
 }

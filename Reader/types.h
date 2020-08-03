@@ -31,6 +31,14 @@
 #define WM_TASKBAR_CREATED          (RegisterWindowMessage(_T("TaskbarCreated")))
 
 
+#define ID_HOTKEY_SHOW_HIDE_WINDOW  100
+#define IDT_TIMER_PAGE              102
+#if ENABLE_NETWORK
+#define IDT_TIMER_UPGRADE           103
+#endif
+#define IDT_TIMER_LOADING           104
+
+
 typedef unsigned char   u8;
 typedef unsigned long   u32;
 
@@ -85,17 +93,17 @@ typedef struct
 	int size;
     int line_gap;
     int internal_border;
-    int hk_show_1;
-    int hk_show_2;
-    int hk_show_3;
     int wheel_speed;
     int page_mode;
+    int autopage_mode;
     bg_image_t bg_image;
     UINT uElapse;
     proxy_t proxy;
     TCHAR ingore_version[16];
     int hide_taskbar;
     int show_systray;
+    int disable_lrhide;
+    unsigned long keyset[64];
     int reserved[64];
 } header_t;
 

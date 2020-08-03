@@ -5,6 +5,7 @@
 #include "Reader.h"
 #include "TextBook.h"
 #include "EpubBook.h"
+#include "Keyset.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -73,7 +74,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     else
     {
         // There's another instance running.
-        EnumWindows(EnumWindowsProc, 0);
+        static int flag = 0;
+        EnumWindows(EnumWindowsProc, (LPARAM)&flag);
         return 0;
     }
 
@@ -297,6 +299,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_CONFIG:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTING), hWnd, Setting);
             break;
+        case IDM_KEYSET:
+            KS_OpenDlg(hInst, hWnd);
+            break;
         case IDM_PROXY:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_PROXY), hWnd, Proxy);
             break;
@@ -465,8 +470,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_CREATE:
         OnCreate(hWnd);
-        // register hot key
-        RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
@@ -502,7 +505,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         ShowSysTray(hWnd, FALSE);
         StopAutoPage(hWnd);
-        UnregisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW);
+        KS_UnRegisterAllHotKey(hWnd);
         if (_hMouseHook)
         {
             UnhookWindowsHookEx(_hMouseHook);
@@ -581,113 +584,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
         if (_Book && _Book->IsLoading())
             break;
-        if (VK_LEFT == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                OnGotoPrevChapter(hWnd, message, wParam, lParam);
-            }
-            else
-            {
-                OnPageUp(hWnd);
-            }
-        }
-        else if (VK_RIGHT == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                OnGotoNextChapter(hWnd, message, wParam, lParam);
-            }
-            else
-            {
-                OnPageDown(hWnd);
-            }
-        }
-        else if (VK_UP == wParam)
-        {
-            OnLineUp(hWnd);
-        }
-        else if (VK_DOWN == wParam)
-        {
-            OnLineDown(hWnd);
-        }
-        else if ('F' == wParam && _Book && !_Book->IsLoading())
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                OnFindText(hWnd, message, wParam, lParam);
-            }
-        }
-        else if ('T' == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                // topmost window
-                static bool isTopmost = false;
-                SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
-                isTopmost = !isTopmost;
-            }
-        }
-        else if ('O' == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                OnOpenFile(hWnd, message, wParam, lParam);
-            }
-        }
-        else if ('G' == wParam && _Book && !_Book->IsLoading())
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_JUMP_PROGRESS), hWnd, JumpProgress);
-                break;
-            }
-        }
-        else if (VK_F12 == wParam)
-        {
-            // show or hiden border
-            OnHideBorder(hWnd);
-            if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-            {
-                ResetLayerd(hWnd);
-                OnDraw(hWnd);
-            }
-            else
-            {
-                ResetLayerd(hWnd);
-                SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
-        }
-        else if (VK_F11 == wParam)
-        {
-            OnFullScreen(hWnd);
-            if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-            {
-                ResetLayerd(hWnd);
-                OnDraw(hWnd);
-            }
-            else
-            {
-                ResetLayerd(hWnd);
-                SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
-        }
-        else if (VK_ESCAPE == wParam)
+
+        if (KS_KeyDownProc(hWnd, message, wParam, lParam))
+            break;
+
+        if (VK_ESCAPE == wParam)
         {
             if (_WndInfo.bFullScreen)
-                OnFullScreen(hWnd);
-        }
-        else if (VK_SPACE == wParam)
-        {
-            if (_IsAutoPage)
             {
-                StopAutoPage(hWnd);
-            }
-            else
-            {
-                StartAutoPage(hWnd);
+                OnFullScreen(hWnd, message, wParam, lParam);
             }
         }
         else if ('P' == wParam)
@@ -705,27 +610,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
-        else if ('L' == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000
-                && GetAsyncKeyState(VK_SHIFT) & 0x8000
-                && GetAsyncKeyState(18) & 0x8000) // alt
-            {
-                leftline = leftline == 0 ? 2 : 0;
-                if (_Book)
-                {
-                    _Book->SetLeftLine(leftline);
-                }
-            }
-        }
-        else if ('M' == wParam)
-        {
-            if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            {
-                if (_Cache.add_mark(_item, _item->index))
-                    OnUpdateBookMark(hWnd);
-            }
-        }
         break;
     case WM_HOTKEY:
         if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
@@ -734,14 +618,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONDOWN:
-        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON))
+        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON) && _header->disable_lrhide == 0)
         {
             ShowHideWindow(hWnd);
             break;
         }
         if (_header->page_mode == 1)
         {
-            OnPageDown(hWnd);
+            OnPageDown(hWnd, message, wParam, lParam);
         }
         else if (_header->page_mode == 2)
         {
@@ -751,7 +635,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             rc.left = rc.right/3 * 2;
             if (PtInRect(&rc, pt))
             {
-                OnPageDown(hWnd);
+                OnPageDown(hWnd, message, wParam, lParam);
             }
             else
             {
@@ -759,20 +643,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 rc.right = rc.right/3;
                 if (PtInRect(&rc, pt))
                 {
-                    OnPageUp(hWnd);
+                    OnPageUp(hWnd, message, wParam, lParam);
                 }
             }
         }
         break;
     case WM_RBUTTONDOWN:
-        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON))
+        if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON) && _header->disable_lrhide == 0)
         {
             ShowHideWindow(hWnd);
             break;
         }
         if (_header->page_mode == 1)
         {
-            OnPageUp(hWnd);
+            OnPageUp(hWnd, message, wParam, lParam);
         }
         break;
     case WM_NCLBUTTONDOWN:
@@ -888,9 +772,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                     }
                 }
+                else if (GetAsyncKeyState(18) & 0x8000) // alt
+                {
+                    if (_textAlpha < MAX_ALPHA - UNIT_STEP)
+                        _textAlpha += UNIT_STEP;
+                    else
+                        _textAlpha = MAX_ALPHA;
+                    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                    {
+                        ResetLayerd(hWnd);
+                        OnDraw(hWnd);
+                    }
+                    else
+                    {
+                        ResetLayerd(hWnd);
+                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                    }
+                }
                 else
                 {
-                    OnLineUp(hWnd);
+                    OnLineUp(hWnd, message, wParam, lParam);
                 }
             }
             else
@@ -929,9 +830,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                     }
                 }
+                else if (GetAsyncKeyState(18) & 0x8000) // alt
+                {
+                    if (_textAlpha > 0x0f + UNIT_STEP)
+                        _textAlpha -= UNIT_STEP;
+                    else
+                        _textAlpha = 0x0f;
+                    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+                    {
+                        ResetLayerd(hWnd);
+                        OnDraw(hWnd);
+                    }
+                    else
+                    {
+                        ResetLayerd(hWnd);
+                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+                    }
+                }
                 else
                 {
-                    OnLineDown(hWnd);
+                    OnLineDown(hWnd, message, wParam, lParam);
                 }
             }
         }
@@ -947,7 +865,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wParam)
         {
         case IDT_TIMER_PAGE:
-            OnPageDown(hWnd);
+            if (_header->autopage_mode == 0)
+                OnPageDown(hWnd, message, wParam, lParam);
+            else
+                OnLineDown(hWnd, message, wParam, lParam);
             if (_Book && _Book->IsLastPage())
                 StopAutoPage(hWnd);
             break;
@@ -1088,8 +1009,6 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             cid = IDC_RADIO_MODE3;
         SendMessage(GetDlgItem(hDlg, cid), BM_SETCHECK, BST_CHECKED, NULL);
         WheelSpeedInit(hDlg);
-        // init hotkey
-        HotkeyInit(hDlg);
         // init window style
         if (_header->show_systray)
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
@@ -1103,6 +1022,14 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, BST_UNCHECKED, NULL);
+        if (_header->disable_lrhide)
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_UNCHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_CHECKED, NULL);
+        if (_header->autopage_mode == 0)
+            SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_SETCHECK, BST_CHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATWHEEL), BM_SETCHECK, BST_CHECKED, NULL);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -1125,11 +1052,6 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if (!bResult || value == 0)
             {
                 MessageBox(hDlg, _T("Invalid auto page time value!"), _T("Error"), MB_OK|MB_ICONERROR);
-                return (INT_PTR)TRUE;
-            }
-            // save hot key
-            if (!HotkeySave(hDlg))
-            {
                 return (INT_PTR)TRUE;
             }
             if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
@@ -1185,11 +1107,25 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->show_systray = !_header->show_systray;
                 ShowSysTray(GetParent(hDlg), _header->show_systray);
             }
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+            {
+                _header->disable_lrhide = 0;
+            }
+            else
+            {
+                _header->disable_lrhide = 1;
+            }
             if (bUpdated)
             {
                 if (_Book)
                     _Book->Reset(GetParent(hDlg));
             }
+            res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_GETCHECK, 0, NULL);
+            if (res == BST_CHECKED)
+                _header->autopage_mode = 0;
+            else
+                _header->autopage_mode = 1;
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1598,6 +1534,10 @@ LRESULT OnCreate(HWND hWnd)
 #if ENABLE_NETWORK
     CheckUpgrade(hWnd);
 #endif
+
+    // init keyset
+    KS_Init(hWnd, _header->keyset);
+
     return 0;
 }
 
@@ -1612,7 +1552,7 @@ LRESULT OnUpdateMenu(HWND hWnd)
         hFile = NULL;
     }
     hFile = CreateMenu();
-    AppendMenu(hFile, MF_STRING, IDM_OPEN, _T("&Open"));
+    AppendMenu(hFile, MF_STRING, IDM_OPEN, _T("打开"));
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     for (int i=0; i<_header->size; i++)
     {
@@ -1621,10 +1561,10 @@ LRESULT OnUpdateMenu(HWND hWnd)
     }
     if (_header->size > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("&Clear"));
+    AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("清空"));
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hFile, MF_STRING, IDM_EXIT, _T("E&xit"));
-    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"&File");
+    AppendMenu(hFile, MF_STRING, IDM_EXIT, _T("退出"));
+    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"文件");
     DrawMenuBar(hWnd);
 
     return 0;
@@ -1668,34 +1608,6 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
         return 0L;
     }
 
-    return 0;
-}
-
-LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    if (IsWindow(_hFindDlg))
-    {
-        DestroyWindow(_hFindDlg);
-        _hFindDlg = NULL;
-    }
-    TCHAR szFileName[MAX_PATH] = {0};
-    TCHAR szTitle[MAX_PATH] = {0};
-    OPENFILENAME ofn = {0};
-    ofn.lStructSize = sizeof(ofn);  
-    ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("txt(*.txt)\0*.txt\0epub(*.epub)\0*.epub\0\0");
-    ofn.lpstrInitialDir = NULL;
-    ofn.lpstrFile = szFileName; 
-    ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
-    ofn.nFilterIndex = 0;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
-    BOOL bSel = GetOpenFileName(&ofn);
-    if (!bSel)
-    {
-        return 0;
-    }
-
-    OnOpenBook(hWnd, szFileName);
     return 0;
 }
 
@@ -1786,6 +1698,7 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (IsZoomed(hWnd))
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+    KS_UnRegisterAllHotKey(hWnd);
     _Cache.default_header();
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
@@ -1794,7 +1707,7 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     if (_Book)
         _Book->Reset(hWnd);
-    RegisterHotKey(hWnd, ID_HOTKEY_SHOW_HIDE_WINDOW, _header->hk_show_1 | _header->hk_show_2 | MOD_NOREPEAT, _header->hk_show_3);
+    KS_RegisterAllHotKey(hWnd);
     ShowSysTray(hWnd, _header->show_systray);
     ShowInTaskbar(hWnd, !_header->hide_taskbar);
     if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
@@ -2113,85 +2026,7 @@ LRESULT OnMove(HWND hWnd)
     return 0;
 }
 
-LRESULT OnPageUp(HWND hWnd)
-{
-    if (_Book)
-        _Book->PageUp(hWnd);
-    return 0;
-}
-
-LRESULT OnPageDown(HWND hWnd)
-{
-    if (_Book)
-        _Book->PageDown(hWnd);
-    return 0;
-}
-
-LRESULT OnLineUp(HWND hWnd)
-{
-    if (_Book)
-        _Book->LineUp(hWnd, _header->wheel_speed);
-    return 0;
-}
-
-LRESULT OnLineDown(HWND hWnd)
-{
-    if (_Book)
-        _Book->LineDown(hWnd, _header->wheel_speed);
-    return 0;
-}
-
-LRESULT OnGotoPrevChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    if (_Book)
-        _Book->JumpPrevChapter(hWnd);
-    return 0;
-}
-
-LRESULT OnGotoNextChapter(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    if (_Book)
-        _Book->JumpNextChapter(hWnd);
-    return 0;
-}
-
-LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    HDROP hDropInfo = (HDROP)wParam;
-    UINT  nFileCount = ::DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);
-    TCHAR szFileName[MAX_PATH] = _T("");
-    DWORD dwAttribute;
-    TCHAR *ext = NULL;
-
-    for (UINT i = 0; i < nFileCount; i++)
-    {
-        ::DragQueryFile(hDropInfo, i, szFileName, sizeof(szFileName));
-        dwAttribute = ::GetFileAttributes(szFileName);
-
-        if (dwAttribute & FILE_ATTRIBUTE_DIRECTORY)
-        {          
-            continue;
-        }
-
-        // check is txt file
-        ext = PathFindExtension(szFileName);
-        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
-        {
-            continue;
-        }
-
-        // open file
-        OnOpenBook(hWnd, szFileName);
-
-        // just open first file
-        break;
-    }
-
-    ::DragFinish(hDropInfo);
-    return 0;
-}
-
-LRESULT OnHideBorder(HWND hWnd)
+LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
 
@@ -2242,10 +2077,23 @@ LRESULT OnHideBorder(HWND hWnd)
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
         SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     }
+
+    // for alpha
+    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+    {
+        ResetLayerd(hWnd);
+        OnDraw(hWnd);
+    }
+    else
+    {
+        ResetLayerd(hWnd);
+        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+        InvalidateRect(hWnd, NULL, TRUE);
+    }
     return 0;
 }
 
-LRESULT OnFullScreen(HWND hWnd)
+LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     MONITORINFO mi;
     RECT rc;
@@ -2258,7 +2106,7 @@ LRESULT OnFullScreen(HWND hWnd)
     }
 
     _WndInfo.bFullScreen = !_WndInfo.bFullScreen;
-    
+
     if (_WndInfo.bFullScreen)
     {
         SetWindowLong(hWnd, GWL_STYLE, _WndInfo.fsStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
@@ -2266,7 +2114,7 @@ LRESULT OnFullScreen(HWND hWnd)
         SetMenu(hWnd, NULL);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
 
-        
+
         mi.cbSize = sizeof(mi);
         GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST),&mi);
         rc = mi.rcMonitor;
@@ -2284,6 +2132,173 @@ LRESULT OnFullScreen(HWND hWnd)
         SetWindowPos(hWnd, NULL, _WndInfo.fsRect.left, _WndInfo.fsRect.top, 
             _WndInfo.fsRect.right-_WndInfo.fsRect.left, _WndInfo.fsRect.bottom-_WndInfo.fsRect.top, SWP_DRAWFRAME);
     }
+
+    // for alpha
+    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+    {
+        ResetLayerd(hWnd);
+        OnDraw(hWnd);
+    }
+    else
+    {
+        ResetLayerd(hWnd);
+        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+        InvalidateRect(hWnd, NULL, TRUE);
+    }
+    return 0;
+}
+
+LRESULT OnTopmost(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static bool isTopmost = false;
+    SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
+    isTopmost = !isTopmost;
+    return 0;
+}
+
+LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (IsWindow(_hFindDlg))
+    {
+        DestroyWindow(_hFindDlg);
+        _hFindDlg = NULL;
+    }
+    TCHAR szFileName[MAX_PATH] = {0};
+    TCHAR szTitle[MAX_PATH] = {0};
+    OPENFILENAME ofn = {0};
+    ofn.lStructSize = sizeof(ofn);  
+    ofn.hwndOwner = hWnd;  
+    ofn.lpstrFilter = _T("Files (*.txt;*.epub)\0*.txt;*.epub\0\0");
+    ofn.lpstrInitialDir = NULL;
+    ofn.lpstrFile = szFileName; 
+    ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
+    ofn.nFilterIndex = 0;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
+    BOOL bSel = GetOpenFileName(&ofn);
+    if (!bSel)
+    {
+        return 0;
+    }
+
+    OnOpenBook(hWnd, szFileName);
+    return 0;
+}
+
+LRESULT OnAddMark(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+    {
+        if (_Cache.add_mark(_item, _item->index))
+            OnUpdateBookMark(hWnd);
+    }
+    return 0;
+}
+
+LRESULT OnAutoPage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+    {
+        if (_IsAutoPage)
+        {
+            StopAutoPage(hWnd);
+        }
+        else
+        {
+            StartAutoPage(hWnd);
+        }
+    }
+    return 0;
+}
+
+LRESULT OnSearch(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        OnFindText(hWnd, message, wParam, lParam);
+    return 0;
+}
+
+LRESULT OnJump(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        DialogBox(hInst, MAKEINTRESOURCE(IDD_JUMP_PROGRESS), hWnd, JumpProgress);
+    return 0;
+}
+
+LRESULT OnPageUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->PageUp(hWnd);
+    return 0;
+}
+
+LRESULT OnPageDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->PageDown(hWnd);
+    return 0;
+}
+
+LRESULT OnLineUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->LineUp(hWnd, _header->wheel_speed);
+    return 0;
+}
+
+LRESULT OnLineDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->LineDown(hWnd, _header->wheel_speed);
+    return 0;
+}
+
+LRESULT OnChapterUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->JumpPrevChapter(hWnd);
+    return 0;
+}
+
+LRESULT OnChapterDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (_Book && !_Book->IsLoading())
+        _Book->JumpNextChapter(hWnd);
+    return 0;
+}
+
+LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HDROP hDropInfo = (HDROP)wParam;
+    UINT  nFileCount = ::DragQueryFile(hDropInfo, (UINT)-1, NULL, 0);
+    TCHAR szFileName[MAX_PATH] = _T("");
+    DWORD dwAttribute;
+    TCHAR *ext = NULL;
+
+    for (UINT i = 0; i < nFileCount; i++)
+    {
+        ::DragQueryFile(hDropInfo, i, szFileName, sizeof(szFileName));
+        dwAttribute = ::GetFileAttributes(szFileName);
+
+        if (dwAttribute & FILE_ATTRIBUTE_DIRECTORY)
+        {          
+            continue;
+        }
+
+        // check is txt file
+        ext = PathFindExtension(szFileName);
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+        {
+            continue;
+        }
+
+        // open file
+        OnOpenBook(hWnd, szFileName);
+
+        // just open first file
+        break;
+    }
+
+    ::DragFinish(hDropInfo);
     return 0;
 }
 
@@ -2606,7 +2621,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','7','0','0'};
+    char version[4] = {'1','8','0','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -2665,7 +2680,11 @@ void UpdateProgess(void)
         dprog = (double)_Book->GetProgress();
         nprog = (int)(dprog * 100);
         dprog = (double)nprog / 100.0;
+#if 0
         _stprintf(progress, _T("Progress: %.2f%%"), dprog);
+#else
+        _stprintf(progress, _T("Progress: %.2f%%    ( %d / %d )"), dprog, _item->index + _Book->GetCurPageSize(), _Book->GetTextLength());
+#endif
         SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
     }
     else
@@ -2710,203 +2729,6 @@ void WheelSpeedInit(HWND hDlg)
         }
     }
     SendMessage(hWnd, CB_SETCURSEL, _header->wheel_speed - 1, NULL);
-}
-
-void HotkeyInit(HWND hDlg)
-{
-    HWND hWnd = NULL;
-    TCHAR buf[2] = {0};
-
-
-    // IDC_COMBO_SHOW_1
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_1);
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T(""));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_1, IDC_COMBO_SHOW_1), NULL);
-
-    // IDC_COMBO_SHOW_2
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_2);
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Ctrl"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Alt"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Shift"));
-    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)_T("Win"));
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_2, IDC_COMBO_SHOW_2), NULL);
-
-    // IDC_COMBO_SHOW_3
-    hWnd = GetDlgItem(hDlg, IDC_COMBO_SHOW_3);
-    for (int i='A'; i<='Z'; i++)
-    {
-        buf[0] = i;
-        SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
-    }
-    SendMessage(hWnd, CB_SETCURSEL, HotKeyMap_KeyToIndex(_header->hk_show_3, IDC_COMBO_SHOW_3), NULL);
-}
-
-BOOL HotkeySave(HWND hDlg)
-{
-    int vk_1, vk_2, vk_3;
-    TCHAR msg[256] = {0};
-
-    vk_1 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_1), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_1);
-    vk_2 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_2), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_2);
-    vk_3 = HotKeyMap_IndexToKey(SendMessage(GetDlgItem(hDlg, IDC_COMBO_SHOW_3), CB_GETCURSEL, 0, NULL), IDC_COMBO_SHOW_3);
-    
-    if (vk_1 != _header->hk_show_1 || vk_2 != _header->hk_show_2 || vk_3 != _header->hk_show_3)
-    {
-        if (!RegisterHotKey(GetParent(hDlg), ID_HOTKEY_SHOW_HIDE_WINDOW, vk_1 | vk_2 | MOD_NOREPEAT, vk_3))
-        {
-            if (vk_1 == 0)
-            {
-                _stprintf(msg, _T("[%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_2, IDC_COMBO_SHOW_2)
-                    ,HotKeyMap_KeyToString(vk_3, IDC_COMBO_SHOW_3));
-            }
-            else
-            {
-                _stprintf(msg, _T("[%s+%s+%s]\r\nis invalid or occupied.\r\nPlease choose another key.")
-                    ,HotKeyMap_KeyToString(vk_1, IDC_COMBO_SHOW_1)
-                    ,HotKeyMap_KeyToString(vk_2, IDC_COMBO_SHOW_2)
-                    ,HotKeyMap_KeyToString(vk_3, IDC_COMBO_SHOW_3));
-            }
-            MessageBox(hDlg, msg, _T("Error"), MB_OK|MB_ICONERROR);
-
-            return FALSE;
-        }
-    }
-    
-    _header->hk_show_1 = vk_1;
-    _header->hk_show_2 = vk_2;
-    _header->hk_show_3 = vk_3;
-    return TRUE;
-}
-
-static int s_hk_map_1[5] = {
-    0, MOD_CONTROL, MOD_ALT, MOD_SHIFT, MOD_WIN
-};
-
-static int s_hk_map_2[4] = {
-    MOD_CONTROL, MOD_ALT, MOD_SHIFT, MOD_WIN
-};
-
-static int s_hk_map_3[26] = {
-    'A', 'B', 'C', 'D', 'E',
-    'F', 'G', 'H', 'I', 'J',
-    'K', 'L', 'M', 'N', 'O',
-    'P', 'Q', 'R', 'S', 'T',
-    'U', 'V', 'W', 'X', 'Y',
-    'Z'
-};
-int HotKeyMap_IndexToKey(int index, int cid)
-{
-    if (index < 0)
-        return 0;
-
-    if (cid == IDC_COMBO_SHOW_1)
-    {
-        return s_hk_map_1[index];
-    }
-    else if (cid == IDC_COMBO_SHOW_2)
-    {
-        return s_hk_map_2[index];
-    }
-    else
-    {
-        return s_hk_map_3[index];
-    }
-}
-
-int HotKeyMap_KeyToIndex(int key, int cid)
-{
-    if (cid == IDC_COMBO_SHOW_1)
-    {
-        for (int i=0; i<5; i++)
-        {
-            if (key == s_hk_map_1[i])
-            {
-                return i;
-            }
-        }
-    }
-    else if (cid == IDC_COMBO_SHOW_2)
-    {
-        for (int i=0; i<4; i++)
-        {
-            if (key == s_hk_map_2[i])
-            {
-                return i;
-            }
-        }
-    }
-    else
-    {
-        for (int i=0; i<26; i++)
-        {
-            if (key == s_hk_map_3[i])
-            {
-                return i;
-            }
-        }
-    }
-    return -1;
-}
-
-TCHAR* HotKeyMap_KeyToString(int key, int cid)
-{
-    static TCHAR buf1[8] = {0};
-    static TCHAR buf2[8] = {0};
-    static TCHAR buf3[8] = {0};
-
-
-    if (cid == IDC_COMBO_SHOW_1)
-    {
-        switch (key)
-        {
-        case 0:
-            memset(buf1, 0, sizeof(TCHAR)*8);
-            break;
-        case MOD_CONTROL:
-            _tcscpy(buf1, _T("Ctrl"));
-            break;
-        case MOD_ALT:
-            _tcscpy(buf1, _T("Alt"));
-            break;
-        case MOD_SHIFT:
-            _tcscpy(buf1, _T("Shift"));
-            break;
-        case MOD_WIN:
-            _tcscpy(buf1, _T("Win"));
-            break;
-        }
-        return buf1;
-    }
-    else if (cid == IDC_COMBO_SHOW_2)
-    {
-        switch (key)
-        {
-        case MOD_CONTROL:
-            _tcscpy(buf2, _T("Ctrl"));
-            break;
-        case MOD_ALT:
-            _tcscpy(buf2, _T("Alt"));
-            break;
-        case MOD_SHIFT:
-            _tcscpy(buf2, _T("Shift"));
-            break;
-        case MOD_WIN:
-            _tcscpy(buf2, _T("Win"));
-            break;
-        }
-        return buf2;
-    }
-    else
-    {
-        memset(buf3, 0, sizeof(TCHAR)*8);
-        buf3[0] = key;
-        return buf3;
-    }
 }
 
 Bitmap* LoadBGImage(int w, int h, BYTE alpha)
@@ -3197,9 +3019,10 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
 {
     DWORD ProcessId;
     TCHAR szProcessName[MAX_PATH] = _T("<unknown>");
+    int *flag = (int*)lParam;
     
     GetWindowThreadProcessId(hWnd, &ProcessId);
-
+    
     HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ProcessId);
     if (hProcess)
     {
@@ -3213,7 +3036,8 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
             {
                 ShowWindow(hWnd, SW_SHOW);
                 SetForegroundWindow(hWnd);
-                return FALSE;
+                (*flag) += 1;
+                return (*flag) > 1 ? FALSE : TRUE;
             }
         }
     }
@@ -3323,10 +3147,10 @@ HBITMAP CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int he
                     *DataPtr++ = (FillB * ThisA) >> 8; 
                     *DataPtr++ = (FillG * ThisA) >> 8; 
                     *DataPtr++ = (FillR * ThisA) >> 8;
-#if 1
+#if 0
                     *DataPtr++ = ThisA; // Set Alpha 
 #else
-                    *DataPtr++ = ThisA == 0 ? 1 : ThisA; // Set Alpha 
+                    *DataPtr++ = ThisA > _textAlpha ? _textAlpha : ThisA;
 #endif
                 }
             }

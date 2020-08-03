@@ -143,7 +143,8 @@ bool TextBook::ParserChapters(void)
                 && ((line_size > i + 1 && text[i + 1] == _T(' ')
                     || text[i + 1] == _T('\t'))
                     || text[i + 1] == 0x3000 // Full Angle space
-                    || line_size <= i + 1))
+                    || line_size <= i + 1)
+                    || text[i + 1] == _T('£º'))
             {
                 if (text[i] == _T('¾í')
                     || text[i] == _T('ÕÂ')

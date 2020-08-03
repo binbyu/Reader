@@ -28,6 +28,7 @@ private:
     bool move_item(int from, int to);
     bool read();
     bool write();
+    void update_addr(void);
 
 private:
 	TCHAR m_file_name[MAX_PATH];
