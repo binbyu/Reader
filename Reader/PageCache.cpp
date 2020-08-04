@@ -274,6 +274,46 @@ double PageCache::GetProgress(void)
     return (double)((*m_CurrentPos) + m_CurPageSize)*100.0/m_TextLength;
 }
 
+BOOL PageCache::GetCurPageText(TCHAR **text)
+{
+    int newlinecount = 0;
+    TCHAR *c = NULL;
+    int i,j;
+
+    if (m_CurPageSize > 0)
+    {
+#if 1
+        for (i=0; i<m_CurPageSize; i++)
+        {
+            c = m_Text + ((*m_CurrentPos) + i);
+            if (*c == 0x0A)
+            {
+                newlinecount++;
+            }
+        }
+
+        *text = (TCHAR *)malloc(sizeof(TCHAR) * (m_CurPageSize + newlinecount + 1));
+
+        for (i=0,j=0; i<m_CurPageSize; i++)
+        {
+            c = m_Text + ((*m_CurrentPos) + i);
+            if (*c == 0x0A)
+            {
+                (*text)[j++] = 0x0D;
+            }
+            (*text)[j++] = *(m_Text + ((*m_CurrentPos) + i));
+        }
+        (*text)[j] = 0;
+#else
+        *text = (TCHAR *)malloc(sizeof(TCHAR) * (m_CurPageSize + 1));
+        (*text)[m_CurPageSize] = 0;
+        memcpy(*text, m_Text + (*m_CurrentPos), sizeof(TCHAR) * m_CurPageSize);
+#endif
+        return TRUE;
+    }
+    return FALSE;
+}
+
 LONG PageCache::GetLineHeight(HDC hdc)
 {
     SIZE sz = { 0 };

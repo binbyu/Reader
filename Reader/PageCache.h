@@ -50,6 +50,7 @@ public:
     BOOL IsLastPage(void);
     BOOL IsCoverPage(void);
     double GetProgress(void);
+    BOOL GetCurPageText(TCHAR **text);
 
 protected:
     LONG GetLineHeight(HDC hdc);

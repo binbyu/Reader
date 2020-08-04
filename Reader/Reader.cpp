@@ -6,6 +6,7 @@
 #include "TextBook.h"
 #include "EpubBook.h"
 #include "Keyset.h"
+#include "Editctrl.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -308,6 +309,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnRestoreDefault(hWnd, message, wParam, lParam);
             break;
         case IDM_VIEW:
+            if (EC_IsEditMode())
+                break;
             if (IsWindowVisible(_hTreeView))
             {
                 ShowWindow(_hTreeView, SW_HIDE);
@@ -354,6 +357,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             break;
         case IDM_MARK:
+            if (EC_IsEditMode())
+                break;
             if (IsWindowVisible(_hTreeMark))
             {
                 ShowWindow(_hTreeMark, SW_HIDE);
@@ -940,6 +945,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             break;
+        }
+        break;
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
+        {
+            hdc = (HDC)wParam;
+            SetTextColor(hdc, _header->font_color);
+            SetBkColor(hdc, _header->bg_color);
+            SetDCBrushColor(hdc, _header->bg_color);
+            return (LRESULT) GetStockObject(DC_BRUSH);
         }
         break;
     default:
@@ -2188,10 +2203,15 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnAddMark(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    int ret;
     if (_Book && !_Book->IsLoading())
     {
-        if (_Cache.add_mark(_item, _item->index))
-            OnUpdateBookMark(hWnd);
+        ret = MessageBox(hWnd, _T("确认添加书签？"), _T("书签"), MB_ICONINFORMATION|MB_YESNO);
+        if (ret == IDYES)
+        {
+            if (_Cache.add_mark(_item, _item->index))
+                OnUpdateBookMark(hWnd);
+        }
     }
     return 0;
 }
@@ -2223,6 +2243,43 @@ LRESULT OnJump(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
         DialogBox(hInst, MAKEINTRESOURCE(IDD_JUMP_PROGRESS), hWnd, JumpProgress);
+    return 0;
+}
+
+int Editwordbreakproc(
+    LPTSTR lpch,
+    int ichCurrent,
+    int cch,
+    int code
+    )
+{
+    if (WB_ISDELIMITER == code && cch == 0x0a)
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    TCHAR *text = NULL;
+
+    if (EC_IsEditMode())
+    {
+        EC_LeaveEditMode();
+        return 0;
+    }
+
+    if (_Book && !_Book->IsLoading())
+    {
+        if (_Book->GetCurPageText(&text))
+        {
+            EC_EnterEditMode(hInst, hWnd, &_header->font, text);
+
+            free(text);
+        }
+    }
+
     return 0;
 }
 
@@ -2612,10 +2669,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
         _Book->SetFileName(szFileName);
         _Book->OpenBook(hWnd);
     }
-
-    // update chapter
-    PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
-
+    
     //EnableWindow(hWnd, FALSE);
     PlayLoadingImage(hWnd);
 }
@@ -2674,9 +2728,16 @@ void Exit(void)
 
 void UpdateProgess(void)
 {
-    static TCHAR progress[32] = {0};
+    TCHAR progress[256] = {0};
     double dprog = 0.0;
     int nprog = 0;
+
+    if (EC_IsEditMode())
+    {
+        SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)_T("当前为【编辑模式】，再次使用快捷键可退出"));
+        return;
+    }
+
     if (_item && _Book && !_Book->IsLoading())
     {
         dprog = (double)_Book->GetProgress();

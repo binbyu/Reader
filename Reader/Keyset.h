@@ -20,6 +20,7 @@ typedef enum keyid_t
     KI_AUTOPAGE,
     KI_SEARCH,
     KI_JUMP,
+    KI_EDIT,
     KI_PAGEUP,
     KI_PAGEDOWN,
     KI_LINEUP,

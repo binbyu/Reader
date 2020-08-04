@@ -94,6 +94,7 @@
     <ClInclude Include="Book.h" />
     <ClInclude Include="Cache.h" />
     <ClInclude Include="dump.h" />
+    <ClInclude Include="Editctrl.h" />
     <ClInclude Include="EpubBook.h" />
     <ClInclude Include="Keyset.h" />
     <ClInclude Include="PageCache.h" />
@@ -111,6 +112,7 @@
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="Cache.cpp" />
     <ClCompile Include="dump.cpp" />
+    <ClCompile Include="Editctrl.cpp" />
     <ClCompile Include="EpubBook.cpp" />
     <ClCompile Include="Keyset.cpp" />
     <ClCompile Include="PageCache.cpp" />

@@ -75,6 +75,9 @@
     <ClInclude Include="Keyset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Editctrl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -111,6 +114,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Keyset.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Editctrl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

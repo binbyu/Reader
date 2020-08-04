@@ -11,6 +11,7 @@ extern LRESULT OnAddMark(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnAutoPage(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnSearch(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnJump(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT OnEditMode(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnPageUp(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnPageDown(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnLineUp(HWND, UINT, WPARAM, LPARAM);
@@ -33,6 +34,7 @@ keydata_t g_Keysets[KI_MAXCOUNT] =
     { MAKELONG(KT_SHORTCUTKEY, KI_AUTOPAGE),    0,                          0, MAKEWORD(VK_SPACE, 0),                           IDC_HK_AUTOPAGE,    OnAutoPage,    _T("自动翻页") },
     { MAKELONG(KT_SHORTCUTKEY, KI_SEARCH),      0,                          0, MAKEWORD('F', HOTKEYF_CONTROL),                  IDC_HK_SEARCH,      OnSearch,      _T("全文查找") },
     { MAKELONG(KT_SHORTCUTKEY, KI_JUMP),        0,                          0, MAKEWORD('G', HOTKEYF_CONTROL),                  IDC_HK_JUMP,        OnJump,        _T("进度跳转") },
+    { MAKELONG(KT_SHORTCUTKEY, KI_EDIT),        0,                          0, MAKEWORD('E', HOTKEYF_CONTROL),                  IDC_HK_EDIT,        OnEditMode,    _T("编辑模式") },
     { MAKELONG(KT_SHORTCUTKEY, KI_PAGEUP),      0,                          0, MAKEWORD(VK_LEFT, HOTKEYF_EXT),                  IDC_HK_PAGEUP,      OnPageUp,      _T("上一页") },
     { MAKELONG(KT_SHORTCUTKEY, KI_PAGEDOWN),    0,                          0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT),                 IDC_HK_PAGEDOWN,    OnPageDown,    _T("下一页") },
     { MAKELONG(KT_SHORTCUTKEY, KI_LINEUP),      0,                          0, MAKEWORD(VK_UP, HOTKEYF_EXT),                    IDC_HK_LINEUP,      OnLineUp,      _T("上N行") },
@@ -214,7 +216,7 @@ static UINT HotkeyToMod(UINT value)
     return value;
 }
 
-static DWORD ToHotkey(WPARAM wParam)
+DWORD ToHotkey(WPARAM wParam)
 {
     DWORD hw = 0,lw = 0;
 

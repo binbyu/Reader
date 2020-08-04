@@ -67,6 +67,7 @@ LRESULT             OnAddMark(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnAutoPage(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSearch(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnJump(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnEditMode(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPageUp(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPageDown(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnLineUp(HWND, UINT, WPARAM, LPARAM);
