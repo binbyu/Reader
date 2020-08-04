@@ -248,7 +248,22 @@ BOOL KS_KeyDownProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     val = ToHotkey(wParam);
     for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
-        if (val == (*g_Keysets[i].pvalue))
+        if (LOWORD(g_Keysets[i].key) == KT_SHORTCUTKEY && val == (*g_Keysets[i].pvalue))
+        {
+            g_Keysets[i].proc(hWnd, message, wParam, lParam);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+BOOL KS_HotKeyProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    int i;
+
+    for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
+    {
+        if (LOWORD(g_Keysets[i].key) == KT_HOTKEY && g_Keysets[i].key_id == wParam)
         {
             g_Keysets[i].proc(hWnd, message, wParam, lParam);
             return TRUE;
@@ -309,11 +324,5 @@ BOOL KS_UnRegisterAllHotKey(HWND hWnd)
         }
     }
     return TRUE;
-}
-
-LRESULT OnHideWin(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    MessageBoxA(hWnd, __FUNCTION__, "Test", MB_OK);
-    return 0;
 }
 

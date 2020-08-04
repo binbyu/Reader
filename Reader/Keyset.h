@@ -50,6 +50,7 @@ void KS_OpenDlg(HINSTANCE hInst, HWND hWnd);
 INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void KS_GetDefaultKeyBuff(void *keybuff);
 BOOL KS_KeyDownProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL KS_HotKeyProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 BOOL KS_RegisterAllHotKey(HWND hWnd);
 BOOL KS_UnRegisterAllHotKey(HWND hWnd);
 

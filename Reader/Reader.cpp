@@ -241,7 +241,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
-    static INT leftline = 0;
 
     if (message == _uFindReplaceMsg)
     {
@@ -612,10 +611,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_HOTKEY:
-        if (ID_HOTKEY_SHOW_HIDE_WINDOW == wParam)
-        {
-            ShowHideWindow(hWnd);
-        }
+        KS_HotKeyProc(hWnd, message, wParam, lParam);
         break;
     case WM_LBUTTONDOWN:
         if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON) && _header->disable_lrhide == 0)
@@ -2023,6 +2019,12 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnMove(HWND hWnd)
 {
     // save rect to cache file when exit app
+    return 0;
+}
+
+LRESULT OnHideWin(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    ShowHideWindow(hWnd);
     return 0;
 }
 
