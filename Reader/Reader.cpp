@@ -2046,6 +2046,7 @@ LRESULT OnHideWin(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
+    Book *pBook = NULL;
 
     if (_WndInfo.bFullScreen)
         return 0;
@@ -2075,7 +2076,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     // set new status
     _WndInfo.bHideBorder = !_WndInfo.bHideBorder;
-
+    pBook = _Book;_Book = NULL; // lock onsize
     // hide border
     if (_WndInfo.bHideBorder)
     {
@@ -2094,6 +2095,8 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
         SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
     }
+
+    _Book = pBook;
 
     // for alpha
     if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
@@ -2274,6 +2277,11 @@ LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         if (_Book->GetCurPageText(&text))
         {
+            if (_WndInfo.bHideBorder)
+            {
+                OnHideBorder(hWnd, message, wParam, lParam);
+            }
+
             EC_EnterEditMode(hInst, hWnd, &_header->font, text);
 
             free(text);
