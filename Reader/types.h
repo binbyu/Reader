@@ -103,6 +103,7 @@ typedef struct
     int hide_taskbar;
     int show_systray;
     int disable_lrhide;
+    BYTE isDefault;
     unsigned long keyset[64];
     int reserved[64];
 } header_t;

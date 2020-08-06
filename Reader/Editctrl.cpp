@@ -43,6 +43,18 @@ void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text)
     g_IsEditMode = TRUE;
 }
 
+void EC_UpdateEditMode(HWND hWnd, TCHAR *text)
+{
+    RECT rc;
+
+    if (g_hEditCtrl)
+    {
+        GetClientRectExceptStatusBar(hWnd, &rc);
+        SetWindowPos(g_hEditCtrl, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_NOREDRAW);
+        SendMessage(g_hEditCtrl, WM_SETTEXT, 0, (LPARAM)text);
+    }
+}
+
 void EC_LeaveEditMode(void)
 {
     if (g_IsEditMode)

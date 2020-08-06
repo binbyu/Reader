@@ -273,6 +273,9 @@ header_t* Cache::default_header()
     header->show_systray = 0;
     header->hide_taskbar = 0;
 
+    // set flag for dpi;
+    header->isDefault = 1;
+
     // default hotkey
     KS_GetDefaultKeyBuff(header->keyset);
 

@@ -7,6 +7,7 @@
 #include "EpubBook.h"
 #include "Keyset.h"
 #include "Editctrl.h"
+#include "DPIAwareness.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -183,23 +184,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // prepare for XP style controls
    InitCommonControls();
-
-   // check rect
-   if (_header->rect.left < 0
-    || _header->rect.right < 0
-    || _header->rect.top < 0
-    || _header->rect.bottom < 0
-    || _header->rect.right - _header->rect.left < 0
-    || _header->rect.bottom - _header->rect.top < 0)
-   {
-       // default
-       int width = 300;
-       int height = 500;
-       _header->rect.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
-       _header->rect.top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
-       _header->rect.right = _header->rect.left + width;
-       _header->rect.bottom = _header->rect.top + height;
-   }
    
    hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
@@ -212,7 +196,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
    _hWnd = hWnd;
-
+   UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
+   UpdateFontForDpi(hWnd, &_header->font);
    SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
 
    ShowSysTray(hWnd, _header->show_systray);
@@ -488,6 +473,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ResetLayerd(hWnd);
             OnPaint(hWnd, hdc);
         }
+        if (EC_IsEditMode())
+        {
+            if (_Book && !_Book->IsLoading())
+            {
+                TCHAR *text = NULL;
+                if (_Book->GetCurPageText(&text))
+                {
+                    EC_UpdateEditMode(hWnd, text);
+                    free(text);
+                }
+            }
+        }
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
@@ -528,6 +525,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
             _header->rect = rc;
         }
+        RestoreRectForDpi(hWnd, &_header->rect);
+        RestoreFontForDpi(hWnd, &_header->font);
         // stop loading
         StopLoadingImage(hWnd);
         if (_loading)
@@ -955,6 +954,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SetBkColor(hdc, _header->bg_color);
             SetDCBrushColor(hdc, _header->bg_color);
             return (LRESULT) GetStockObject(DC_BRUSH);
+        }
+        break;
+    case 0x02E0: //WM_DPICHANGED
+        {            
+            NONCLIENTMETRICS theMetrics;
+            theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
+            SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
+            HFONT hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
+            SendMessage(_hTreeView, WM_SETFONT, (WPARAM)hFont, NULL);
+            SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
+            SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)hFont, NULL);
+            SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
+            DpiChanged(hWnd, &_header->font, &_header->rect, wParam, (RECT*)lParam);
         }
         break;
     default:
@@ -1522,9 +1534,9 @@ LRESULT OnCreate(HWND hWnd)
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
     HFONT hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
     SendMessage(_hTreeView, WM_SETFONT, (WPARAM)hFont, NULL);
-    SendMessage(_hTreeView, TVM_SETITEMHEIGHT, 22, NULL);
+    SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
     SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)hFont, NULL);
-    SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, 22, NULL);
+    SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
     //DeleteObject(hFont);
 
 #if !ENABLE_NETWORK
@@ -1711,6 +1723,8 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     KS_UnRegisterAllHotKey(hWnd);
     _Cache.default_header();
+    UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
+    UpdateFontForDpi(hWnd, &_header->font);
     SetWindowPos(hWnd, NULL,
         _header->rect.left, _header->rect.top,
         _header->rect.right - _header->rect.left,

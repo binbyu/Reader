@@ -61,6 +61,11 @@
       <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest />
+    <Manifest />
+    <Manifest />
+    <Manifest>
+      <EnableDPIAwareness>true</EnableDPIAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -81,6 +86,9 @@
       <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
+    <Manifest>
+      <EnableDPIAwareness>true</EnableDPIAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="book.ico" />
@@ -93,6 +101,7 @@
     <ClInclude Include="..\opensrc\cjson\cJSON.h" />
     <ClInclude Include="Book.h" />
     <ClInclude Include="Cache.h" />
+    <ClInclude Include="DPIAwareness.h" />
     <ClInclude Include="dump.h" />
     <ClInclude Include="Editctrl.h" />
     <ClInclude Include="EpubBook.h" />
@@ -111,6 +120,7 @@
     <ClCompile Include="..\opensrc\cjson\cJSON.cpp" />
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="Cache.cpp" />
+    <ClCompile Include="DPIAwareness.cpp" />
     <ClCompile Include="dump.cpp" />
     <ClCompile Include="Editctrl.cpp" />
     <ClCompile Include="EpubBook.cpp" />
