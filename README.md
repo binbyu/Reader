@@ -4,10 +4,28 @@ A win32 txt/epub file reader
 ****
 最新release版本：`v1.7.1.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/14F5LBqMD3YUnYQYg-WpAlA](https://pan.baidu.com/s/14F5LBqMD3YUnYQYg-WpAlA)<br/>
-提取码: `xnj8`
+链接: [https://pan.baidu.com/s/1mS8_slFj2JB9KNquWd0sAA](https://pan.baidu.com/s/1mS8_slFj2JB9KNquWd0sAA)<br/>
+提取码: `kb8i`
 ****
 <br/>
+<br/>
+<br/>
+<br/>
+# v1.8.0.0 2020/8/6 功能更新<br/>
+1. 修改菜单栏为中文<br/>
+2. 适配高清显示器<br/>
+   2.1 解决原来在高清显示器上面会出现模糊的问题<br/>
+   2.2 由于开发环境有限（没有高清显示器），可能会有一些遗漏场景和bug<br/>
+3. 新增快捷键、热键自定义功能<br/>
+   3.1 菜单栏 > 设置 > 按键设置：可以自定义<br/>
+4. 新增编辑模式<br/>
+   4.1 暂时不支持修改操作，仅用于文本拷贝<br/>
+   4.2 默认快捷键：Ctrl + E<br/>
+5. 原鼠标双击快速隐藏窗口功能，新增开关设置<br/>
+   5.1 菜单栏 > 设置 > 基本设置 > 左右键同时按下隐藏窗口：勾选/去勾选<br/>
+6. 自动翻页，新增【翻页】与【滚动】两种模式<br/>
+   6.1 菜单栏 > 设置 > 基本设置 > 自动翻页模式：翻页/滚动<br/>
+7. 修复一些已知bug<br/>
 <br/>
 <br/>
 <br/>
@@ -32,6 +50,11 @@ A win32 txt/epub file reader
        5.2.1 向上滚动：透明度直接最低(alpha = 0xff)<br/>
        5.2.2 向下滚动：透明度直接最高(alpha = 0x01)，基本全透明<br/>
    5.3 绘图效率相比有边框时有所下降<br/>
+<br/>
+版本：`v1.7.1.0`<br/>
+链接: https://pan.baidu.com/s/14F5LBqMD3YUnYQYg-WpAlA<br/>
+提取码: xnj8<br/>
+<br/>
 <br/>
 <br/>
 <br/>
