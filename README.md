@@ -2,7 +2,7 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.7.1.0`<br/>
+最新release版本：`v1.8.0.0`<br/>
 (百度网盘)<br/>
 链接: [https://pan.baidu.com/s/1mS8_slFj2JB9KNquWd0sAA](https://pan.baidu.com/s/1mS8_slFj2JB9KNquWd0sAA)<br/>
 提取码: `kb8i`
