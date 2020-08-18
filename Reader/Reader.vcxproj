@@ -100,6 +100,7 @@
   <ItemGroup>
     <ClInclude Include="..\opensrc\cjson\cJSON.h" />
     <ClInclude Include="Advset.h" />
+    <ClInclude Include="barcode.h" />
     <ClInclude Include="Book.h" />
     <ClInclude Include="Cache.h" />
     <ClInclude Include="DPIAwareness.h" />

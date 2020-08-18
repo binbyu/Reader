@@ -9,5 +9,7 @@ void RestoreFontForDpi(HWND hWnd, LOGFONT *lf);
 
 void DpiChanged(HWND hWnd, LOGFONT *lf, RECT *rect, WPARAM newdpi, RECT *newRect);
 
+double GetDpiScaled(HWND hWnd);
+
 
 #endif

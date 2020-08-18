@@ -84,6 +84,9 @@
     <ClInclude Include="Advset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="barcode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

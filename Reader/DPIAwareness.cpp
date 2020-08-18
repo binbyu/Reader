@@ -14,6 +14,10 @@ static void GetDPI(HWND hWnd, int *dpix, int *dpiy)
     *dpix = GetDeviceCaps(hdc, LOGPIXELSX);
     *dpiy = GetDeviceCaps(hdc, LOGPIXELSX);
     ReleaseDC(hWnd, hdc);
+#if 0 // for test
+    *dpix = 120;
+    *dpiy = 120;
+#endif
     g_lastDpix = *dpix;
     g_lastDpiy = *dpiy;
 }
@@ -101,4 +105,11 @@ void DpiChanged(HWND hWnd, LOGFONT *lf, RECT *rect, WPARAM newdpi, RECT *newRect
 
     memcpy(rect, newRect, sizeof(RECT));
     SetWindowPos(hWnd, hWnd, newRect->left, newRect->top, newRect->right-newRect->left, newRect->bottom-newRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+double GetDpiScaled(HWND hWnd)
+{
+    int dpix = 0, dpiy = 0;
+    GetDPI(hWnd, &dpix, &dpiy);
+    return (((double)dpix)/((double)DEFAULT_DPI));
 }

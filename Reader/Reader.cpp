@@ -9,6 +9,7 @@
 #include "Editctrl.h"
 #include "Advset.h"
 #include "DPIAwareness.h"
+#include "barcode.h"
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -999,6 +1000,120 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+Gdiplus::Bitmap *LoadBarCode(void)
+{
+    static Bitmap *image = NULL;
+    IStream* pStream = NULL;
+    void *buffer = NULL;
+    HGLOBAL hMemory = NULL;
+
+    if (!image)
+    {
+        hMemory = ::GlobalAlloc(GMEM_MOVEABLE, BC_IMAGE_LENGHT);
+        if (!hMemory)
+        {
+            return image;
+        }
+        buffer = ::GlobalLock(hMemory);
+        if (!buffer)
+        {
+            ::GlobalFree(hMemory);
+            return image;
+        }
+        CopyMemory(buffer, bc_image, BC_IMAGE_LENGHT);
+        if (::CreateStreamOnHGlobal(hMemory, FALSE, &pStream) == S_OK)
+        {
+            image = Gdiplus::Bitmap::FromStream(pStream);
+            pStream->Release();
+        }
+        ::GlobalUnlock(hMemory);
+        //::GlobalFree(hMemory);
+    }
+
+    if (!image || Gdiplus::Ok != image->GetLastStatus())
+    {
+        delete image;
+        image = NULL;
+        ::GlobalFree(hMemory);
+    }
+
+    return image;
+}
+
+INT_PTR CALLBACK RewardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    Gdiplus::Bitmap *image = NULL;
+    RECT client;
+    double dpiscaled;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        image = LoadBarCode();
+        if (image)
+        {
+            dpiscaled = GetDpiScaled(GetParent(GetParent(hDlg)));
+            if (dpiscaled <= 1.0f)
+            {
+                ::SetRect(&client, 0, 0, (int)(image->GetWidth()/2.0f), (int)(image->GetHeight()/2.0f));
+            }
+            else if (dpiscaled <= 1.25)
+            {
+                ::SetRect(&client, 0, 0, (int)(image->GetWidth()/3.0f*2.0f), (int)(image->GetHeight()/3.0f*2.0f));
+            }
+            else
+            {
+                ::SetRect(&client, 0, 0, image->GetWidth(), image->GetHeight());
+            }
+            AdjustWindowRect(&client, GetWindowLong(hDlg, GWL_STYLE), FALSE);
+            SetWindowPos(hDlg, NULL, client.left, client.top, client.right-client.left, client.bottom-client.top, SWP_NOMOVE);
+        }
+        return (INT_PTR)TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    case WM_PAINT:
+        {
+            HDC hdc;
+            PAINTSTRUCT ps;
+            Gdiplus::Graphics *graphics = NULL;
+            Rect rect;
+            
+            hdc = BeginPaint(hDlg, &ps);
+            // TODO: Add any drawing code here...
+            image = LoadBarCode();
+            if (!image || Gdiplus::Ok != image->GetLastStatus())
+                return (INT_PTR)FALSE;
+
+            GetClientRect(hDlg, &client);
+            
+            // draw image
+            graphics = new Graphics(hdc);
+            if (graphics)
+            {
+                rect.X = 0;
+                rect.Y = 0;
+                rect.Width = client.right-client.left;
+                rect.Height = client.bottom-client.top;
+                graphics->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+                graphics->DrawImage(image, rect, 0, 0, image->GetWidth(), image->GetHeight(), UnitPixel);
+                delete graphics;
+            }
+
+            EndPaint(hDlg, &ps);
+            return (INT_PTR)TRUE;
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1016,6 +1131,13 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDC_BUTTON_REWARD)
+        {
+            if (LoadBarCode())
+            {
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_REWARD), hDlg, RewardProc);
+            }
         }
         break;
     case WM_LBUTTONDOWN:
@@ -1757,11 +1879,14 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     _Cache.default_header();
     UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
     UpdateFontForDpi(hWnd, &_header->font);
-    SetWindowPos(hWnd, NULL,
-        _header->rect.left, _header->rect.top,
-        _header->rect.right - _header->rect.left,
-        _header->rect.bottom - _header->rect.top,
-        /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+    if (GetDpiScaled(hWnd) == 1.0f)
+    {
+        SetWindowPos(hWnd, NULL,
+            _header->rect.left, _header->rect.top,
+            _header->rect.right - _header->rect.left,
+            _header->rect.bottom - _header->rect.top,
+            /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+    }
     if (lastrule != _header->chapter_rule.rule)
     {
         // reload book
