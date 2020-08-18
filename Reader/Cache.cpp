@@ -467,11 +467,15 @@ bool Cache::write()
 
 void Cache::update_addr(void)
 {
+#if ENABLE_NETWORK
     extern Upgrade _Upgrade;
+#endif
     header_t* header = NULL;
 
     header = (header_t*)m_buffer;
 
     KS_UpdateBuffAddr(header->keyset);
+#if ENABLE_NETWORK
     _Upgrade.SetProxy(&header->proxy);
+#endif
 }

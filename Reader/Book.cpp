@@ -54,12 +54,18 @@ bool Book::OpenBook(char *data, int size, HWND hWnd)
 bool Book::CloseBook(void)
 {
     if (m_Text)
+    {
         free(m_Text);
+        m_Text = NULL;
+    }
     m_TextLength = 0;
     m_Chapters.clear();
     memset(m_fileName, 0, sizeof(m_fileName));
     if (m_Data)
+    {
         free(m_Data);
+        m_Data = NULL;
+    }
     m_Size = 0;
     return true;
 }
@@ -348,7 +354,7 @@ unsigned __stdcall Book::OpenBookThread(void* pArguments)
     Book *_this = param->_this;
     bool result = false;
 
-    _this->m_bForceKill = false;
+    _this->m_bForceKill = FALSE;
     result = _this->ParserBook();
     if (param->hWnd && !_this->m_bForceKill)
     {
@@ -357,5 +363,6 @@ unsigned __stdcall Book::OpenBookThread(void* pArguments)
     free(param);
     CloseHandle(_this->m_hThread);
     _this->m_hThread = NULL;
+    _endthreadex(0);
     return 0;
 }

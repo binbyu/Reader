@@ -36,6 +36,7 @@ private:
     void CancelRequest(void);
     int ParserJson(const char *json);
     static unsigned __stdcall DoRequest(void* param);
+    int vercmp(const wchar_t *v1, const wchar_t *v2);
 
     
 private:

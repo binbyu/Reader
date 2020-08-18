@@ -324,3 +324,20 @@ void Utils::b64_decode(const char *src, int slen, char *dst, int *dlen)
     }
     *dlen = out_len;
 }
+
+BOOL Utils::isWindowsXP(void)
+{
+    OSVERSIONINFO osvi;
+    BOOL bIsWindowsXPorLater;
+
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+
+    GetVersionEx(&osvi);
+
+    bIsWindowsXPorLater = 
+        ( (osvi.dwMajorVersion > 5) ||
+        ( (osvi.dwMajorVersion == 5) && (osvi.dwMinorVersion >= 1) ));
+
+    return bIsWindowsXPorLater;
+}

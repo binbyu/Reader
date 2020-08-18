@@ -95,6 +95,10 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
         for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
         {
             SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_SETHOTKEY, *(g_Keysets[i].pvalue), 0);
+            if (LOWORD(g_Keysets[i].key) == KT_SHORTCUTKEY)
+            {
+                SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_SETRULES, HKCOMB_A, 0);
+            }
         }
         return (INT_PTR)TRUE;
     case WM_COMMAND:

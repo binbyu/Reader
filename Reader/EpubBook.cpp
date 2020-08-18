@@ -112,11 +112,11 @@ void EpubBook::FreeFilelist(void)
 bool EpubBook::UnzipBook(void)
 {
     unzFile uf = NULL;
-    zlib_filefunc64_def ffunc;
+    zlib_filefunc64_def ffunc = {0};
     uLong i;
-    unz_global_info64 gi = {0};
+    unz_global_info gi = {0};
     int err = UNZ_ERRNO;
-    unz_file_info64 file_info;
+    unz_file_info64 file_info = {0};
     char filename_inzip[MAX_PATH] = {0};
     char *buf = NULL;
     file_data_t fdata;
@@ -126,7 +126,7 @@ bool EpubBook::UnzipBook(void)
     if (!uf)
         goto end;
 
-    err = unzGetGlobalInfo64(uf, &gi);
+    err = unzGetGlobalInfo(uf, &gi);
     if (err != UNZ_OK)
         goto end;
 

@@ -956,6 +956,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return (LRESULT) GetStockObject(DC_BRUSH);
         }
         break;
+    case WM_ENDSESSION:
+        {
+            // save rect
+            if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+            {
+                GetClientRectExceptStatusBar(hWnd, &rc);
+                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+                rc.left = rc.left - _WndInfo.hbRect.left;
+                rc.right = rc.right + _WndInfo.hbRect.right;
+                rc.top = rc.top - _WndInfo.hbRect.top;
+                rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
+                _header->rect = rc;
+            }
+            RestoreRectForDpi(hWnd, &_header->rect);
+            RestoreFontForDpi(hWnd, &_header->font);
+            Exit();
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+        break;
     case 0x02E0: //WM_DPICHANGED
         {            
             NONCLIENTMETRICS theMetrics;
@@ -1529,9 +1549,16 @@ LRESULT OnCreate(HWND hWnd)
         0, 0, 200, 300, hWnd, NULL, hInst, NULL);
     //TreeView_SetBkColor(_hTreeView, GetSysColor(COLOR_MENU));
     //TreeView_SetBkColor(_hTreeMark, GetSysColor(COLOR_MENU));
-    NONCLIENTMETRICS theMetrics;
+    NONCLIENTMETRICS theMetrics = {0};
     theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
+    if (Utils::isWindowsXP())
+        theMetrics.cbSize = sizeof(NONCLIENTMETRICS) - sizeof(theMetrics.iPaddedBorderWidth);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
+    theMetrics.iMenuHeight = (int)(theMetrics.iMenuHeight *1.25f); // 1.25 line height
+    if (theMetrics.iMenuHeight == 0)
+    {
+        theMetrics.iMenuHeight = 20;
+    }
     HFONT hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
     SendMessage(_hTreeView, WM_SETFONT, (WPARAM)hFont, NULL);
     SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
@@ -2677,10 +2704,11 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
 
     if (_tcscmp(ext, _T(".txt")) == 0)
     {
+        free(data);
         _Book = new TextBook;
         _Book->SetMd5(&md5);
         _Book->SetFileName(szFileName);
-        _Book->OpenBook(data, size, hWnd);
+        _Book->OpenBook(NULL, size, hWnd);
     }
     else
     {

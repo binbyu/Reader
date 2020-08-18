@@ -34,6 +34,9 @@ public:
     // base64
     static void b64_encode(const char *src, int slen, char *dst, int *dlen);
     static void b64_decode(const char *src, int slen, char *dst, int *dlen);
+
+    // check system version
+    static BOOL isWindowsXP(void);
 };
 
 #endif

@@ -42,12 +42,12 @@
 typedef unsigned char   u8;
 typedef unsigned long   u32;
 
-typedef struct 
+typedef struct u128_t
 {
     u8 data[16];
 } u128_t;
 
-typedef struct 
+typedef struct item_t
 {
 	u128_t md5;
 	int id;
@@ -57,21 +57,21 @@ typedef struct
     int mark[MAX_MARK_COUNT]; // book mark
 } item_t;
 
-typedef enum
+typedef enum bg_image_mode_t
 {
     Stretch,
     Tile,
     TileFlip
 } bg_image_mode_t;
 
-typedef struct
+typedef struct bg_image_t
 {
     BOOL enable;
     TCHAR file_name[MAX_PATH];
     int mode; // bg_image_mode_t
 } bg_image_t;
 
-typedef struct  
+typedef struct proxy_t
 {
     BOOL enable;
     WCHAR addr[64];
@@ -80,7 +80,7 @@ typedef struct
     WCHAR pass[64];
 } proxy_t;
 
-typedef struct 
+typedef struct header_t
 {
 	int flag;
     UINT version;
@@ -108,12 +108,12 @@ typedef struct
     int reserved[64];
 } header_t;
 
-struct body_t
+typedef struct body_t
 {
 	item_t items[1];
-};
+} body_t;
 
-typedef enum
+typedef enum type_t
 {
     Unknown = 0,
     utf8,
@@ -123,7 +123,7 @@ typedef enum
     utf32_be
 } type_t;
 
-struct upmenu_t
+typedef struct upmenu_t
 {
     BYTE op;        // 0: delete, 1: append, 2: insert
     HMENU hMenu;
@@ -131,9 +131,9 @@ struct upmenu_t
     UINT uFlags;
     INT_PTR uIDNewItem;
     LPCTSTR lpNewItem;
-};
+} upmenu_t;
 
-typedef struct
+typedef struct window_info_t
 {
     HMENU hMenu;
     HWND hStatusBar;

@@ -220,7 +220,7 @@ void PageCache::DrawPage(HDC hdc)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
-        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_NOCLIP);
+        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
         rect.top += h;
         m_CurPageSize += line->length;
     }

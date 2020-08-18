@@ -151,7 +151,7 @@ int Upgrade::ParserJson(const char* json)
             goto end;
 
         temp = Utils::utf8_to_utf16(version->valuestring, &len);
-        if (wcscmp(data.version.c_str(), temp) < 0)
+        if (vercmp(data.version.c_str(), temp) < 0)
         {
             data.version = temp;
             free(temp);
@@ -167,7 +167,7 @@ int Upgrade::ParserJson(const char* json)
             free(temp);
     }
 
-    if (wcscmp(data.version.c_str(), m_IngoreVersion) == 0)
+    if (vercmp(data.version.c_str(), m_IngoreVersion) == 0)
     {
         // ingore this version
         goto end;
@@ -176,7 +176,7 @@ int Upgrade::ParserJson(const char* json)
     curversion = GetApplicationVersion();
     if (!curversion.empty())
     {
-        if (wcscmp(curversion.c_str(), data.version.c_str()) < 0)
+        if (vercmp(curversion.c_str(), data.version.c_str()) < 0)
         {
             // backup version in memory
             m_VersionInfo.version = data.version;
@@ -368,5 +368,19 @@ fail:
 
     CloseHandle(_this->m_hThread);
     _this->m_hThread = NULL;
+    _endthreadex(0);
     return 0;
+}
+
+int Upgrade::vercmp(const wchar_t *v1, const wchar_t *v2)
+{
+    unsigned int v1_1 = 0, v1_2 = 0, v1_3 = 0, v1_4 = 0;
+    unsigned int v2_1 = 0, v2_2 = 0, v2_3 = 0, v2_4 = 0;
+    swscanf(v1, L"%d.%d.%d.%d", &v1_1, &v1_2, &v1_3, &v1_4);
+    swscanf(v2, L"%d.%d.%d.%d", &v2_1, &v2_2, &v2_3, &v2_4);
+
+    unsigned int num1 = v1_1 << 24 | v1_2 << 16 | v1_3 << 8 | v1_4;
+    unsigned int num2 = v2_1 << 24 | v2_2 << 16 | v2_3 << 8 | v2_4;
+
+    return num1 == num2 ? 0 : (num1 > num2 ? 1 : -1);
 }
