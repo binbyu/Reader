@@ -7,6 +7,7 @@
 #include "EpubBook.h"
 #include "Keyset.h"
 #include "Editctrl.h"
+#include "Advset.h"
 #include "DPIAwareness.h"
 #include <stdio.h>
 #include <shlwapi.h>
@@ -254,7 +255,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         else if (wmId >= IDM_OPEN_BEGIN && wmId <= IDM_OPEN_END)
         {
             int item_id = wmId - IDM_OPEN_BEGIN;
-            OnOpenItem(hWnd, item_id);
+            OnOpenItem(hWnd, item_id, FALSE);
             ResumeAutoPage(hWnd);
             break;
         }
@@ -286,6 +287,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_KEYSET:
             KS_OpenDlg(hInst, hWnd);
+            break;
+        case IDM_ADVSET:
+            ADV_OpenDlg(hInst, hWnd, &(_header->chapter_rule), _Book);
             break;
         case IDM_PROXY:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_PROXY), hWnd, Proxy);
@@ -1577,7 +1581,7 @@ LRESULT OnCreate(HWND hWnd)
     if (_header->size > 0)
     {
         item_t* item = _Cache.get_item(0);
-        OnOpenBook(hWnd, item->file_name);
+        OnOpenBook(hWnd, item->file_name, FALSE);
     }
 
     // check upgrade
@@ -1620,14 +1624,14 @@ LRESULT OnUpdateMenu(HWND hWnd)
     return 0;
 }
 
-LRESULT OnOpenItem(HWND hWnd, int item_id)
+LRESULT OnOpenItem(HWND hWnd, int item_id, BOOL forced)
 {
     if (IsWindow(_hFindDlg))
     {
         DestroyWindow(_hFindDlg);
         _hFindDlg = NULL;
     }
-    if (_item && _item->id == item_id && _Book && !_Book->IsLoading())
+    if (!forced && _item && _item->id == item_id && _Book && !_Book->IsLoading())
     {
         return 0;
     }
@@ -1642,7 +1646,7 @@ LRESULT OnOpenItem(HWND hWnd, int item_id)
     {
         if (PathFileExists(item->file_name))
         {
-            OnOpenBook(hWnd, item->file_name);
+            OnOpenBook(hWnd, item->file_name, forced);
         }
         else
         {
@@ -1746,6 +1750,7 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    int lastrule = _header->chapter_rule.rule;
     if (IsZoomed(hWnd))
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     KS_UnRegisterAllHotKey(hWnd);
@@ -1757,8 +1762,16 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         _header->rect.right - _header->rect.left,
         _header->rect.bottom - _header->rect.top,
         /*SWP_DRAWFRAME*/SWP_NOREDRAW);
-    if (_Book)
-        _Book->Reset(hWnd);
+    if (lastrule != _header->chapter_rule.rule)
+    {
+        // reload book
+        OnOpenItem(hWnd, 0, TRUE);
+    }
+    else
+    {
+        if (_Book)
+            _Book->Reset(hWnd);
+    }
     KS_RegisterAllHotKey(hWnd);
     ShowSysTray(hWnd, _header->show_systray);
     ShowInTaskbar(hWnd, !_header->hide_taskbar);
@@ -2241,7 +2254,7 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    OnOpenBook(hWnd, szFileName);
+    OnOpenBook(hWnd, szFileName, FALSE);
     return 0;
 }
 
@@ -2400,7 +2413,7 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
         // open file
-        OnOpenBook(hWnd, szFileName);
+        OnOpenBook(hWnd, szFileName, FALSE);
 
         // just open first file
         break;
@@ -2590,6 +2603,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     GetClientRectExceptStatusBar(hWnd, &rect);
     _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
     _Book->SetRect(&rect);
+    _Book->SetChapterRule(&(_header->chapter_rule));
 
     // update menu
     OnUpdateMenu(hWnd);
@@ -2654,7 +2668,7 @@ void ShowHideWindow(HWND hWnd)
     }
 }
 
-void OnOpenBook(HWND hWnd, TCHAR *filename)
+void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 {
     item_t *item = NULL;
     TCHAR *ext = NULL;
@@ -2688,11 +2702,14 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
     item = _Cache.find_item(&md5, szFileName);
     if (item)
     {
-        if (_item && item->id == _item->id && !_Book->IsLoading()) // current is opened
+        if (!forced)
         {
-            free(data);
-            OnUpdateMenu(hWnd);
-            return;
+            if (_item && item->id == _item->id && !_Book->IsLoading()) // current is opened
+            {
+                free(data);
+                OnUpdateMenu(hWnd);
+                return;
+            }
         }
     }
 
@@ -2708,6 +2725,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
         _Book = new TextBook;
         _Book->SetMd5(&md5);
         _Book->SetFileName(szFileName);
+        _Book->SetChapterRule(&(_header->chapter_rule));
         _Book->OpenBook(NULL, size, hWnd);
     }
     else
@@ -2727,7 +2745,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename)
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','8','0','0'};
+    char version[4] = {'1','8','1','0'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];

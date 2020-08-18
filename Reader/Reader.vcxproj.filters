@@ -81,6 +81,9 @@
     <ClInclude Include="DPIAwareness.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Advset.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -123,6 +126,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DPIAwareness.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Advset.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

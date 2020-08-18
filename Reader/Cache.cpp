@@ -279,6 +279,9 @@ header_t* Cache::default_header()
     // default hotkey
     KS_GetDefaultKeyBuff(header->keyset);
 
+    // default chapter rule
+    header->chapter_rule.rule = 0;
+
     return header;
 }
 

@@ -15,6 +15,9 @@ protected:
     virtual bool ParserBook(void);
     bool ReadBook(void);
     bool ParserChapters(void);
+    bool ParserChaptersDefault(void);
+    bool ParserChaptersKeyword(void);
+    bool ParserChaptersRegex(void);
     bool GetLine(wchar_t* text, int len, int* line_size);
     bool IsChapter(wchar_t* text, int len);
 

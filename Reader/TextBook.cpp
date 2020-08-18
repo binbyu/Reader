@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "TextBook.h"
 #include "types.h"
+#include <regex>
 
 
 wchar_t TextBook::m_ValidChapter[] =
@@ -109,6 +110,27 @@ end:
 
 bool TextBook::ParserChapters(void)
 {
+    if (m_Rule)
+    {
+        m_Chapters.clear();
+        if (m_Rule->rule == 0)
+        {
+            return ParserChaptersDefault();
+        }
+        else if (m_Rule->rule == 1)
+        {
+            return ParserChaptersKeyword();
+        }
+        else if (m_Rule->rule == 2)
+        {
+            return ParserChaptersRegex();
+        }
+    }
+    return false;
+}
+
+bool TextBook::ParserChaptersDefault(void)
+{
     wchar_t *text = m_Text;
     wchar_t title[MAX_CHAPTER_LENGTH] = { 0 };
     int line_size;
@@ -183,6 +205,116 @@ bool TextBook::ParserChapters(void)
         // set index
         text += line_size + 1; // add 0x0a
     }
+
+    return true;
+}
+
+bool TextBook::ParserChaptersKeyword(void)
+{
+    wchar_t *text = m_Text;
+    wchar_t title[MAX_CHAPTER_LENGTH] = { 0 };
+    int line_size;
+    int title_len = 0;
+    bool bFound = false;
+    int idx_1 = -1;
+    int cmplen;
+    chapter_item_t chapter;
+    int menu_begin_id = IDM_CHAPTER_BEGIN;
+
+    while (true)
+    {
+        if (m_bForceKill)
+        {
+            return false;
+        }
+
+        if (!GetLine(text, m_TextLength - (text - m_Text), &line_size))
+        {
+            break;
+        }
+
+        // check format
+        cmplen = wcslen(m_Rule->keyword);
+        if (cmplen <= line_size)
+        {
+            bFound = false;
+            idx_1 = -1;
+            for (int i = 0; i < line_size; i++)
+            {
+                if (wcsncmp(text+i, m_Rule->keyword, cmplen) == 0)
+                {
+                    idx_1 = i;
+                    bFound = true;
+                    break;
+                }
+            }
+            if (bFound)
+            {
+                title_len = line_size - idx_1 < (MAX_CHAPTER_LENGTH - 1) ? line_size - idx_1 : MAX_CHAPTER_LENGTH - 1;
+                memcpy(title, text + idx_1, title_len * sizeof(wchar_t));
+                title[title_len] = 0;
+
+                chapter.index = /*idx_1 +*/ (text - m_Text);
+                chapter.title = title;
+                m_Chapters.insert(std::make_pair(menu_begin_id++, chapter));
+            }
+        }
+
+        // set index
+        text += line_size + 1; // add 0x0a
+    }
+    return true;
+}
+
+bool TextBook::ParserChaptersRegex(void)
+{
+    wchar_t title[MAX_CHAPTER_LENGTH] = { 0 };
+    int title_len = 0;
+    bool bFound = false;
+    chapter_item_t chapter;
+    int menu_begin_id = IDM_CHAPTER_BEGIN;
+    int offset = 0;
+    std::wcmatch cm;
+    std::wregex *e = NULL;
+    TCHAR *text = m_Text;
+
+    try
+    {
+        e = new std::wregex(m_Rule->regex);    
+    }
+    catch (...)
+    {
+        if (e)
+        {
+            delete e;
+        }
+    	return false;
+    }
+
+    while (std::regex_search(text, cm, *e, std::regex_constants::format_first_only))
+    {
+        if (m_bForceKill)
+        {
+            break;
+        }
+
+        title_len = cm.length() < (MAX_CHAPTER_LENGTH - 1) ? cm.length() : MAX_CHAPTER_LENGTH - 1;
+        memcpy(title, cm.str().c_str(), title_len * sizeof(wchar_t));
+        title[title_len] = 0;
+
+        chapter.index = offset + cm.position();
+        chapter.title = title;
+        m_Chapters.insert(std::make_pair(menu_begin_id++, chapter));
+
+
+        text += cm.position() + cm.length();
+        offset += cm.position() + cm.length();
+    }
+    if (e)
+    {
+        delete e;
+    }
+
     return true;
 }
 

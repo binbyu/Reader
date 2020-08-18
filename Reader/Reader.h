@@ -47,7 +47,7 @@ BYTE                _textAlpha              = 0xFF;
 
 LRESULT             OnCreate(HWND);
 LRESULT             OnUpdateMenu(HWND);
-LRESULT             OnOpenItem(HWND, int);
+LRESULT             OnOpenItem(HWND, int, BOOL);
 LRESULT             OnClearFileList(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
@@ -82,7 +82,7 @@ LRESULT             OnUpdateBookMark(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
 void                ShowHideWindow(HWND);
-void                OnOpenBook(HWND, TCHAR *);
+void                OnOpenBook(HWND, TCHAR *, BOOL);
 UINT                GetCacheVersion(void);
 BOOL                Init(void);
 void                Exit(void);

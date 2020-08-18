@@ -10,6 +10,7 @@ Book::Book()
     , m_Size(0)
     , m_hThread(NULL)
     , m_bForceKill(FALSE)
+    , m_Rule(NULL)
 {
     memset(m_fileName, 0, sizeof(m_fileName));
     m_Chapters.clear();
@@ -108,6 +109,11 @@ int Book::GetTextLength(void)
 chapters_t * Book::GetChapters(void)
 {
     return &m_Chapters;
+}
+
+void Book::SetChapterRule(chapter_rule_t *rule)
+{
+    m_Rule = rule;
 }
 
 void Book::JumpChapter(HWND hWnd, int index)

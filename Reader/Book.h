@@ -40,6 +40,7 @@ public:
     wchar_t * GetText(void);
     int GetTextLength(void);
     chapters_t * GetChapters(void);
+    void SetChapterRule(chapter_rule_t *rule);
     void JumpChapter(HWND hWnd, int index);
     void JumpPrevChapter(HWND hWnd);
     void JumpNextChapter(HWND hWnd);
@@ -65,6 +66,7 @@ protected:
     HANDLE m_hThread;
     u128_t m_md5;
     bool m_bForceKill;
+    chapter_rule_t *m_Rule;
 };
 
 typedef struct ob_thread_param_t

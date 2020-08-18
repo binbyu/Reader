@@ -80,6 +80,13 @@ typedef struct proxy_t
     WCHAR pass[64];
 } proxy_t;
 
+typedef struct chapter_rule_t
+{
+    int rule; // 0: default, 1: keyword, 2: regex
+    WCHAR keyword[256];
+    WCHAR regex[256];
+} chapter_rule_t;
+
 typedef struct header_t
 {
 	int flag;
@@ -104,8 +111,8 @@ typedef struct header_t
     int show_systray;
     int disable_lrhide;
     BYTE isDefault;
-    unsigned long keyset[64];
-    int reserved[64];
+    u32 keyset[64];
+    chapter_rule_t chapter_rule;
 } header_t;
 
 typedef struct body_t
