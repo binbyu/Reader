@@ -78,6 +78,7 @@ bool Book::IsLoading(void)
     return m_hThread != NULL;
 }
 
+#if ENABLE_MD5
 void Book::SetMd5(u128_t *md5)
 {
     memcpy(&m_md5, md5, sizeof(u128_t));
@@ -106,6 +107,7 @@ void Book::UpdateMd5(void)
         memcpy(&_item->md5, &m_md5, sizeof(u128_t));
     }
 }
+#endif
 
 wchar_t * Book::GetText(void)
 {
@@ -338,6 +340,7 @@ void Book::ForceKill(void)
     }
 }
 
+#if ENABLE_MD5
 bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
 {
     FILE *fp = NULL;
@@ -374,6 +377,7 @@ bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
     *size = _size;
     return true;
 }
+#endif
 
 unsigned __stdcall Book::OpenBookThread(void* pArguments)
 {

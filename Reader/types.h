@@ -9,7 +9,7 @@
 
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
-#define ENABLE_MD5                  1
+#define ENABLE_MD5                  0
 
 #define IDM_CUSTOM_BEGIN            (50000)
 #define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)

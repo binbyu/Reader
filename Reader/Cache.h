@@ -16,8 +16,13 @@ public:
     header_t* get_header();
     item_t* get_item(int item_id);
     item_t* open_item(int item_id);
+#if ENABLE_MD5
     item_t* new_item(u128_t* item_md5, TCHAR* file_name);
     item_t* find_item(u128_t* item_md5, TCHAR* file_name);
+#else
+    item_t* new_item(TCHAR* file_name);
+    item_t* find_item(TCHAR* file_name);
+#endif
     bool delete_item(int item_id);
     bool delete_all_item(void);
     header_t* default_header();

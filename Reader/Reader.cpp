@@ -2712,10 +2712,18 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     }
 
     // create new item
+#if ENABLE_MD5
     item = _Cache.find_item(_Book->GetMd5(), _Book->GetFileName());
+#else
+    item = _Cache.find_item(_Book->GetFileName());
+#endif
     if (NULL == item)
     {
+#if ENABLE_MD5
         item = _Cache.new_item(_Book->GetMd5(), _Book->GetFileName());
+#else
+        item = _Cache.new_item(_Book->GetFileName());
+#endif
         _header = _Cache.get_header(); // after realloc the header address has been changed
     }
 
@@ -2795,8 +2803,12 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 {
     item_t *item = NULL;
     TCHAR *ext = NULL;
+#if ENABLE_MD5
     u128_t md5;
     char *data = NULL;
+#else
+    FILE *fp = NULL;
+#endif
     int size = 0;
     TCHAR szFileName[MAX_PATH] = {0};
 
@@ -2808,28 +2820,48 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
         return;
     }
 
+#if ENABLE_MD5
     if (!Book::CalcMd5(szFileName, &md5, &data, &size))
     {
         MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
         return;
     }
+#else
+    fp = _tfopen(szFileName, _T("rb"));
+    if (!fp)
+    {
+        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        return;
+    }
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+    fclose(fp);
+#endif
 
     if (size == 0)
     {
+#if ENABLE_MD5
         free(data);
+#endif
         MessageBox(hWnd, _T("Open file failed.\r\nThis is a empty file."), _T("Error"), MB_OK|MB_ICONERROR);
         return;
     }
 
     // check md5, is already exist
+#if ENABLE_MD5
     item = _Cache.find_item(&md5, szFileName);
+#else
+    item = _Cache.find_item(szFileName);
+#endif
     if (item)
     {
         if (!forced)
         {
             if (_item && item->id == _item->id && !_Book->IsLoading()) // current is opened
             {
+#if ENABLE_MD5
                 free(data);
+#endif
                 OnUpdateMenu(hWnd);
                 return;
             }
@@ -2844,19 +2876,28 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 
     if (_tcscmp(ext, _T(".txt")) == 0)
     {
+#if ENABLE_MD5
         free(data);
+        data = NULL;
+#endif
         _Book = new TextBook;
+#if ENABLE_MD5
         _Book->SetMd5(&md5);
+#endif
         _Book->SetFileName(szFileName);
         _Book->SetChapterRule(&(_header->chapter_rule));
         _Book->OpenBook(NULL, size, hWnd);
     }
     else
     {
+#if ENABLE_MD5
         free(data);
         data = NULL;
+#endif
         _Book = new EpubBook;
+#if ENABLE_MD5
         _Book->SetMd5(&md5);
+#endif
         _Book->SetFileName(szFileName);
         _Book->OpenBook(hWnd);
     }

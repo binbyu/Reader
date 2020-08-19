@@ -354,8 +354,10 @@ BOOL PageCache::SetCurPageText(HWND hWnd, TCHAR *dst_text)
         if (!book->UpdateChapters(dst_len - src_len))
             return FALSE;
 
+#if ENABLE_MD5
         // update md5
         book->UpdateMd5();
+#endif
 
         // reset pageinfo
         Reset(hWnd, TRUE);

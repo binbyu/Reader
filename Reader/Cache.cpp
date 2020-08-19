@@ -119,10 +119,18 @@ item_t* Cache::open_item(int item_id)
     return item;
 }
 
+#if ENABLE_MD5
 item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
+#else
+item_t* Cache::new_item(TCHAR* file_name)
+#endif
 {
     header_t* header = NULL;
+#if ENABLE_MD5
     item_t* item = find_item(item_md5, file_name);
+#else
+    item_t* item = find_item(file_name);
+#endif
     int item_id = -1;
     void *oldAddr = NULL;
 
@@ -148,8 +156,10 @@ item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
     item = get_item(item_id);
     memset(item, 0, sizeof(item_t));
     item->id = item_id;
+#if ENABLE_MD5
     memcpy(&item->md5, item_md5, sizeof(u128_t));
-    memcpy(item->file_name, file_name, MAX_PATH);
+#endif
+    memcpy(item->file_name, file_name, sizeof(TCHAR) * MAX_PATH);
 
     // move to index 0
     move_item(item->id, 0);
@@ -158,7 +168,11 @@ item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
     return item;
 }
 
+#if ENABLE_MD5
 item_t* Cache::find_item(u128_t* item_md5, TCHAR* file_name)
+#else
+item_t* Cache::find_item(TCHAR* file_name)
+#endif
 {
     header_t* header = get_header();
     item_t* item = NULL;
@@ -169,15 +183,22 @@ item_t* Cache::find_item(u128_t* item_md5, TCHAR* file_name)
     for (int i=0; i<header->size; i++)
     {
         item = get_item(i);
+#if ENABLE_MD5
         if (0 == memcmp(&item->md5, item_md5, sizeof(u128_t)))
         {
             // update file name
-            if (0 != memcmp(item->file_name, file_name, MAX_PATH))
+            if (0 != _tcscmp(item->file_name, file_name))
             {
-                memcpy(item->file_name, file_name, MAX_PATH);
+                memcpy(item->file_name, file_name, sizeof(TCHAR) * MAX_PATH);
             }
             return item;
         }
+#else
+        if (0 == _tcscmp(item->file_name, file_name))
+        {
+            return item;
+        }
+#endif
     }
     return NULL;
 }
