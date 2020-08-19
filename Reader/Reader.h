@@ -26,7 +26,6 @@ typedef struct loading_data_t
 Cache               _Cache(CACHE_FILE_NAME);
 header_t*           _header                 = NULL;
 item_t*             _item                   = NULL;
-HWND                _hWndStatus             = NULL;
 HWND                _hFindDlg               = NULL;
 HWND                _hTreeView              = NULL;
 HWND                _hTreeMark              = NULL;

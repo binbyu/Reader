@@ -229,6 +229,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
+    static RECT s_rect;
 
     if (message == _uFindReplaceMsg)
     {
@@ -299,8 +300,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnRestoreDefault(hWnd, message, wParam, lParam);
             break;
         case IDM_VIEW:
-            if (EC_IsEditMode())
-                break;
             if (IsWindowVisible(_hTreeView))
             {
                 ShowWindow(_hTreeView, SW_HIDE);
@@ -347,8 +346,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             break;
         case IDM_MARK:
-            if (EC_IsEditMode())
-                break;
             if (IsWindowVisible(_hTreeMark))
             {
                 ShowWindow(_hTreeMark, SW_HIDE);
@@ -478,18 +475,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ResetLayerd(hWnd);
             OnPaint(hWnd, hdc);
         }
-        if (EC_IsEditMode())
-        {
-            if (_Book && !_Book->IsLoading())
-            {
-                TCHAR *text = NULL;
-                if (_Book->GetCurPageText(&text))
-                {
-                    EC_UpdateEditMode(hWnd, text);
-                    free(text);
-                }
-            }
-        }
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
@@ -579,10 +564,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         return hit;
+    case WM_SIZING:
+        if (EC_IsEditMode())
+        {
+            RECT *lprc = NULL;
+            lprc = (RECT *)lParam;
+            lprc->left = s_rect.left;
+            lprc->top = s_rect.top;
+            lprc->right = s_rect.right;
+            lprc->bottom = s_rect.bottom;
+            return TRUE;
+        }
+        break;
     case WM_SIZE:
         OnSize(hWnd, message, wParam, lParam);
         if (!IsZoomed(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
             GetWindowRect(hWnd, &_header->rect);
+        GetWindowRect(hWnd, &s_rect);
         break;
     case WM_MOVE:
         OnMove(hWnd);
