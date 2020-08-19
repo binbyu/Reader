@@ -135,7 +135,6 @@ Bitmap * PageCache::GetCover(void)
 
 BOOL PageCache::DrawCover(HDC hdc)
 {
-    Book *book = NULL;
     Gdiplus::Bitmap *cover = NULL;
     Gdiplus::Graphics *g = NULL;
     int w,h,bw,bh;
@@ -282,7 +281,6 @@ BOOL PageCache::GetCurPageText(TCHAR **text)
 
     if (m_CurPageSize > 0)
     {
-#if 1
         for (i=0; i<m_CurPageSize; i++)
         {
             c = m_Text + ((*m_CurrentPos) + i);
@@ -304,11 +302,64 @@ BOOL PageCache::GetCurPageText(TCHAR **text)
             (*text)[j++] = *(m_Text + ((*m_CurrentPos) + i));
         }
         (*text)[j] = 0;
-#else
-        *text = (TCHAR *)malloc(sizeof(TCHAR) * (m_CurPageSize + 1));
-        (*text)[m_CurPageSize] = 0;
-        memcpy(*text, m_Text + (*m_CurrentPos), sizeof(TCHAR) * m_CurPageSize);
-#endif
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL PageCache::SetCurPageText(HWND hWnd, TCHAR *dst_text)
+{
+    Book *book = NULL;
+    TCHAR *src_text = NULL;
+    TCHAR *text = NULL;
+    int dst_len;
+    int src_len;
+    int len;
+
+    book = dynamic_cast<Book *>(this);
+    if (!book)
+        return FALSE;
+
+    if (GetCurPageText(&src_text))
+    {
+        if (0 == _tcscmp(dst_text, src_text))
+        {
+            return TRUE;
+        }
+
+        // format dest text
+        src_len = m_CurPageSize;
+        dst_len = _tcslen(dst_text);
+        book->FormatText(dst_text, &dst_len);
+
+        // change text
+        len = m_TextLength - src_len + dst_len;
+        text = (TCHAR *)malloc(sizeof(TCHAR) * (len+1));
+        text[len] = 0;
+        if ((*m_CurrentPos) > 0)
+            memcpy(text, m_Text, sizeof(TCHAR) * (*m_CurrentPos));
+        memcpy(text+(*m_CurrentPos), dst_text, sizeof(TCHAR) * dst_len);
+        memcpy(text+(*m_CurrentPos)+dst_len, m_Text+(*m_CurrentPos)+m_CurPageSize, sizeof(TCHAR) * (m_TextLength-(*m_CurrentPos)-m_CurPageSize));
+        free(m_Text);
+        m_Text = text;
+        m_TextLength = len;
+
+        free(src_text);
+
+        // save file
+        if (!book->SaveBook(NULL))
+            return FALSE;
+
+        // update chapter
+        if (!book->UpdateChapters(dst_len - src_len))
+            return FALSE;
+
+        // update md5
+        book->UpdateMd5();
+
+        // reset pageinfo
+        Reset(hWnd, TRUE);
+
         return TRUE;
     }
     return FALSE;

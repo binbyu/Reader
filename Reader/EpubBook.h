@@ -52,6 +52,8 @@ public:
 
 public:
     virtual book_type_t GetBookType(void);
+    virtual bool SaveBook(HWND hWnd);
+    virtual bool UpdateChapters(int offset);
     Bitmap * GetCoverImage(void);
 
 protected:

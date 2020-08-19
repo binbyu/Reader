@@ -2459,7 +2459,7 @@ LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnHideBorder(hWnd, message, wParam, lParam);
             }
 
-            EC_EnterEditMode(hInst, hWnd, &_header->font, text);
+            EC_EnterEditMode(hInst, hWnd, &_header->font, text, _Book->GetBookType() == book_epub);
 
             free(text);
         }

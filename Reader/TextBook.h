@@ -10,8 +10,12 @@ public:
     TextBook();
     virtual ~TextBook();
 
-protected:
+public:
     virtual book_type_t GetBookType(void);
+    virtual bool SaveBook(HWND hWnd);
+    virtual bool UpdateChapters(int offset);
+
+protected:
     virtual bool ParserBook(void);
     bool ReadBook(void);
     bool ParserChapters(void);

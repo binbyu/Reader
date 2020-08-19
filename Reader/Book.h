@@ -29,12 +29,17 @@ public:
 
 public:
     virtual book_type_t GetBookType(void) = 0;
+    virtual bool SaveBook(HWND hWnd) = 0;
+    virtual bool UpdateChapters(int offset) = 0;
     bool OpenBook(HWND hWnd);
     bool OpenBook(char *data, int size, HWND hWnd);
     bool CloseBook(void);
     bool IsLoading(void);
+#if ENABLE_MD5
     void SetMd5(u128_t *md5);
     u128_t * GetMd5(void);
+    void UpdateMd5(void);
+#endif
     void SetFileName(const TCHAR *fileName);
     TCHAR * GetFileName(void);
     wchar_t * GetText(void);
@@ -45,9 +50,11 @@ public:
     void JumpPrevChapter(HWND hWnd);
     void JumpNextChapter(HWND hWnd);
     int GetCurChapterIndex(void);
+#if ENABLE_MD5
     static bool CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size);
+#endif
 
-protected:
+public:
     virtual bool ParserBook(void) = 0;
     // srcsize and dstsize not include \0
     virtual bool DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
@@ -64,7 +71,9 @@ protected:
     char *m_Data;
     int m_Size;
     HANDLE m_hThread;
+#if ENABLE_MD5
     u128_t m_md5;
+#endif
     bool m_bForceKill;
     chapter_rule_t *m_Rule;
 };

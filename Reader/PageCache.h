@@ -51,6 +51,7 @@ public:
     BOOL IsCoverPage(void);
     double GetProgress(void);
     BOOL GetCurPageText(TCHAR **text);
+    BOOL SetCurPageText(HWND hWnd, TCHAR *text);
 
 protected:
     LONG GetLineHeight(HDC hdc);

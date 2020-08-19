@@ -33,6 +33,37 @@ book_type_t TextBook::GetBookType(void)
     return book_text;
 }
 
+bool TextBook::SaveBook(HWND hWnd)
+{
+    FILE *fp = NULL;
+
+    fp = _tfopen(m_fileName, _T("wb"));
+    if (!fp)
+        return false;
+
+    fwrite("\xff\xfe", 2, 1, fp);
+    fwrite(m_Text, sizeof(wchar_t), m_TextLength, fp);
+    fclose(fp);
+
+    return true;
+}
+
+bool TextBook::UpdateChapters(int offset)
+{
+    chapters_t::iterator itor;
+    
+    for (itor=m_Chapters.begin(); itor!=m_Chapters.end(); itor++)
+    {
+        if (itor->second.index > (*m_CurrentPos))
+        {
+            itor->second.index += offset;
+            if (itor->second.index < 0)
+                itor->second.index = 0;
+        }
+    }
+    return true;
+}
+
 bool TextBook::ParserBook(void)
 {
     bool ret = false;

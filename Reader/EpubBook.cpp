@@ -39,6 +39,16 @@ book_type_t EpubBook::GetBookType()
     return book_epub;
 }
 
+bool EpubBook::SaveBook(HWND hWnd)
+{
+    return false;
+}
+
+bool EpubBook::UpdateChapters(int offset)
+{
+    return false;
+}
+
 Bitmap * EpubBook::GetCoverImage(void)
 {
     return m_Cover;

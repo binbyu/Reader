@@ -2,22 +2,26 @@
 #include "Editctrl.h"
 #include "Keyset.h"
 #include "resource.h"
+#include "Book.h"
 
 static BOOL g_IsEditMode = FALSE;
 static HWND g_hEditCtrl = NULL;
 static WNDPROC g_defproc = NULL;
 static HFONT g_hFont = NULL;
+static TCHAR *g_text = NULL;
 
 extern keydata_t g_Keysets[KI_MAXCOUNT];
+extern Book *_Book;
 extern BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc);
 extern DWORD ToHotkey(WPARAM wParam);
 static LRESULT CALLBACK EditWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void EnableMenu(HMENU hMenu, BOOL enable);
 static void EnableAllMenu(HWND hWnd, BOOL enable);
 
-void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text)
+void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text, BOOL readonly)
 {
     RECT rc;
+    int len;
 
     if (!g_hEditCtrl)
     {
@@ -41,22 +45,66 @@ void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text)
     SendMessage(g_hEditCtrl, WM_SETFONT, (WPARAM)g_hFont, TRUE);
     SendMessage(g_hEditCtrl, WM_SETTEXT, 0, (LPARAM)text);
     SendMessage(g_hEditCtrl, EM_SETRECT, 0, (LPARAM)&rc);
+    SendMessage(g_hEditCtrl, EM_SETREADONLY, (WPARAM)readonly, NULL);
 
     SetFocus(g_hEditCtrl);
     ShowWindow(g_hEditCtrl, SW_SHOW);
+
+    // backup source text
+    len = _tcslen(text);
+    g_text = (TCHAR *)malloc(sizeof(TCHAR) * (len+1));
+    memcpy(g_text, text, sizeof(TCHAR) * (len+1));
+
     g_IsEditMode = TRUE;
 }
 
 void EC_LeaveEditMode(void)
 {
+    int len;
+    TCHAR *buffer;
+
     if (g_IsEditMode)
     {
+        // save text
+        len = SendMessage(g_hEditCtrl, WM_GETTEXTLENGTH, 0, NULL);
+        if (len >= 0)
+        {
+            buffer = (TCHAR*)malloc(sizeof(TCHAR)*(len+1));
+            if (buffer)
+            {
+                buffer[len] = 0;
+                if (len > 0)
+                {
+                    GetWindowText(g_hEditCtrl, buffer, len+1);
+                }
+
+                // is changed?
+                if (0 != _tcscmp(buffer, g_text))
+                {
+                    if (IDYES == MessageBox(g_hEditCtrl, _T("文本发生改动，是否保存文本？"), _T("文件改动"), MB_YESNO|MB_ICONWARNING))
+                    {
+                        if (!_Book->SetCurPageText(GetParent(g_hEditCtrl), buffer))
+                        {
+                            MessageBox(g_hEditCtrl, _T("文本保存失败"), _T("文件改动"), MB_OK|MB_ICONERROR);
+                        }
+                    }
+                }
+
+                free(buffer);
+            }
+        }
+
         ShowWindow(g_hEditCtrl, SW_HIDE);
         SetFocus(GetParent(g_hEditCtrl));
         DeleteObject(g_hFont);
         g_hFont = NULL;
         g_IsEditMode = FALSE;
         EnableAllMenu(GetParent(g_hEditCtrl), TRUE);
+        if (g_text)
+        {
+            free(g_text);
+            g_text = NULL;
+        }
     }
 }
 
@@ -77,6 +125,15 @@ static LRESULT CALLBACK EditWndProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
             if (val == *(g_Keysets[KI_EDIT].pvalue))
             {
                 EC_LeaveEditMode();
+            }
+
+            // add ctrl + s
+            if ('S' == wParam)
+            {
+                if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+                {
+                    EC_LeaveEditMode();
+                }
             }
         }
         break;
@@ -110,8 +167,6 @@ void EnableMenu(HMENU hMenu, BOOL enable)
 void EnableAllMenu(HWND hWnd, BOOL enable)
 {
     HMENU hMenu;
-    HMENU hSubMenu;
-    int pos;
 
     hMenu = GetMenu(hWnd);
     EnableMenu(hMenu, enable);

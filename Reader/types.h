@@ -9,6 +9,7 @@
 
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
+#define ENABLE_MD5                  1
 
 #define IDM_CUSTOM_BEGIN            (50000)
 #define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)
@@ -42,14 +43,18 @@
 typedef unsigned char   u8;
 typedef unsigned long   u32;
 
+#if ENABLE_MD5
 typedef struct u128_t
 {
     u8 data[16];
 } u128_t;
+#endif
 
 typedef struct item_t
 {
+#if ENABLE_MD5
 	u128_t md5;
+#endif
 	int id;
 	int index; // save text current pos
     TCHAR file_name[MAX_PATH];

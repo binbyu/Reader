@@ -14,6 +14,7 @@ Utils::~Utils(void)
 {
 }
 
+#if ENABLE_MD5
 bool Utils::get_md5(void* data, size_t size, u128_t* result)
 {
     HCRYPTPROV hProv = NULL;
@@ -55,6 +56,7 @@ bool Utils::get_md5(void* data, size_t size, u128_t* result)
     CryptReleaseContext(hProv, 0);
     return true;
 }
+#endif
 
 wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
 {

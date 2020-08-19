@@ -10,8 +10,10 @@ public:
 	~Utils(void);
 
 public:
+#if ENABLE_MD5
 	// md5
 	static bool get_md5(void* data, size_t size, u128_t* result);
+#endif
 
 	// convert
 	static wchar_t* ansi_to_utf16(const char* str, int* len);

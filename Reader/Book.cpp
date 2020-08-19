@@ -14,7 +14,9 @@ Book::Book()
 {
     memset(m_fileName, 0, sizeof(m_fileName));
     m_Chapters.clear();
+#if ENABLE_MD5
     memset(&m_md5, 0, sizeof(u128_t));
+#endif
 }
 
 Book::~Book()
@@ -84,6 +86,25 @@ void Book::SetMd5(u128_t *md5)
 u128_t * Book::GetMd5(void)
 {
     return &m_md5;
+}
+
+void Book::UpdateMd5(void)
+{
+    extern item_t *_item;
+    u128_t md5;
+    char *data = NULL;
+    int size = 0;
+    
+    if (CalcMd5(m_fileName, &md5, &data, &size))
+    {
+        memcpy(&m_md5, &md5, sizeof(u128_t));
+        free(data);
+    }
+
+    if (_item)
+    {
+        memcpy(&_item->md5, &m_md5, sizeof(u128_t));
+    }
 }
 
 wchar_t * Book::GetText(void)
