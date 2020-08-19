@@ -53,10 +53,10 @@ typedef struct u128_t
 typedef struct item_t
 {
 #if ENABLE_MD5
-	u128_t md5;
+    u128_t md5;
 #endif
-	int id;
-	int index; // save text current pos
+    int id;
+    int index; // save text current pos
     TCHAR file_name[MAX_PATH];
     int mark_size;
     int mark[MAX_MARK_COUNT]; // book mark
@@ -94,15 +94,15 @@ typedef struct chapter_rule_t
 
 typedef struct header_t
 {
-	int flag;
+    int flag;
     UINT version;
     RECT rect;
-	LOGFONT font;
+    LOGFONT font;
     u32 font_color;
-	u32 bg_color;
+    u32 bg_color;
     BYTE alpha;
-	int item_id;
-	int size;
+    int item_id;
+    int size;
     int line_gap;
     int internal_border;
     int wheel_speed;
@@ -122,7 +122,7 @@ typedef struct header_t
 
 typedef struct body_t
 {
-	item_t items[1];
+    item_t items[1];
 } body_t;
 
 typedef enum type_t

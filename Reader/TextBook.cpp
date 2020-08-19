@@ -319,7 +319,7 @@ bool TextBook::ParserChaptersRegex(void)
         {
             delete e;
         }
-    	return false;
+        return false;
     }
 
     while (std::regex_search(text, cm, *e, std::regex_constants::format_first_only))

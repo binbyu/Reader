@@ -60,12 +60,12 @@ bool Utils::get_md5(void* data, size_t size, u128_t* result)
 
 wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
 {
-	wchar_t* result;
-	*len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-	result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
-	memset(result, 0, (*len)*sizeof(wchar_t));
-	MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)result, *len);
-	return result;
+    wchar_t* result;
+    *len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+    result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
+    memset(result, 0, (*len)*sizeof(wchar_t));
+    MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)result, *len);
+    return result;
 }
 
 wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
@@ -80,22 +80,22 @@ wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
 
 char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
 {
-	char* result;
-	*len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
-	result = (char*)malloc((*len)*sizeof(char));
-	memset(result, 0, (*len)*sizeof(char));
-	WideCharToMultiByte(CP_ACP, 0, str, -1, result, *len, NULL, NULL);
-	return result;
+    char* result;
+    *len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
+    result = (char*)malloc((*len)*sizeof(char));
+    memset(result, 0, (*len)*sizeof(char));
+    WideCharToMultiByte(CP_ACP, 0, str, -1, result, *len, NULL, NULL);
+    return result;
 }
 
 wchar_t* Utils::utf8_to_utf16(const char* str, int* len)
 {
-	wchar_t* result;
-	*len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-	result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
-	memset(result, 0, (*len)*sizeof(wchar_t));
-	MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, *len);
-	return result;
+    wchar_t* result;
+    *len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
+    memset(result, 0, (*len)*sizeof(wchar_t));
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, *len);
+    return result;
 }
 
 wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
@@ -110,20 +110,20 @@ wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
 
 char* Utils::utf16_to_utf8(const wchar_t* str, int* len)
 {
-	char* result;
-	*len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-	result =(char*)malloc((*len)*sizeof(char));
-	memset(result, 0, (*len)*sizeof(char));
-	WideCharToMultiByte(CP_UTF8, 0, str, -1, result, *len, NULL, NULL);
-	return result;
+    char* result;
+    *len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+    result =(char*)malloc((*len)*sizeof(char));
+    memset(result, 0, (*len)*sizeof(char));
+    WideCharToMultiByte(CP_UTF8, 0, str, -1, result, *len, NULL, NULL);
+    return result;
 }
 
 void Utils::free_buffer(void* buffer)
 {
-	if (buffer)
-	{
-		free(buffer);
-	}
+    if (buffer)
+    {
+        free(buffer);
+    }
 }
 
 const char *UTF_16_BE_BOM = "\xFE\xFF";
@@ -249,7 +249,7 @@ char* Utils::le_to_be(char* data, int len)
 
 char* Utils::be_to_le(char* data, int len)
 {
-	return le_to_be(data, len);
+    return le_to_be(data, len);
 }
 
 void Utils::b64_encode(const char *src, int slen, char *dst, int *dlen)

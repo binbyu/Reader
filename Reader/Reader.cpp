@@ -1738,7 +1738,7 @@ LRESULT OnUpdateMenu(HWND hWnd)
     AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("清空"));
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFile, MF_STRING, IDM_EXIT, _T("退出"));
-    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"文件");
+    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"文件(&F)");
     DrawMenuBar(hWnd);
 
     return 0;

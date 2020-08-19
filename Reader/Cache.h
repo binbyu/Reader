@@ -7,8 +7,8 @@
 class Cache
 {
 public:
-	Cache(TCHAR* file);
-	~Cache(void);
+    Cache(TCHAR* file);
+    ~Cache(void);
 
     bool init();
     bool exit();
@@ -36,7 +36,7 @@ private:
     void update_addr(void);
 
 private:
-	TCHAR m_file_name[MAX_PATH];
+    TCHAR m_file_name[MAX_PATH];
     void* m_buffer;
     int   m_size;
 };

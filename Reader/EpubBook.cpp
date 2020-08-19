@@ -91,10 +91,13 @@ end:
     {
         delete itor->second;
     }
+    epub.mainfest.clear();
     for (it = epub.navmap.begin(); it != epub.navmap.end(); it++)
     {
         delete it->second;
     }
+    epub.navmap.clear();
+    epub.spine.clear();
     FreeFilelist();
     if (!ret)
     {
