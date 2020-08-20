@@ -2,11 +2,24 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.8.0.0`<br/>
+最新release版本：`v1.8.1.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1rfmyIRFHeY_QckXltSgyRA](https://pan.baidu.com/s/1rfmyIRFHeY_QckXltSgyRA)<br/>
-提取码: `brnj`
+链接: [https://pan.baidu.com/s/16CXCmfBZyqHfitsteJXedg](https://pan.baidu.com/s/16CXCmfBZyqHfitsteJXedg)<br/>
+提取码: `p6ju`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.8.1.0 2020/8/20 功能更新<br/>
+1. 修改编辑模式，现支持档页文本修改<br/>
+   退出编辑模式时可以选择保存和取消<br/>
+2. 新增【高级设置】：<br/>
+   可以自定义目录解析方式。<br/>
+   支持正则表达式：正则表达式样例：`第.*章\s+.*`<br/>
+   切换小说后不要忘记还原为默认解析方式<br/>
+   正则表达式解析速度低于默认解析方式<br/>
+3. 修复1.8版本xp系统下面目录显示异常问题<br/>
 <br/>
 <br/>
 <br/>
@@ -26,6 +39,11 @@ A win32 txt/epub file reader
 6. 自动翻页，新增【翻页】与【滚动】两种模式<br/>
    6.1 菜单栏 > 设置 > 基本设置 > 自动翻页模式：翻页/滚动<br/>
 7. 修复一些已知bug<br/>
+<br/>
+版本：`v1.8.0.0`<br/>
+链接: https://pan.baidu.com/s/1rfmyIRFHeY_QckXltSgyRA<br/>
+提取码: brnj<br/>
+<br/>
 <br/>
 <br/>
 <br/>
