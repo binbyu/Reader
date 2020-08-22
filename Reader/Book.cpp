@@ -141,7 +141,7 @@ void Book::SetChapterRule(chapter_rule_t *rule)
 
 void Book::JumpChapter(HWND hWnd, int index)
 {
-    if (!m_Text || IsLoading())
+    if (!m_Text || IsLoading() || !m_CurrentPos)
         return;
 
     if (m_Chapters.end() != m_Chapters.find(index))
@@ -155,7 +155,7 @@ void Book::JumpPrevChapter(HWND hWnd)
 {
     chapters_t::reverse_iterator itor;
 
-    if (!m_Text || IsFirstPage() || IsLoading())
+    if (!m_Text || IsFirstPage() || IsLoading() || !m_CurrentPos)
         return;
 
     for (itor = m_Chapters.rbegin(); itor != m_Chapters.rend(); itor++)
@@ -173,7 +173,7 @@ void Book::JumpNextChapter(HWND hWnd)
 {
     chapters_t::iterator itor;
 
-    if (!m_Text || IsLastPage() || IsLoading())
+    if (!m_Text || IsLastPage() || IsLoading() || !m_CurrentPos)
         return;
 
     for (itor = m_Chapters.begin(); itor != m_Chapters.end(); itor++)
@@ -198,6 +198,9 @@ int Book::GetCurChapterIndex(void)
     if (m_Chapters.size() <= 0)
         return index;
 
+    if (!m_CurrentPos)
+        return index;
+
     itor = m_Chapters.begin();
     index = itor->first;
     for (itor = m_Chapters.begin(); itor != m_Chapters.end(); itor++)
@@ -209,6 +212,17 @@ int Book::GetCurChapterIndex(void)
         index = itor->first;
     }
     return index;
+}
+
+bool Book::GetChapterTitle(TCHAR* title, int size)
+{
+    int index = -1;
+
+    index = GetCurChapterIndex();
+    if (-1 == index)
+        return false;
+    _tcsncpy(title, m_Chapters[index].title.c_str(), size-1);
+    return true;
 }
 
 bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)

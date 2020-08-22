@@ -50,6 +50,7 @@ public:
     void JumpPrevChapter(HWND hWnd);
     void JumpNextChapter(HWND hWnd);
     int GetCurChapterIndex(void);
+    bool GetChapterTitle(TCHAR *title, int size);
 #if ENABLE_MD5
     static bool CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size);
 #endif

@@ -1991,6 +1991,7 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     if (g)
         delete g;
     UpdateProgess();
+    UpdateTitle(hWnd);
     return 0;
 }
 
@@ -2177,7 +2178,7 @@ void OnDraw(HWND hWnd)
     if (g)
         delete g;
     UpdateProgess();
-
+    UpdateTitle(hWnd);
     return;
 }
 
@@ -2699,7 +2700,6 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 {
     item_t *item = NULL;
     RECT rect;
-    TCHAR szNewTitle[MAX_LOADSTRING] = {0};
 
     StopLoadingImage(hWnd);
     //EnableWindow(hWnd, TRUE);
@@ -2740,11 +2740,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     OnUpdateMenu(hWnd);
 
     // Update title
-    TCHAR szFileName[MAX_PATH] = {0};
-    memcpy(szFileName, _item->file_name, sizeof(szFileName));
-    PathRemoveExtension(szFileName);
-    _stprintf(szNewTitle, _T("%s - %s"), szTitle, PathFindFileName(szFileName));
-    SetWindowText(hWnd, szNewTitle);
+    UpdateTitle(hWnd);
 
     // update chapter
     PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
@@ -2986,6 +2982,37 @@ void UpdateProgess(void)
     {
         SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)_T(""));
     }
+}
+
+void UpdateTitle(HWND hWnd)
+{
+    TCHAR szOldTitle[MAX_LOADSTRING + MAX_PATH + MAX_PATH] = { 0 };
+    TCHAR szNewTitle[MAX_LOADSTRING + MAX_PATH + MAX_PATH] = { 0 };
+    TCHAR szFileName[MAX_PATH] = { 0 };
+    TCHAR szChapter[MAX_PATH] = { 0 };
+
+    if (!_item || !_Book || _Book->IsLoading())
+        return;
+
+    memcpy(szFileName, _item->file_name, sizeof(szFileName));
+    PathRemoveExtension(szFileName);
+
+    if (_Book && !_Book->IsLoading())
+    {
+        if (_Book->GetChapterTitle(szChapter, MAX_PATH))
+        {
+            _stprintf(szNewTitle, _T("%s - %s - %s"), szTitle, PathFindFileName(szFileName), szChapter);
+        }
+    }
+    
+    if (!szNewTitle[0])
+    {
+        _stprintf(szNewTitle, _T("%s - %s"), szTitle, PathFindFileName(szFileName));
+    }
+
+    GetWindowText(hWnd, szOldTitle, MAX_LOADSTRING + MAX_PATH + MAX_PATH - 1);
+    if (_tcscmp(szOldTitle, szNewTitle))
+        SetWindowText(hWnd, szNewTitle);
 }
 
 BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)

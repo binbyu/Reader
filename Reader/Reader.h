@@ -86,6 +86,7 @@ UINT                GetCacheVersion(void);
 BOOL                Init(void);
 void                Exit(void);
 void                UpdateProgess(void);
+void                UpdateTitle(HWND);
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
 void                WheelSpeedInit(HWND);
 Bitmap*             LoadBGImage(int, int, BYTE alpha=0xFF);
