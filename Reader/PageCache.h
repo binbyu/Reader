@@ -1,6 +1,8 @@
 #ifndef __PAGE_CACHE_H__
 #define __PAGE_CACHE_H__
 
+#include "types.h"
+
 #define TEST_MODEL      0
 #define FAST_MODEL      1
 
@@ -32,7 +34,11 @@ public:
     virtual ~PageCache();
 
 public:
+#if ENABLE_TAG
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib, tagitem_t *tags);
+#else
     void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib);
+#endif
     void SetRect(RECT *rect);
     void SetLeftLine(int lines);
     void Reset(HWND hWnd, BOOL redraw = TRUE);
@@ -42,7 +48,6 @@ public:
     void LineUp(HWND hWnd, INT n);
     void LineDown(HWND hWnd, INT n);
     void DrawPage(HDC hdc);
-    void DrawPage(Gdiplus::Graphics g, Gdiplus::Font f, Gdiplus::SolidBrush b);
     INT GetCurPageSize(void);
     INT GetOnePageLineCount(void);
     INT GetTextLength(void);
@@ -54,14 +59,25 @@ public:
     BOOL SetCurPageText(HWND hWnd, TCHAR *text);
 
 protected:
+#if ENABLE_TAG
+    LONG GetLineHeight(HDC hdc, HFONT *tagfonts);
+#else
     LONG GetLineHeight(HDC hdc);
+#endif
     INT GetCahceUnitSize(HDC hdc);
+#if ENABLE_TAG
+    void LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts);
+#else
     void LoadPageInfo(HDC hdc, INT maxw);
+#endif
     void AddLine(INT start, INT length, INT pos = -1);
     void RemoveAllLine(BOOL freemem = FALSE);
     BOOL IsValid(void);
     Bitmap * GetCover(void);
     BOOL DrawCover(HDC hdc);
+#if ENABLE_TAG
+    int IsTag(int index);
+#endif
 
 protected:
     void UnitTest1(void);
@@ -79,6 +95,9 @@ protected:
     INT *m_InternalBorder;
     INT m_LeftLineCount;
     page_info_t m_PageInfo;
+#if ENABLE_TAG
+    tagitem_t *m_tags;
+#endif
 };
 
 #endif

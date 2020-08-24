@@ -4,12 +4,15 @@
 #pragma pack(1)
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
-#define MAX_CHAPTER_LENGTH          256
-#define MAX_MARK_COUNT              256
 
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
 #define ENABLE_MD5                  0
+#define ENABLE_TAG                  0
+
+#define MAX_CHAPTER_LENGTH          256
+#define MAX_MARK_COUNT              256
+#define MAX_TAG_COUNT               8
 
 #define IDM_CUSTOM_BEGIN            (50000)
 #define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)
@@ -92,6 +95,17 @@ typedef struct chapter_rule_t
     WCHAR regex[256];
 } chapter_rule_t;
 
+#if ENABLE_TAG
+typedef struct tagitem_t
+{
+    BOOL enable;
+    LOGFONT font;
+    u32 font_color;
+    u32 bg_color;
+    WCHAR keyword[64];
+} tagitem_t;
+#endif
+
 typedef struct header_t
 {
     int flag;
@@ -118,6 +132,9 @@ typedef struct header_t
     BYTE isDefault;
     u32 keyset[64];
     chapter_rule_t chapter_rule;
+#if ENABLE_TAG
+    tagitem_t tags[MAX_TAG_COUNT];
+#endif
 } header_t;
 
 typedef struct body_t

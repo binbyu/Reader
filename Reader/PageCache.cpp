@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "PageCache.h"
+#if TEST_MODEL
 #include <assert.h>
+#endif
 #include "Book.h"
 #include "EpubBook.h"
 
@@ -15,6 +17,9 @@ PageCache::PageCache()
     , m_lineGap(NULL)
     , m_InternalBorder(NULL)
     , m_LeftLineCount(0)
+#if ENABLE_TAG
+    , m_tags(NULL)
+#endif
 {
     memset(&m_Rect, 0, sizeof(m_Rect));
     memset(&m_PageInfo, 0, sizeof(m_PageInfo));
@@ -26,11 +31,18 @@ PageCache::~PageCache()
     RemoveAllLine(TRUE);
 }
 
+#if ENABLE_TAG
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib, tagitem_t *tags)
+#else
 void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib)
+#endif
 {
     m_CurrentPos = pos;
     m_lineGap = lg;
     m_InternalBorder = ib;
+#if ENABLE_TAG
+    m_tags = tags;
+#endif
     RemoveAllLine(TRUE);
     InvalidateRect(hWnd, &m_Rect, FALSE);
 }
@@ -193,23 +205,46 @@ void PageCache::DrawPage(HDC hdc)
     int h;
     line_info_t *line;
     RECT rect;
+#if ENABLE_TAG
+    int j;
+	HFONT tagfonts[MAX_TAG_COUNT] = {0};
+#endif	
 
     if (!IsValid())
         return;
 
+#if ENABLE_TAG
+    for (i=0; i<MAX_TAG_COUNT; i++)
+    {
+        if (m_tags[i].enable && m_tags[i].keyword[0])
+        {
+            tagfonts[i] = CreateFontIndirect(&m_tags[i].font);
+        }
+    }
+    h = GetLineHeight(hdc, tagfonts);
+#else
     h = GetLineHeight(hdc);
+#endif
     m_OnePageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - 2 * (*m_InternalBorder)) / h;
 
     if (m_PageInfo.line_size == 0 || m_CurrentLine < 0 
         || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_OnePageLineCount >= m_PageInfo.line_size))
     {
+#if ENABLE_TAG
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder), tagfonts);
+#else
         LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder));
+#endif
         UnitTest1();
     }
     UnitTest2();
 
     if (DrawCover(hdc))
+#if ENABLE_TAG
+        goto end;
+#else
         return;
+#endif
 
     memcpy(&rect, &m_Rect, sizeof(RECT));
     m_CurPageSize = 0;
@@ -219,11 +254,49 @@ void PageCache::DrawPage(HDC hdc)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
+#if ENABLE_TAG
+        SIZE sz = {0};
+        rect.left = (*m_InternalBorder);
+        for (j=0; j<line->length; j++)
+        {
+            int tagid = IsTag(j+line->start);
+            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            {
+                COLORREF oldcolor = SetBkColor(hdc, m_tags[tagid].bg_color);
+                COLORREF oldfontcolor = SetTextColor(hdc, m_tags[tagid].font_color);
+                HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[tagid]);
+                int oldmode = SetBkMode(hdc, OPAQUE);
+
+                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+                GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
+                SetBkColor(hdc, oldcolor);
+                SetTextColor(hdc, oldfontcolor);
+                SelectObject(hdc, oldfont);
+                SetBkMode(hdc, oldmode);
+            }
+            else
+            {
+                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+                GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
+            }
+            rect.left += sz.cx;
+        }
+#else
         DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+#endif
         rect.top += h;
         m_CurPageSize += line->length;
     }
     (*m_CurrentPos) = m_PageInfo.line_info[m_CurrentLine].start;
+
+#if ENABLE_TAG
+end:
+    for (i=0; i<MAX_TAG_COUNT; i++)
+    {
+        if (tagfonts[i])
+            DeleteObject(tagfonts[i]);
+    }
+#endif
 }
 
 INT PageCache::GetCurPageSize(void)
@@ -367,13 +440,46 @@ BOOL PageCache::SetCurPageText(HWND hWnd, TCHAR *dst_text)
     return FALSE;
 }
 
+#if ENABLE_TAG
+LONG PageCache::GetLineHeight(HDC hdc, HFONT *tagfonts)
+#else
 LONG PageCache::GetLineHeight(HDC hdc)
+#endif
 {
     SIZE sz = { 0 };
+#if ENABLE_TAG
+    int i;
+    LONG maxcy = 0;
+    
+	for (i=0; i<MAX_TAG_COUNT; i++)
+    {
+        if (tagfonts[i])
+        {
+            HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[i]);
+            GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
+            SelectObject(hdc, oldfont);
+
+            if (sz.cy > maxcy)
+            {
+                maxcy = sz.cy;
+            }
+        }
+    }
+
+    GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
+    if (sz.cy > maxcy)
+    {
+        maxcy = sz.cy;
+    }
+	if (!m_lineGap)
+        return maxcy;
+    return maxcy + (*m_lineGap);
+#else
     GetTextExtentPoint32(hdc, _T("AaBbYyZz"), 8, &sz);
     if (!m_lineGap)
         return sz.cy;
     return sz.cy + (*m_lineGap);
+#endif
 }
 
 INT PageCache::GetCahceUnitSize(HDC hdc)
@@ -386,7 +492,11 @@ INT PageCache::GetCahceUnitSize(HDC hdc)
     return w * h;
 }
 
+#if ENABLE_TAG
+void PageCache::LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts)
+#else
 void PageCache::LoadPageInfo(HDC hdc, INT maxw)
+#endif
 {
     INT MAX_FIND_SIZE = GetCahceUnitSize(hdc);
     INT pos1, pos2, pos3, pos4;
@@ -445,7 +555,24 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
             }
 
             // calc char width
+#if ENABLE_TAG
+            int tagid = IsTag(i);
+            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            {
+                if (tagfonts[tagid])
+                {
+                    HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[tagid]);
+                    GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+                    SelectObject(hdc, oldfont);
+                }
+            }
+            else
+            {
+                GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+            }
+#else
             GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+#endif
             width += sz.cx;
             if (width > maxw)
             {
@@ -509,7 +636,24 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
             }
 
             // calc char width
+#if ENABLE_TAG
+            int tagid = IsTag(i);
+            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            {
+                if (tagfonts[tagid])
+                {
+                    HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[tagid]);
+                    GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+                    SelectObject(hdc, oldfont);
+                }
+            }
+            else
+            {
+                GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+            }
+#else
             GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+#endif
             width += sz.cx;
             if (width > maxw)
             {
@@ -606,6 +750,30 @@ BOOL PageCache::IsValid(void)
         return FALSE;
     return TRUE;
 }
+
+#if ENABLE_TAG
+int PageCache::IsTag(int index)
+{
+    int i,j;
+    int len,begin,end;
+    for (i=0; i<MAX_TAG_COUNT; i++)
+    {
+        if (m_tags[i].enable && m_tags[i].keyword[0])
+        {
+            len = wcslen(m_tags[i].keyword);
+            begin = index - len + 1 > 0 ? index - len + 1 : 0;
+            end = index + 1/*+ len - 1 > m_TextLength ? m_TextLength : index + len - 1*/;
+
+            for (j=begin; j<end; j++)
+            {
+                if (wcsncmp(m_tags[i].keyword, m_Text+j, len) == 0)
+                    return i;
+            }
+        }
+    }
+    return -1;
+}
+#endif
 
 void PageCache::UnitTest1(void)
 {

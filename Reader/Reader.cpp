@@ -10,6 +10,9 @@
 #include "Advset.h"
 #include "DPIAwareness.h"
 #include "barcode.h"
+#if ENABLE_TAG
+#include "tagset.h"
+#endif
 #include <stdio.h>
 #include <shlwapi.h>
 #include <CommDlg.h>
@@ -186,6 +189,24 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // prepare for XP style controls
    InitCommonControls();
+
+   // fixed rect exception bug.
+   if (_header->rect.right <= 0 || _header->rect.bottom <= 0)
+   {
+       int w = _header->rect.right - _header->rect.left;
+       int h = _header->rect.bottom - _header->rect.top;
+       if (w <= 0 || h <= 0)
+       {
+           // using default
+           w = 300;
+           h = 500;
+       }
+       _header->rect.left = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
+       _header->rect.top = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
+       _header->rect.right = _header->rect.left + w;
+       _header->rect.bottom = _header->rect.top + h;
+   }
+   // -- fixed end
    
    hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       _header->rect.left, _header->rect.top, 
@@ -200,6 +221,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    _hWnd = hWnd;
    UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
    UpdateFontForDpi(hWnd, &_header->font);
+#if ENABLE_TAG
+   for (int i=0; i<MAX_TAG_COUNT; i++)
+   {
+       UpdateFontForDpi(hWnd, &_header->tags[i].font);
+   }
+#endif
    SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
 
    ShowSysTray(hWnd, _header->show_systray);
@@ -293,6 +320,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_ADVSET:
             ADV_OpenDlg(hInst, hWnd, &(_header->chapter_rule), _Book);
             break;
+#if ENABLE_TAG
+        case IDM_TAGSET:
+            TS_OpenDlg(hInst, hWnd, _header->tags);
+            if (_Book && !_Book->IsLoading())
+            {
+                _Book->ReDraw(hWnd);
+            }
+            break;
+#endif
         case IDM_PROXY:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_PROXY), hWnd, Proxy);
             break;
@@ -513,10 +549,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             rc.right = rc.right + _WndInfo.hbRect.right;
             rc.top = rc.top - _WndInfo.hbRect.top;
             rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-            _header->rect = rc;
+            _header->rect.left = rc.left;
+            _header->rect.top = rc.top;
+            _header->rect.right = rc.right;
+            _header->rect.bottom = rc.bottom;
         }
         RestoreRectForDpi(hWnd, &_header->rect);
         RestoreFontForDpi(hWnd, &_header->font);
+#if ENABLE_TAG
+        for (int i=0; i<MAX_TAG_COUNT; i++)
+        {
+            RestoreFontForDpi(hWnd, &_header->tags[i].font);
+        }
+#endif
         // stop loading
         StopLoadingImage(hWnd);
         if (_loading)
@@ -537,7 +582,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_QUERYENDSESSION:
-        Exit(); // save data when poweroff ?
+        //Exit(); // save data when poweroff ?
         return TRUE;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
@@ -578,15 +623,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_SIZE:
         OnSize(hWnd, message, wParam, lParam);
-        if (!IsZoomed(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+        if (!IsZoomed(hWnd) && !IsIconic(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
             GetWindowRect(hWnd, &_header->rect);
         GetWindowRect(hWnd, &s_rect);
         break;
     case WM_MOVE:
         OnMove(hWnd);
-        if (!IsZoomed(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+        if (!IsZoomed(hWnd) && !IsIconic(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
             GetWindowRect(hWnd, &_header->rect);
         break;
+    case WM_WINDOWPOSCHANGED:
+        return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_KEYDOWN:
         if (_Book && _Book->IsLoading())
             break;
@@ -971,10 +1018,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 rc.right = rc.right + _WndInfo.hbRect.right;
                 rc.top = rc.top - _WndInfo.hbRect.top;
                 rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-                _header->rect = rc;
+                _header->rect.left = rc.left;
+                _header->rect.top = rc.top;
+                _header->rect.right = rc.right;
+                _header->rect.bottom = rc.bottom;
             }
             RestoreRectForDpi(hWnd, &_header->rect);
             RestoreFontForDpi(hWnd, &_header->font);
+#if ENABLE_TAG
+            for (int i=0; i<MAX_TAG_COUNT; i++)
+            {
+                RestoreFontForDpi(hWnd, &_header->tags[i].font);
+            }
+#endif
             Exit();
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -1690,11 +1746,7 @@ LRESULT OnCreate(HWND hWnd)
     SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
     //DeleteObject(hFont);
 
-#if !ENABLE_NETWORK
-    HMENU hHelp = GetSubMenu(_WndInfo.hMenu, 3);
-    RemoveMenu(hHelp, IDM_PROXY, MF_BYCOMMAND);
-    RemoveMenu(hHelp, GetMenuItemCount(hHelp) - 2, MF_BYPOSITION);
-#endif
+    RemoveMenus(hWnd, FALSE);
     OnUpdateMenu(hWnd);
 
     // open the last file
@@ -2202,6 +2254,7 @@ void ResetLayerd(HWND hWnd)
 LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
+
     GetClientRectExceptStatusBar(hWnd, &rc);
     if (_Book)
         _Book->SetRect(&rc);
@@ -2732,7 +2785,11 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 
     // set param
     GetClientRectExceptStatusBar(hWnd, &rect);
+#if ENABLE_TAG
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border, _header->tags);
+#else
     _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
+#endif
     _Book->SetRect(&rect);
     _Book->SetChapterRule(&(_header->chapter_rule));
 
@@ -2905,7 +2962,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 UINT GetCacheVersion(void)
 {
     // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','8','1','0'};
+    char version[4] = {'1','8','1','1'};
     UINT ver = 0;
 
     ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
@@ -3013,6 +3070,54 @@ void UpdateTitle(HWND hWnd)
     GetWindowText(hWnd, szOldTitle, MAX_LOADSTRING + MAX_PATH + MAX_PATH - 1);
     if (_tcscmp(szOldTitle, szNewTitle))
         SetWindowText(hWnd, szNewTitle);
+}
+
+void RemoveMenuById(HMENU hMenu, BOOL separator, int id)
+{
+    HMENU hSubMenu;
+    int count;
+    int i,j;
+    int menuid;
+
+    if (!hMenu)
+        return;
+
+    count = GetMenuItemCount(hMenu);
+    for (i=0; i<count; i++)
+    {
+        hSubMenu = GetSubMenu(hMenu, i);
+        if (hSubMenu)
+            RemoveMenuById(hSubMenu, separator, id);
+        menuid = GetMenuItemID(hMenu, i);
+        if (id == menuid)
+        {
+            if (separator)
+            {
+                j = i+1;
+                RemoveMenu(hMenu, j, MF_BYPOSITION);
+            }
+            RemoveMenu(hMenu, id, MF_BYCOMMAND);
+            return;
+        }
+    }
+}
+
+void RemoveMenus(HWND hWnd, BOOL redraw)
+{
+    HMENU hMenu;
+
+    hMenu = GetMenu(hWnd);
+
+#if !ENABLE_NETWORK
+    RemoveMenuById(hMenu, TRUE, IDM_PROXY);
+#endif
+
+#if !ENABLE_TAG
+    RemoveMenuById(hMenu, FALSE, IDM_TAGSET);
+#endif
+
+    if (redraw)
+        DrawMenuBar(hWnd);
 }
 
 BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)

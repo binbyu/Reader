@@ -303,6 +303,17 @@ header_t* Cache::default_header()
     // default chapter rule
     header->chapter_rule.rule = 0;
 
+    // default tags
+#if ENABLE_TAG
+    for (int i=0; i<MAX_TAG_COUNT; i++)
+    {
+        memcpy(&header->tags[i].font, &lf, sizeof(lf));
+        header->tags[i].bg_color = 0x00FFFFFF;
+        header->tags[i].enable = 0;
+        header->tags[i].font_color = 0x00;
+    }
+#endif
+	
     return header;
 }
 
