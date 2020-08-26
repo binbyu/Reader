@@ -40,6 +40,9 @@ void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib)
     m_CurrentPos = pos;
     m_lineGap = lg;
     m_InternalBorder = ib;
+    // fixed bug for txt modified
+    if (*m_CurrentPos < 0 || *m_CurrentPos >= m_TextLength)
+        *m_CurrentPos = 0;
 #if ENABLE_TAG
     m_tags = tags;
 #endif
