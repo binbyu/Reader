@@ -48,6 +48,17 @@ bool Cache::init()
     {
         if (read())
         {
+            // check data
+            if (m_size != sizeof(header_t) + get_header()->size * sizeof(item_t))
+            {
+                // remove old cache data
+                DeleteFile(m_file_name);
+                free(m_buffer);
+                m_buffer = NULL;
+                if (!default_header())
+                    return false;
+            }
+
             if (get_header()->version != GetCacheVersion())
             {
                 // remove old cache data
