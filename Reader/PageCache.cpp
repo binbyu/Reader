@@ -157,7 +157,7 @@ BOOL PageCache::DrawCover(HDC hdc)
     Rect src;
     Rect dst;
 
-    if (m_PageInfo.line_info[m_CurrentLine].start != 0)
+    if (m_PageInfo.line_size <= 0 || m_PageInfo.line_info[m_CurrentLine].start != 0)
         return FALSE;
 
     cover = GetCover();
@@ -241,6 +241,9 @@ void PageCache::DrawPage(HDC hdc)
         UnitTest1();
     }
     UnitTest2();
+
+    if (m_PageInfo.line_size == 0) // fixed bug
+        return;
 
     if (DrawCover(hdc))
 #if ENABLE_TAG
