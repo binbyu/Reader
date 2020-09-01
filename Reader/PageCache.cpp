@@ -406,7 +406,7 @@ BOOL PageCache::SetCurPageText(HWND hWnd, TCHAR *dst_text)
         // format dest text
         src_len = m_CurPageSize;
         dst_len = _tcslen(dst_text);
-        book->FormatText(dst_text, &dst_len);
+        book->FormatText(dst_text, &dst_len, false);
 
         // change text
         len = m_TextLength - src_len + dst_len;

@@ -59,7 +59,7 @@ public:
     virtual bool ParserBook(void) = 0;
     // srcsize and dstsize not include \0
     virtual bool DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
-    virtual bool FormatText(wchar_t *text, int *len);
+    virtual bool FormatText(wchar_t *text, int *len, bool flag = true);
     bool IsBlanks(wchar_t c);
     void ForceKill(void);
 

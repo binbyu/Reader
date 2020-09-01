@@ -296,10 +296,9 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
     return true;
 }
 
-bool Book::FormatText(wchar_t *text, int *len)
+bool Book::FormatText(wchar_t *text, int *len, bool flag)
 {
     wchar_t *buf = NULL;
-    bool flag = true;
     int i, index = 0;
     if (!text || *len == 0)
         return false;
