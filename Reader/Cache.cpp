@@ -49,25 +49,8 @@ bool Cache::init()
         if (read())
         {
             // check data
-            if (m_size != sizeof(header_t) + get_header()->size * sizeof(item_t))
-            {
-                // remove old cache data
-                DeleteFile(m_file_name);
-                free(m_buffer);
-                m_buffer = NULL;
-                if (!default_header())
-                    return false;
-            }
-
-            if (get_header()->version != GetCacheVersion())
-            {
-                // remove old cache data
-                DeleteFile(m_file_name);
-                free(m_buffer);
-                m_buffer = NULL;
-                if (!default_header())
-                    return false;
-            }
+            if (!check_cache())
+                return false;
             return true;
         }
         return false;
@@ -108,7 +91,7 @@ item_t* Cache::get_item(int item_id)
 {
     header_t* header = get_header();
     int offset = sizeof(header_t) + item_id*sizeof(item_t);
-    if (item_id >= header->size)
+    if (item_id >= header->item_count)
         return NULL;
     return (item_t*)((char*)m_buffer + offset);
 }
@@ -161,7 +144,7 @@ item_t* Cache::new_item(TCHAR* file_name)
         update_addr();
     m_size += sizeof(item_t);
     header = get_header();
-    item_id = header->size++;
+    item_id = header->item_count++;
 
     // init item
     item = get_item(item_id);
@@ -188,10 +171,10 @@ item_t* Cache::find_item(TCHAR* file_name)
     header_t* header = get_header();
     item_t* item = NULL;
 
-    if (header->size <= 0)
+    if (header->item_count <= 0)
         return NULL;
 
-    for (int i=0; i<header->size; i++)
+    for (int i=0; i<header->item_count; i++)
     {
         item = get_item(i);
 #if ENABLE_MD5
@@ -221,14 +204,14 @@ bool Cache::delete_item(int item_id)
     if (!item)
         return false;
 
-    for (int i=item_id+1; i<header->size; i++)
+    for (int i=item_id+1; i<header->item_count; i++)
     {
         item_t* item_1 = get_item(i);
         item_t* item_2 = get_item(i-1);
         item_1->id--;
         memcpy(item_2, item_1, sizeof(item_t));
     }
-    header->size--;
+    header->item_count--;
     m_size -= sizeof(item_t);
     return true;
 }
@@ -237,7 +220,7 @@ bool Cache::delete_all_item(void)
 {
     header_t* header = get_header();
 
-    header->size = 0;
+    header->item_count = 0;
     header->item_id = -1;
     m_size = sizeof(header_t);
     return true;
@@ -261,6 +244,11 @@ header_t* Cache::default_header()
     {
         header = (header_t*)m_buffer;
     }
+
+    // default flag
+    header->flag = CACHE_FIXED;
+    header->header_size = sizeof(header_t);
+    header->item_size = sizeof(item_t);
     
     // default font
     static HFONT hFont = NULL;
@@ -524,4 +512,82 @@ void Cache::update_addr(void)
 #if ENABLE_NETWORK
     _Upgrade.SetProxy(&header->proxy);
 #endif
+}
+
+bool Cache::check_cache(void)
+{
+    header_t *header;
+
+    header = (header_t *)m_buffer;
+
+    if (!header)
+        return false;
+
+    if (header->flag == CACHE_REMOVE)
+    {
+        // remove old cache data
+        DeleteFile(m_file_name);
+        free(m_buffer);
+        m_buffer = NULL;
+        if (!default_header())
+            return false;
+    }
+    else if (header->flag == CACHE_FIXED)
+    {
+        // need fixed
+        if (header->header_size != sizeof(header_t)
+            || header->item_size != sizeof(item_t))
+        {
+            void *buffer;
+            int i, offset;
+            void *item;
+            int len;
+
+            // backup old buffer
+            buffer = m_buffer;
+
+            // malloc new buffer
+            m_size = sizeof(header_t) + (header->item_count * sizeof(item_t));
+            m_buffer = malloc(m_size);
+            memset(m_buffer, 0, m_size);
+
+            // default new buffer
+            if (!default_header())
+            {
+                free(buffer);
+                return false;
+            }
+            get_header()->item_count = header->item_count;
+
+            // copy header
+            len = sizeof(header_t) > header->header_size ? header->header_size : sizeof(header_t);
+            memcpy(get_header(), header, len);
+            get_header()->header_size = sizeof(header_t);
+            get_header()->item_size = sizeof(item_t);
+            get_header()->item_count = header->item_count;
+
+            // copy item list
+            for (i=0; i<header->item_count; i++)
+            {
+                offset = header->header_size + i * header->item_size;
+                item = (void*)((char*)buffer + offset);
+                len = sizeof(item_t) > header->item_size ? header->item_size : sizeof(item_t);
+
+                memcpy(get_item(i), item, len);
+            }
+
+            free(buffer);
+        }
+    }
+    else
+    {
+        // remove old cache data
+        DeleteFile(m_file_name);
+        free(m_buffer);
+        m_buffer = NULL;
+        if (!default_header())
+            return false;
+    }
+
+    return true;
 }

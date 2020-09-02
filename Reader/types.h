@@ -46,18 +46,18 @@
 typedef unsigned char   u8;
 typedef unsigned long   u32;
 
-#if ENABLE_MD5
+//#if ENABLE_MD5
 typedef struct u128_t
 {
     u8 data[16];
 } u128_t;
-#endif
+//#endif
 
 typedef struct item_t
 {
-#if ENABLE_MD5
+//#if ENABLE_MD5
     u128_t md5;
-#endif
+//#endif
     int id;
     int index; // save text current pos
     TCHAR file_name[MAX_PATH];
@@ -95,7 +95,7 @@ typedef struct chapter_rule_t
     WCHAR regex[256];
 } chapter_rule_t;
 
-#if ENABLE_TAG
+//#if ENABLE_TAG
 typedef struct tagitem_t
 {
     BOOL enable;
@@ -104,19 +104,27 @@ typedef struct tagitem_t
     u32 bg_color;
     WCHAR keyword[64];
 } tagitem_t;
-#endif
+//#endif
+
+typedef enum cache_update_type_t
+{
+    CACHE_REMOVE = 0,
+    CACHE_FIXED,
+} cache_update_type_t;
 
 typedef struct header_t
 {
-    int flag;
+    int flag;           // cache_update_type_t
     UINT version;
+    int header_size;
+    int item_size;
+    int item_count;
+    int item_id;
     RECT rect;
     LOGFONT font;
     u32 font_color;
     u32 bg_color;
     BYTE alpha;
-    int item_id;
-    int size;
     int line_gap;
     int internal_border;
     int wheel_speed;
@@ -132,9 +140,10 @@ typedef struct header_t
     BYTE isDefault;
     u32 keyset[64];
     chapter_rule_t chapter_rule;
-#if ENABLE_TAG
+//#if ENABLE_TAG
     tagitem_t tags[MAX_TAG_COUNT];
-#endif
+//#endif
+    BYTE meun_font;
 } header_t;
 
 typedef struct body_t

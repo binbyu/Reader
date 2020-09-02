@@ -34,6 +34,7 @@ private:
     bool read();
     bool write();
     void update_addr(void);
+    bool check_cache(void);
 
 private:
     TCHAR m_file_name[MAX_PATH];

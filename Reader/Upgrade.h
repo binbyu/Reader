@@ -30,9 +30,9 @@ public:
     void SetIngoreVersion(TCHAR *ingorev);
     void Check(upgrade_callback_t cb, void *param);
     json_item_data_t * GetVersionInfo(void);
+    std::wstring GetApplicationVersion(void);
 
 private:
-    std::wstring GetApplicationVersion(void);
     void CancelRequest(void);
     int ParserJson(const char *json);
     static unsigned __stdcall DoRequest(void* param);

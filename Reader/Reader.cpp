@@ -1218,6 +1218,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     int value = 0;
     int cid;
     LRESULT res;
+    BYTE temp;
     switch (message)
     {
     case WM_INITDIALOG:
@@ -1253,6 +1254,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_SETCHECK, BST_CHECKED, NULL);
         else
             SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATWHEEL), BM_SETCHECK, BST_CHECKED, NULL);
+        SendMessage(GetDlgItem(hDlg, IDC_CHECK_MENU_FONT), BM_SETCHECK, _header->meun_font ? BST_CHECKED : BST_UNCHECKED, NULL);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -1331,24 +1333,22 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 ShowSysTray(GetParent(hDlg), _header->show_systray);
             }
             res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_GETCHECK, 0, NULL);
-            if (res == BST_CHECKED)
+            _header->disable_lrhide = res == BST_CHECKED ? 0 : 1;
+            res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_GETCHECK, 0, NULL);
+            _header->autopage_mode = res == BST_CHECKED ? 0 : 1;
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_MENU_FONT), BM_GETCHECK, 0, NULL);
+            temp = res == BST_CHECKED ? 1 : 0;
+            if (temp != _header->meun_font)
             {
-                _header->disable_lrhide = 0;
+                _header->meun_font = temp;
+                SetTreeviewFont();
             }
-            else
-            {
-                _header->disable_lrhide = 1;
-            }
+            _header->meun_font = temp;
             if (bUpdated)
             {
                 if (_Book)
                     _Book->Reset(GetParent(hDlg));
             }
-            res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_GETCHECK, 0, NULL);
-            if (res == BST_CHECKED)
-                _header->autopage_mode = 0;
-            else
-                _header->autopage_mode = 1;
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1729,28 +1729,13 @@ LRESULT OnCreate(HWND hWnd)
         0, 0, 200, 300, hWnd, NULL, hInst, NULL);
     //TreeView_SetBkColor(_hTreeView, GetSysColor(COLOR_MENU));
     //TreeView_SetBkColor(_hTreeMark, GetSysColor(COLOR_MENU));
-    NONCLIENTMETRICS theMetrics = {0};
-    theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
-    if (Utils::isWindowsXP())
-        theMetrics.cbSize = sizeof(NONCLIENTMETRICS) - sizeof(theMetrics.iPaddedBorderWidth);
-    SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
-    theMetrics.iMenuHeight = (int)(theMetrics.iMenuHeight *1.25f); // 1.25 line height
-    if (theMetrics.iMenuHeight == 0)
-    {
-        theMetrics.iMenuHeight = 20;
-    }
-    HFONT hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
-    SendMessage(_hTreeView, WM_SETFONT, (WPARAM)hFont, NULL);
-    SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
-    SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)hFont, NULL);
-    SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
-    //DeleteObject(hFont);
+    SetTreeviewFont();
 
     RemoveMenus(hWnd, FALSE);
     OnUpdateMenu(hWnd);
 
     // open the last file
-    if (_header->size > 0)
+    if (_header->item_count > 0)
     {
         item_t* item = _Cache.get_item(0);
         OnOpenBook(hWnd, item->file_name, FALSE);
@@ -1780,12 +1765,12 @@ LRESULT OnUpdateMenu(HWND hWnd)
     hFile = CreateMenu();
     AppendMenu(hFile, MF_STRING, IDM_OPEN, _T("´ò¿ª"));
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
-    for (int i=0; i<_header->size; i++)
+    for (int i=0; i<_header->item_count; i++)
     {
         item_t* item = _Cache.get_item(i);
         AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id++, item->file_name);
     }
-    if (_header->size > 0)
+    if (_header->item_count > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("Çå¿Õ"));
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
@@ -1887,7 +1872,10 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             bUpdate = TRUE;
         }
         if (bUpdate && _Book)
+        {
+            SetTreeviewFont();
             _Book->Reset(hWnd);
+        }
     }
 
     return 0;
@@ -1929,6 +1917,7 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     _Cache.default_header();
     UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
     UpdateFontForDpi(hWnd, &_header->font);
+    SetTreeviewFont();
     if (GetDpiScaled(hWnd) == 1.0f)
     {
         SetWindowPos(hWnd, NULL,
@@ -2961,11 +2950,15 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 
 UINT GetCacheVersion(void)
 {
-    // Not a real version, just used to flag whether you need to update the cache.dat file.
-    char version[4] = {'1','8','1','1'};
+    std::wstring version;
     UINT ver = 0;
 
-    ver = version[0] << 24 | version[1] << 16 | version[2] << 8 | version[3];
+    version = _Upgrade.GetApplicationVersion();
+
+    unsigned int v1 = 0, v2 = 0, v3 = 0, v4 = 0;
+    swscanf(version.c_str(), L"%d.%d.%d.%d", &v1, &v2, &v3, &v4);    
+
+    ver = v1 << 24 | v2 << 16 | v3 << 8 | v4;
     return ver;
 }
 
@@ -2981,7 +2974,7 @@ BOOL Init(void)
 
     // delete not exist items
     std::vector<int> delVec;
-    for (int i=0; i<_header->size; i++)
+    for (int i=0; i<_header->item_count; i++)
     {
         item_t* item = _Cache.get_item(i);
         if (!PathFileExists(item->file_name))
@@ -3593,4 +3586,43 @@ HBITMAP CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int he
 
     // Return DIBSection 
     return hDIB;
+}
+
+void SetTreeviewFont()
+{
+    static HFONT s_hFont = NULL;
+
+    if (s_hFont)
+    {
+        DeleteObject(s_hFont);
+        s_hFont = NULL;
+    }
+
+    if (_header->meun_font)
+    {
+        s_hFont = CreateFontIndirect(&_header->font);
+        int height = abs((int)(_header->font.lfHeight * 1.25f));
+        SendMessage(_hTreeView, WM_SETFONT, (WPARAM)s_hFont, NULL);
+        SendMessage(_hTreeView, TVM_SETITEMHEIGHT, height, NULL);
+        SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)s_hFont, NULL);
+        SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, height, NULL);
+    }
+    else
+    {
+        NONCLIENTMETRICS theMetrics = {0};
+        theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
+        if (Utils::isWindowsXP())
+            theMetrics.cbSize = sizeof(NONCLIENTMETRICS) - sizeof(theMetrics.iPaddedBorderWidth);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
+        theMetrics.iMenuHeight = abs((int)(theMetrics.iMenuHeight * 1.25f)); // 1.25 line height
+        if (theMetrics.iMenuHeight == 0)
+        {
+            theMetrics.iMenuHeight = 20;
+        }
+        s_hFont = CreateFontIndirect(&(theMetrics.lfMenuFont));
+        SendMessage(_hTreeView, WM_SETFONT, (WPARAM)s_hFont, NULL);
+        SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
+        SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)s_hFont, NULL);
+        SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
+    }
 }

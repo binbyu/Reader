@@ -107,6 +107,7 @@ BOOL CALLBACK       EnumWindowsProc(HWND hWnd, LPARAM lParam);
 void                ShowInTaskbar(HWND hWnd, BOOL bShow);
 void                ShowSysTray(HWND hWnd, BOOL bShow);
 HBITMAP             CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int height);
+void                SetTreeviewFont();
 
 
 #endif
