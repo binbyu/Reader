@@ -325,7 +325,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             TS_OpenDlg(hInst, hWnd, _header->tags);
             if (_Book && !_Book->IsLoading())
             {
-                _Book->ReDraw(hWnd);
+                _Book->Reset(hWnd, TRUE);
             }
             break;
 #endif
@@ -3601,7 +3601,7 @@ void SetTreeviewFont()
     if (_header->meun_font)
     {
         s_hFont = CreateFontIndirect(&_header->font);
-        int height = abs((int)(_header->font.lfHeight * 1.25f));
+        int height = abs((int)(_header->font.lfHeight * 1.5f));
         SendMessage(_hTreeView, WM_SETFONT, (WPARAM)s_hFont, NULL);
         SendMessage(_hTreeView, TVM_SETITEMHEIGHT, height, NULL);
         SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)s_hFont, NULL);

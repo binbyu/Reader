@@ -8,11 +8,11 @@
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
 #define ENABLE_MD5                  0
-#define ENABLE_TAG                  0
+#define ENABLE_TAG                  1
 
 #define MAX_CHAPTER_LENGTH          256
 #define MAX_MARK_COUNT              256
-#define MAX_TAG_COUNT               8
+#define MAX_TAG_COUNT               10
 
 #define IDM_CUSTOM_BEGIN            (50000)
 #define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)
