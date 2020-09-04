@@ -8,7 +8,7 @@
 #define USING_MENU_CHAPTERS         0
 #define ENABLE_NETWORK              1
 #define ENABLE_MD5                  0
-#define ENABLE_TAG                  1
+#define ENABLE_TAG                  0
 
 #define MAX_CHAPTER_LENGTH          256
 #define MAX_MARK_COUNT              256

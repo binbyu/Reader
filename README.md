@@ -2,11 +2,23 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.8.1.0`<br/>
+最新release版本：`v1.8.2.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/16CXCmfBZyqHfitsteJXedg](https://pan.baidu.com/s/16CXCmfBZyqHfitsteJXedg)<br/>
-提取码: `p6ju`
+链接: [https://pan.baidu.com/s/11QUiRWaBhsUUrXHZnaiQ1g](https://pan.baidu.com/s/11QUiRWaBhsUUrXHZnaiQ1g)<br/>
+提取码: `gk9p`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.8.2.0 2020/9/4 bug修复<br/>
+1. 修复软件最小化状态关闭时，会导致软件无法再次打开的bug<br/>
+2. 增加标题栏显示章节名称<br/>
+3. 增加目录字体跟随文本字体设置<br/>
+   3.1 菜单【基本设置】<br/>
+4. 关于杀毒软件报毒问题：<br/>
+   我暂时没有好的处理方法。<br/>
+   我只能保证软件没有病毒。<br/>
 <br/>
 <br/>
 <br/>
@@ -20,6 +32,10 @@ A win32 txt/epub file reader
    切换小说后不要忘记还原为默认解析方式<br/>
    正则表达式解析速度低于默认解析方式<br/>
 3. 修复1.8版本xp系统下面目录显示异常问题<br/>
+<br/>
+版本：`v1.8.1.0`<br/>
+链接: https://pan.baidu.com/s/16CXCmfBZyqHfitsteJXedg<br/>
+提取码: p6ju<br/>
 <br/>
 <br/>
 <br/>
