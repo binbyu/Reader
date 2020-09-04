@@ -4,8 +4,8 @@ A win32 txt/epub file reader
 ****
 最新release版本：`v1.8.2.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/11QUiRWaBhsUUrXHZnaiQ1g](https://pan.baidu.com/s/11QUiRWaBhsUUrXHZnaiQ1g)<br/>
-提取码: `gk9p`
+链接: [https://pan.baidu.com/s/1JMd0YroXYbBsSB2f6qv4kg](https://pan.baidu.com/s/1JMd0YroXYbBsSB2f6qv4kg)<br/>
+提取码: `9r6e`
 ****
 <br/>
 <br/>
