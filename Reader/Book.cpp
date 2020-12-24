@@ -3,6 +3,9 @@
 #include "types.h"
 #include "Utils.h"
 #include <process.h>
+#ifdef _DEBUG
+#include <assert.h>
+#endif
 
 
 Book::Book()
@@ -214,6 +217,11 @@ int Book::GetCurChapterIndex(void)
     return index;
 }
 
+LRESULT Book::OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return 0;
+}
+
 bool Book::GetChapterTitle(TCHAR* title, int size)
 {
     int index = -1;
@@ -332,7 +340,7 @@ bool Book::FormatText(wchar_t *text, int *len, bool flag)
 
 bool Book::IsBlanks(wchar_t c)
 {
-    if (c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D || c == 0x3000)
+    if (c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0B || c == 0x0C || c == 0x0D || c == 0x3000)
     {
         return true;
     }
@@ -344,8 +352,11 @@ void Book::ForceKill(void)
     if (m_hThread)
     {
         m_bForceKill = TRUE;
-        if (WAIT_TIMEOUT == WaitForSingleObject(m_hThread, 3000))
+        if (WAIT_TIMEOUT == WaitForSingleObject(m_hThread, 5000))
         {
+#if TEST_MODEL
+            assert(false);
+#endif
             TerminateThread(m_hThread, 0);
         }
         CloseHandle(m_hThread);
@@ -399,7 +410,7 @@ unsigned __stdcall Book::OpenBookThread(void* pArguments)
     bool result = false;
 
     _this->m_bForceKill = FALSE;
-    result = _this->ParserBook();
+    result = _this->ParserBook(param->hWnd);
     if (param->hWnd && !_this->m_bForceKill)
     {
         PostMessage(param->hWnd, WM_OPEN_BOOK, result ? 1 : 0, NULL);

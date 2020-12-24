@@ -16,7 +16,7 @@ public:
     virtual bool UpdateChapters(int offset);
 
 protected:
-    virtual bool ParserBook(void);
+    virtual bool ParserBook(HWND hWnd);
     bool ReadBook(void);
     bool ParserChapters(void);
     bool ParserChaptersDefault(void);

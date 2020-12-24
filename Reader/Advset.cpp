@@ -11,6 +11,7 @@ static BOOL g_bChanged = FALSE;
 static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 extern LRESULT OnOpenItem(HWND hWnd, int item_id, BOOL forced);
+extern int MessageBox_(HWND, UINT, UINT, UINT);
 
 void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule, void *book)
 {
@@ -69,7 +70,7 @@ static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
                     GetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD, temp, 255);
                     if (!temp[0])
                     {
-                        MessageBox(hDlg, _T("关键字不能为空！"), _T("提示"), MB_OK|MB_ICONWARNING);
+                        MessageBox_(hDlg, IDS_EMPTY_KEYWORD, IDS_ERROR, MB_OK|MB_ICONWARNING);
                         SetFocus(GetDlgItem(hDlg, IDC_EDIT_CPT_KEYWORD));
                         return (INT_PTR)FALSE;
                     }
@@ -86,7 +87,7 @@ static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
                     GetDlgItemText(hDlg, IDC_EDIT_CPT_REGEX, temp, 255);
                     if (!temp[0])
                     {
-                        MessageBox(hDlg, _T("正则表达式不能为空！"), _T("提示"), MB_OK|MB_ICONWARNING);
+                        MessageBox_(hDlg, IDS_EMPTY_REGEX, IDS_ERROR, MB_OK|MB_ICONWARNING);
                         SetFocus(GetDlgItem(hDlg, IDC_EDIT_CPT_REGEX));
                         return (INT_PTR)FALSE;
                     }
@@ -99,7 +100,7 @@ static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
                         }
                         catch (...)
                         {
-                            MessageBox(hDlg, _T("正则表达式格式错误！"), _T("提示"), MB_OK|MB_ICONWARNING);
+                            MessageBox_(hDlg, IDS_INVALID_REGEX, IDS_ERROR, MB_OK|MB_ICONWARNING);
                             SetFocus(GetDlgItem(hDlg, IDC_EDIT_CPT_REGEX));
                             return (INT_PTR)FALSE;
                         }

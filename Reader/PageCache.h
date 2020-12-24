@@ -3,9 +3,6 @@
 
 #include "types.h"
 
-#define TEST_MODEL      0
-#define FAST_MODEL      1
-
 typedef struct line_info_t
 {
     INT start;
@@ -19,13 +16,6 @@ typedef struct page_info_t
     line_info_t *line_info;
 } page_info_t;
 
-typedef enum page_status_t
-{
-    INIT = 0,
-    DOWN = 1,
-    UP = 2,
-} page_status_t;
-
 
 class PageCache
 {
@@ -35,9 +25,9 @@ public:
 
 public:
 #if ENABLE_TAG
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib, tagitem_t *tags);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib, tagitem_t *tags);
 #else
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *ib);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib);
 #endif
     void SetRect(RECT *rect);
     void SetLeftLine(int lines);
@@ -47,7 +37,7 @@ public:
     void PageDown(HWND hWnd);
     void LineUp(HWND hWnd, INT n);
     void LineDown(HWND hWnd, INT n);
-    void DrawPage(HDC hdc);
+    void DrawPage(HWND hWnd, HDC hdc);
     INT GetCurPageSize(void);
     INT GetOnePageLineCount(void);
     INT GetTextLength(void);
@@ -78,6 +68,8 @@ protected:
 #if ENABLE_TAG
     int IsTag(int index);
 #endif
+    virtual bool OnDrawPageEvent(HWND hWnd);
+    virtual bool OnLineUpDownEvent(HWND hWnd, BOOL up, int n);
 
 protected:
     void UnitTest1(void);
@@ -92,8 +84,9 @@ protected:
     INT m_CurrentLine;
     INT *m_CurrentPos;
     INT *m_lineGap;
-    INT *m_InternalBorder;
+    RECT *m_InternalBorder;
     INT m_LeftLineCount;
+    INT *m_WordWrap;
     page_info_t m_PageInfo;
 #if ENABLE_TAG
     tagitem_t *m_tags;

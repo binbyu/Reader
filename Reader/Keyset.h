@@ -27,6 +27,8 @@ typedef enum keyid_t
     KI_LINEDOWN,
     KI_CHAPTERUP,
     KI_CHAPTERDOWN,
+    KI_FONTZOOMIN,
+    KI_FONTZOOMOUT,
     KI_MAXCOUNT
 } keyid_t;
 
@@ -41,7 +43,7 @@ typedef struct keydata_t
     DWORD   defval;
     DWORD   ctrl_id;
     keyproc proc;
-    TCHAR   desc[32];
+    UINT    desc;
 } keydata_t;
 
 

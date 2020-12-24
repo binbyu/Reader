@@ -55,47 +55,6 @@ json_item_data_t * Upgrade::GetVersionInfo(void)
     return &m_VersionInfo;
 }
 
-std::wstring Upgrade::GetApplicationVersion(void)
-{
-    std::wstring version = L"";
-    TCHAR szModPath[MAX_PATH] = {0};
-    DWORD dwHandle;
-    DWORD dwSize;
-    BYTE *pBlock;
-    TCHAR SubBlock[MAX_PATH] = {0};
-    TCHAR *buffer;
-    UINT cbTranslate;
-
-    GetModuleFileName(NULL, szModPath, sizeof(TCHAR)*(MAX_PATH-1));
-    dwSize = GetFileVersionInfoSize(szModPath, &dwHandle);
-    if (dwSize > 0)
-    {
-        pBlock = (BYTE*)malloc(dwSize);
-        memset(pBlock, 0, dwSize);
-        if (GetFileVersionInfo(szModPath, dwHandle, dwSize, pBlock))
-        {
-            struct LANGANDCODEPAGE {
-                WORD wLanguage;
-                WORD wCodePage;
-            } *lpTranslate;
-
-            // Read the list of languages and code pages.
-            if (VerQueryValue(pBlock, _T("\\VarFileInfo\\Translation"), (LPVOID*)&lpTranslate, &cbTranslate))
-            {
-                // Read the file description for each language and code page.
-                _stprintf(SubBlock, _T("\\StringFileInfo\\%04x%04x\\FileVersion"), lpTranslate->wLanguage, lpTranslate->wCodePage);
-                if (VerQueryValue(pBlock, SubBlock, (LPVOID*)&buffer, &cbTranslate))
-                {
-                    version = buffer;
-                }
-            }
-        }
-        free(pBlock);
-    }
-
-    return version;
-}
-
 void Upgrade::CancelRequest(void)
 {
     if (m_hThread)
@@ -120,6 +79,7 @@ int Upgrade::ParserJson(const char* json)
     int size,i,len;
     wchar_t* temp;
     std::wstring curversion;
+    TCHAR appver[256] = { 0 };
 
     // parser json
     data.version.clear();
@@ -173,7 +133,8 @@ int Upgrade::ParserJson(const char* json)
         goto end;
     }
 
-    curversion = GetApplicationVersion();
+    Utils::GetApplicationVersion(appver);
+    curversion = appver;
     if (!curversion.empty())
     {
         if (vercmp(curversion.c_str(), data.version.c_str()) < 0)

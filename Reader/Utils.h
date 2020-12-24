@@ -24,6 +24,10 @@ public:
     static char* utf16_to_utf8(const wchar_t* str, int* len);
     static void free_buffer(void* buffer);
 
+    static char* Utf16ToUtf8(const wchar_t* str); // not free
+    static wchar_t* Utf8ToUtf16(const char* str); // not free
+    static void FreeConvertBuffer();
+
     // encoding
     static type_t check_bom(const char *data, size_t size);
     static int is_ascii(const char *data, size_t size);    
@@ -39,6 +43,22 @@ public:
 
     // check system version
     static BOOL isWindowsXP(void);
+
+    // url
+    static void UrlEncode(const char *src, char **dst); // free by UrlFree
+    static void UrlDecode(const char* src, char** dst); // free by UrlFree
+    static void UrlFree(char *url);
+
+    // gzip
+    static BOOL gzipInflate(const unsigned char* src, int srclen, unsigned char** dst, int* dstlen);
+
+    static void GetApplicationVersion(TCHAR *version);
+
+private:
+    static char* g_result;
+    static int g_len;
+    static wchar_t* g_wresult;
+    static int g_wlen;
 };
 
 #endif

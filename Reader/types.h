@@ -1,30 +1,41 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-#pragma pack(1)
+//#pragma pack(1)
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
+#define ONLINE_FILE_SAVE_PATH       _T(".online\\")
 
-#define USING_MENU_CHAPTERS         0
+#define DEFAULT_APP_WIDTH           (300)
+#define DEFAULT_APP_HEIGHT          (500)
+
 #define ENABLE_NETWORK              1
 #define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
+#define ENABLE_REALTIME_SAVE        1
+
+#ifdef _DEBUG
+#define TEST_MODEL                  1
+#else
+#define TEST_MODEL                  0
+#endif
+#define FAST_MODEL                  1
 
 #define MAX_CHAPTER_LENGTH          256
 #define MAX_MARK_COUNT              256
 #define MAX_TAG_COUNT               10
+#define MAX_BOOKSRC_COUNT           16
 
 #define IDM_CUSTOM_BEGIN            (50000)
-#define IDM_CHAPTER_BEGIN           (IDM_CUSTOM_BEGIN + 1)
-#define IDM_CHAPTER_END             (IDM_CHAPTER_BEGIN + 2000)
 
-#define IDM_OPEN_BEGIN              (IDM_CHAPTER_END + 1)
+#define IDM_OPEN_BEGIN              (IDM_CUSTOM_BEGIN + 1)
 #define IDM_OPEN_END                (IDM_OPEN_BEGIN + 2000)
 
 #define IDI_SYSTRAY                 (IDM_OPEN_END + 1)
 #define IDM_ST_OPEN                 (IDM_OPEN_END + 2)
 #define IDM_ST_EXIT                 (IDM_OPEN_END + 3)
 #define IDM_MK_DEL                  (IDM_OPEN_END + 4)
+#define IDM_BS_DEL                  (IDM_OPEN_END + 5)
 
 #if ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
@@ -32,6 +43,8 @@
 #define WM_UPDATE_CHAPTERS          (WM_USER + 101)
 #define WM_OPEN_BOOK                (WM_USER + 102)
 #define WM_SYSTRAY                  (WM_USER + 103)
+#define WM_BOOK_EVENT               (WM_USER + 104)
+#define WM_SAVE_CACHE               (WM_USER + 105)
 #define WM_TASKBAR_CREATED          (RegisterWindowMessage(_T("TaskbarCreated")))
 
 
@@ -39,30 +52,33 @@
 #define IDT_TIMER_PAGE              102
 #if ENABLE_NETWORK
 #define IDT_TIMER_UPGRADE           103
+#define IDT_TIMER_CHECKBOOK         104
 #endif
-#define IDT_TIMER_LOADING           104
+#define IDT_TIMER_LOADING           105
 
 
-typedef unsigned char   u8;
-typedef unsigned long   u32;
+typedef unsigned char       u8;
+typedef unsigned int        u32;
+typedef unsigned long long  u64;
 
-//#if ENABLE_MD5
+#if ENABLE_MD5
 typedef struct u128_t
 {
     u8 data[16];
 } u128_t;
-//#endif
+#endif
 
 typedef struct item_t
 {
-//#if ENABLE_MD5
+#if ENABLE_MD5
     u128_t md5;
-//#endif
+#endif
     int id;
     int index; // save text current pos
     TCHAR file_name[MAX_PATH];
     int mark_size;
     int mark[MAX_MARK_COUNT]; // book mark
+    int is_new;
 } item_t;
 
 typedef enum bg_image_mode_t
@@ -71,6 +87,14 @@ typedef enum bg_image_mode_t
     Tile,
     TileFlip
 } bg_image_mode_t;
+
+typedef enum auto_page_mode_t
+{
+    apm_page = 0x00,
+    apm_line = 0x01,
+    apm_fixed = 0x00,
+    apm_count = 0x10
+} auto_page_mode_t;
 
 typedef struct bg_image_t
 {
@@ -95,7 +119,7 @@ typedef struct chapter_rule_t
     WCHAR regex[256];
 } chapter_rule_t;
 
-//#if ENABLE_TAG
+#if ENABLE_TAG
 typedef struct tagitem_t
 {
     BOOL enable;
@@ -104,20 +128,24 @@ typedef struct tagitem_t
     u32 bg_color;
     WCHAR keyword[64];
 } tagitem_t;
-//#endif
+#endif
 
-typedef enum cache_update_type_t
+typedef struct book_source_t
 {
-    CACHE_REMOVE = 0,
-    CACHE_FIXED,
-} cache_update_type_t;
+    TCHAR title[256];
+    char host[1024];
+    char query_url_format[1024];
+    char books_th_xpath[1024];
+    char books_td_xpath[1024];
+    char book_mainpage_xpath[1024];
+    char chapter_title_xpath[1024];
+    char chapter_url_xpath[1024];
+    char content_xpath[1024];
+} book_sourc_t;
 
 typedef struct header_t
 {
-    int flag;           // cache_update_type_t
-    UINT version;
-    int header_size;
-    int item_size;
+    TCHAR version[16];
     int item_count;
     int item_id;
     RECT rect;
@@ -126,10 +154,10 @@ typedef struct header_t
     u32 bg_color;
     BYTE alpha;
     int line_gap;
-    int internal_border;
+    RECT internal_border;
     int wheel_speed;
     int page_mode;
-    int autopage_mode;
+    int autopage_mode; // auto_page_mode_t
     bg_image_t bg_image;
     UINT uElapse;
     proxy_t proxy;
@@ -137,19 +165,22 @@ typedef struct header_t
     int hide_taskbar;
     int show_systray;
     int disable_lrhide;
-    BYTE isDefault;
+    int word_wrap;
     u32 keyset[64];
     chapter_rule_t chapter_rule;
-//#if ENABLE_TAG
+#if ENABLE_TAG
     tagitem_t tags[MAX_TAG_COUNT];
-//#endif
-    BYTE meun_font;
+#endif
+    BYTE meun_font_follow;
+    int book_source_count;
+    book_source_t book_sources[MAX_BOOKSRC_COUNT];
 } header_t;
 
 typedef struct body_t
 {
     item_t items[1];
 } body_t;
+
 
 typedef enum type_t
 {
@@ -188,6 +219,51 @@ typedef struct window_info_t
     DWORD fsExStyle;
     RECT fsRect;
 } window_info_t;
+
+typedef struct writer_buffer_param_t
+{
+    unsigned char* buf;
+    size_t total;
+    size_t used;
+} writer_buffer_param_t;
+
+typedef void (*download_progress_cb_t)(void* param, double progress);
+typedef struct writer_file_param_t
+{
+    FILE* fp;
+    int fileSize;
+    int downSize;
+    download_progress_cb_t cb;
+    void* param;
+} writer_file_param_t;
+
+
+typedef struct ol_chapter_info_t
+{
+    u32 index;
+    u32 title_offset;
+    u32 url_offset;
+    u32 size;
+} ol_chapter_info_t;
+
+typedef struct ol_header_t
+{
+    u32 header_size;
+    u32 book_name_offset;
+    u32 main_page_offset;
+    u32 host_offset;
+    u64 update_time;
+    u32 is_finished;
+    u32 reserve[4]; // reserve
+    u32 chapter_size;
+    ol_chapter_info_t chapter_info_list[1];
+} ol_header_t;
+
+typedef struct redirect_kw_t
+{
+    const char* begin;
+    const char* end;
+} redirect_kw_t;
 
 
 #endif

@@ -30,16 +30,20 @@ public:
     bool del_mark(item_t *item, int index);
 
 private:
+    void default_header(header_t* header);
     bool move_item(int from, int to);
-    bool read();
-    bool write();
+    bool read(void **data, int *size);
+    bool write(void *data, int size);
     void update_addr(void);
-    bool check_cache(void);
+    void encode(void *data, int size);
+    void decode(void* data, int size);
 
 private:
     TCHAR m_file_name[MAX_PATH];
     void* m_buffer;
     int   m_size;
+    void* m_jsonbak;
+    int   m_jsonlen;
 };
 
 #endif

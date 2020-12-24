@@ -14,6 +14,7 @@ extern keydata_t g_Keysets[KI_MAXCOUNT];
 extern Book *_Book;
 extern BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc);
 extern DWORD ToHotkey(WPARAM wParam);
+extern int MessageBox_(HWND, UINT, UINT, UINT);
 static LRESULT CALLBACK EditWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void EnableMenu(HMENU hMenu, BOOL enable);
 static void EnableAllMenu(HWND hWnd, BOOL enable);
@@ -29,7 +30,7 @@ void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text, BO
             /*WS_VISIBLE |*/ WS_CHILD /*| WS_BORDER*/ | ES_LEFT | ES_MULTILINE/* | ES_READONLY*/,
             0, 0, 200, 300, hWnd, NULL, hInst, NULL);
 
-        g_defproc = (WNDPROC)SetWindowLongPtr(g_hEditCtrl, GWL_WNDPROC, (LONG_PTR)EditWndProc);
+        g_defproc = (WNDPROC)SetWindowLongPtr(g_hEditCtrl, GWLP_WNDPROC, (LONG_PTR)EditWndProc);
     }
 
     EnableAllMenu(hWnd, FALSE);
@@ -81,11 +82,11 @@ void EC_LeaveEditMode(void)
                 // is changed?
                 if (0 != _tcscmp(buffer, g_text))
                 {
-                    if (IDYES == MessageBox(g_hEditCtrl, _T("文本发生改动，是否保存文本？"), _T("文件改动"), MB_YESNO|MB_ICONWARNING))
+                    if (IDYES == MessageBox_(g_hEditCtrl, IDS_SAVE_TEXT_TIPS, IDS_SAVE_FILE, MB_YESNO|MB_ICONWARNING))
                     {
                         if (!_Book->SetCurPageText(GetParent(g_hEditCtrl), buffer))
                         {
-                            MessageBox(g_hEditCtrl, _T("文本保存失败"), _T("文件改动"), MB_OK|MB_ICONERROR);
+                            MessageBox_(g_hEditCtrl, IDS_SAVE_FAIL, IDS_SAVE_FILE, MB_OK|MB_ICONERROR);
                         }
                     }
                 }

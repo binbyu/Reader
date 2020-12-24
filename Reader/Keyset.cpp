@@ -18,29 +18,35 @@ extern LRESULT OnLineUp(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnLineDown(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnChapterUp(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnChapterDown(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT OnFontZoomIn(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT OnFontZoomOut(HWND, UINT, WPARAM, LPARAM);
+extern int MessageBoxFmt_(HWND hWnd, UINT captionId, UINT uType, UINT formatId, ...);
 
+extern HINSTANCE hInst;
 
 static BOOL _register_hotkey(HWND hWnd, DWORD kid, DWORD val, const TCHAR *dest);
 static BOOL _unregister_hotkey(HWND hWnd, DWORD kid);
 
 keydata_t g_Keysets[KI_MAXCOUNT] = 
 {
-    { MAKELONG(KT_HOTKEY, KI_HIDE),             ID_HOTKEY_SHOW_HIDE_WINDOW, 0, MAKEWORD('H', HOTKEYF_ALT),                      IDC_HK_HIDE,        OnHideWin,     _T("隐藏/显示窗口") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_BORDER),      0,                          0, MAKEWORD(VK_F12, 0),                             IDC_HK_BORDER,      OnHideBorder,  _T("隐藏/显示边框") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_FULLSCREEN),  0,                          0, MAKEWORD(VK_F11, 0),                             IDC_HK_FULLSCREEN,  OnFullScreen,  _T("全屏/退出全屏") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_TOP),         0,                          0, MAKEWORD('T', HOTKEYF_CONTROL),                  IDC_HK_TOP,         OnTopmost,     _T("置顶/取消全屏") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_OPEN),        0,                          0, MAKEWORD('O', HOTKEYF_CONTROL),                  IDC_HK_OPEN,        OnOpenFile,    _T("打开文件") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_ADDMARK),     0,                          0, MAKEWORD('M', HOTKEYF_CONTROL),                  IDC_HK_ADDMARK,     OnAddMark,     _T("添加书签") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_AUTOPAGE),    0,                          0, MAKEWORD(VK_SPACE, 0),                           IDC_HK_AUTOPAGE,    OnAutoPage,    _T("自动翻页") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_SEARCH),      0,                          0, MAKEWORD('F', HOTKEYF_CONTROL),                  IDC_HK_SEARCH,      OnSearch,      _T("全文查找") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_JUMP),        0,                          0, MAKEWORD('G', HOTKEYF_CONTROL),                  IDC_HK_JUMP,        OnJump,        _T("进度跳转") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_EDIT),        0,                          0, MAKEWORD('E', HOTKEYF_CONTROL),                  IDC_HK_EDIT,        OnEditMode,    _T("编辑模式") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_PAGEUP),      0,                          0, MAKEWORD(VK_LEFT, HOTKEYF_EXT),                  IDC_HK_PAGEUP,      OnPageUp,      _T("上一页") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_PAGEDOWN),    0,                          0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT),                 IDC_HK_PAGEDOWN,    OnPageDown,    _T("下一页") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_LINEUP),      0,                          0, MAKEWORD(VK_UP, HOTKEYF_EXT),                    IDC_HK_LINEUP,      OnLineUp,      _T("上N行") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_LINEDOWN),    0,                          0, MAKEWORD(VK_DOWN, HOTKEYF_EXT),                  IDC_HK_LINEDOWN,    OnLineDown,    _T("下N行") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERUP),   0,                          0, MAKEWORD(VK_LEFT, HOTKEYF_EXT|HOTKEYF_CONTROL),  IDC_HK_CHAPTERUP,   OnChapterUp,   _T("上一章") },
-    { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERDOWN), 0,                          0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT|HOTKEYF_CONTROL), IDC_HK_CHAPTERDOWN, OnChapterDown, _T("下一章") }
+    { MAKELONG(KT_HOTKEY, KI_HIDE),             ID_HOTKEY_SHOW_HIDE_WINDOW, 0, MAKEWORD('H', HOTKEYF_ALT),                      IDC_HK_HIDE,        OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_SHORTCUTKEY, KI_BORDER),      0,                          0, MAKEWORD(VK_F12, 0),                             IDC_HK_BORDER,      OnHideBorder,  IDS_HIDE_SHOW_BORDER },
+    { MAKELONG(KT_SHORTCUTKEY, KI_FULLSCREEN),  0,                          0, MAKEWORD(VK_F11, 0),                             IDC_HK_FULLSCREEN,  OnFullScreen,  IDS_FULLSRCEEN },
+    { MAKELONG(KT_SHORTCUTKEY, KI_TOP),         0,                          0, MAKEWORD('T', HOTKEYF_CONTROL),                  IDC_HK_TOP,         OnTopmost,     IDS_TOPMOST },
+    { MAKELONG(KT_SHORTCUTKEY, KI_OPEN),        0,                          0, MAKEWORD('O', HOTKEYF_CONTROL),                  IDC_HK_OPEN,        OnOpenFile,    IDS_OPEN_FILE },
+    { MAKELONG(KT_SHORTCUTKEY, KI_ADDMARK),     0,                          0, MAKEWORD('M', HOTKEYF_CONTROL),                  IDC_HK_ADDMARK,     OnAddMark,     IDS_ADD_BOOKMARK },
+    { MAKELONG(KT_SHORTCUTKEY, KI_AUTOPAGE),    0,                          0, MAKEWORD(VK_SPACE, 0),                           IDC_HK_AUTOPAGE,    OnAutoPage,    IDS_AUTO_PAGE },
+    { MAKELONG(KT_SHORTCUTKEY, KI_SEARCH),      0,                          0, MAKEWORD('F', HOTKEYF_CONTROL),                  IDC_HK_SEARCH,      OnSearch,      IDS_TEXT_SEARCH },
+    { MAKELONG(KT_SHORTCUTKEY, KI_JUMP),        0,                          0, MAKEWORD('G', HOTKEYF_CONTROL),                  IDC_HK_JUMP,        OnJump,        IDS_PROGRESS_JUMP },
+    { MAKELONG(KT_SHORTCUTKEY, KI_EDIT),        0,                          0, MAKEWORD('E', HOTKEYF_CONTROL),                  IDC_HK_EDIT,        OnEditMode,    IDS_EDIT_MODE },
+    { MAKELONG(KT_SHORTCUTKEY, KI_PAGEUP),      0,                          0, MAKEWORD(VK_LEFT, HOTKEYF_EXT),                  IDC_HK_PAGEUP,      OnPageUp,      IDS_PAGE_UP },
+    { MAKELONG(KT_SHORTCUTKEY, KI_PAGEDOWN),    0,                          0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT),                 IDC_HK_PAGEDOWN,    OnPageDown,    IDS_PAGE_DOWN },
+    { MAKELONG(KT_SHORTCUTKEY, KI_LINEUP),      0,                          0, MAKEWORD(VK_UP, HOTKEYF_EXT),                    IDC_HK_LINEUP,      OnLineUp,      IDS_LINE_UP },
+    { MAKELONG(KT_SHORTCUTKEY, KI_LINEDOWN),    0,                          0, MAKEWORD(VK_DOWN, HOTKEYF_EXT),                  IDC_HK_LINEDOWN,    OnLineDown,    IDS_LINE_DOWN },
+    { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERUP),   0,                          0, MAKEWORD(VK_LEFT, HOTKEYF_EXT|HOTKEYF_CONTROL),  IDC_HK_CHAPTERUP,   OnChapterUp,   IDS_CHAPTER_UP },
+    { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERDOWN), 0,                          0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT|HOTKEYF_CONTROL), IDC_HK_CHAPTERDOWN, OnChapterDown, IDS_CHAPTER_DOWN },
+    { MAKELONG(KT_SHORTCUTKEY, KI_FONTZOOMIN),  0,                          0, MAKEWORD(VK_OEM_PLUS, HOTKEYF_CONTROL),          IDC_HK_FONTZOOMIN,  OnFontZoomIn,  IDS_FONT_ZOOMIN },
+    { MAKELONG(KT_SHORTCUTKEY, KI_FONTZOOMOUT), 0,                          0, MAKEWORD(VK_OEM_MINUS, HOTKEYF_CONTROL),         IDC_HK_FONTZOOMOUT, OnFontZoomOut, IDS_FONT_ZOOMOUT }
 };
 
 
@@ -88,6 +94,7 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
     DWORD tempkeys[KI_MAXCOUNT] = {0};
     TCHAR msg[256] = {0};
     int ctrl_id = 0;
+    TCHAR desc[256] = { 0 };
 
     switch (message)
     {
@@ -116,14 +123,12 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 {
                     if (tempkeys[i] == 0)
                     {
-                        _sntprintf(msg, 256, _T("【%s】 \r\n\r\n键值不能为空，请重新设置"), g_Keysets[i].desc);
-                        MessageBox(hDlg, msg, _T("错误"), MB_ICONERROR|MB_OK);
+                        MessageBoxFmt_(hDlg, IDS_ERROR, MB_ICONERROR | MB_OK, IDS_KEYVALUE_EMPTY, g_Keysets[i].desc);
                         return (INT_PTR)FALSE;
                     }
                     if (tempkeys[i] == tempkeys[j])
                     {
-                        _sntprintf(msg, 256, _T("【%s】 \r\n\r\n键值重复，请重新设置"), g_Keysets[j].desc);
-                        MessageBox(hDlg, msg, _T("错误"), MB_ICONERROR|MB_OK);
+                        MessageBoxFmt_(hDlg, IDS_ERROR, MB_ICONERROR | MB_OK, IDS_KEYVALUE_DUPLICATE, g_Keysets[i].desc);
                         return (INT_PTR)FALSE;
                     }
                 }
@@ -135,10 +140,11 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 {
                     if (*(g_Keysets[i].pvalue) != tempkeys[i])
                     {
+                        LoadString(hInst, g_Keysets[i].desc, desc, 256);
                         _unregister_hotkey(GetParent(hDlg), g_Keysets[i].key_id);
-                        if (!_register_hotkey(GetParent(hDlg), g_Keysets[i].key_id, tempkeys[i], g_Keysets[i].desc))
+                        if (!_register_hotkey(GetParent(hDlg), g_Keysets[i].key_id, tempkeys[i], desc))
                         {
-                            _register_hotkey(GetParent(hDlg), g_Keysets[i].key_id, *(g_Keysets[i].pvalue), g_Keysets[i].desc);
+                            _register_hotkey(GetParent(hDlg), g_Keysets[i].key_id, *(g_Keysets[i].pvalue), desc);
                             return (INT_PTR)FALSE;
                         }
                     }
@@ -289,8 +295,7 @@ static BOOL _register_hotkey(HWND hWnd, DWORD kid, DWORD val, const TCHAR *dest)
     uMod = HotkeyToMod(uMod);
     if (!RegisterHotKey(hWnd, kid, uMod, uVK))
     {
-        _sntprintf(msg, 256, _T("注册热键【%s】失败，可能发生冲突\r\n请至【设置】>【其他设置】内重新设置按键！"), dest);
-        MessageBox(hWnd, msg, _T("错误"), MB_ICONERROR|MB_OK);
+        MessageBoxFmt_(hWnd, IDS_ERROR, MB_ICONERROR | MB_OK, IDS_REGISTER_FAIL, dest);
         return FALSE;
     }
     return TRUE;
@@ -304,12 +309,14 @@ static BOOL _unregister_hotkey(HWND hWnd, DWORD kid)
 BOOL KS_RegisterAllHotKey(HWND hWnd)
 {
     int i;
+    TCHAR desc[256] = { 0 };
 
     for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
         if (LOWORD(g_Keysets[i].key) == KT_HOTKEY)
         {
-            if (!_register_hotkey(hWnd, g_Keysets[i].key_id, *(g_Keysets[i].pvalue), g_Keysets[i].desc))
+            LoadString(hInst, g_Keysets[i].desc, desc, 256);
+            if (!_register_hotkey(hWnd, g_Keysets[i].key_id, *(g_Keysets[i].pvalue), desc))
             {
                 return FALSE;
             }

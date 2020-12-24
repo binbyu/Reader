@@ -108,7 +108,13 @@
     <ClInclude Include="dump.h" />
     <ClInclude Include="Editctrl.h" />
     <ClInclude Include="EpubBook.h" />
+    <ClInclude Include="HtmlParser.h" />
+    <ClInclude Include="HttpClient.h" />
+    <ClInclude Include="Jsondata.h" />
     <ClInclude Include="Keyset.h" />
+    <ClInclude Include="NetEvent.h" />
+    <ClInclude Include="OnlineBook.h" />
+    <ClInclude Include="OnlineDlg.h" />
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="Reader.h" />
     <ClInclude Include="Resource.h" />
@@ -129,7 +135,13 @@
     <ClCompile Include="dump.cpp" />
     <ClCompile Include="Editctrl.cpp" />
     <ClCompile Include="EpubBook.cpp" />
+    <ClCompile Include="HtmlParser.cpp" />
+    <ClCompile Include="HttpClient.cpp" />
+    <ClCompile Include="Jsondata.cpp" />
     <ClCompile Include="Keyset.cpp" />
+    <ClCompile Include="NetEvent.cpp" />
+    <ClCompile Include="OnlineBook.cpp" />
+    <ClCompile Include="OnlineDlg.cpp" />
     <ClCompile Include="PageCache.cpp" />
     <ClCompile Include="Reader.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -142,7 +154,10 @@
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Reader.rc" />
+    <ResourceCompile Include="Reader_zh-cn.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="new.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

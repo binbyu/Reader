@@ -11,6 +11,8 @@ typedef struct chapter_item_t
 {
     int index;
     std::wstring title;
+    std::string url; // for online book
+    int size;
 } chapter_item_t;
 typedef std::map<int, chapter_item_t> chapters_t;
 
@@ -18,8 +20,22 @@ typedef enum book_type_t
 {
     book_unknown,
     book_text,
-    book_epub
+    book_epub,
+    book_online
 } book_type_t;
+
+class Book;
+struct book_event_data_t
+{
+    Book* _this;
+    int ret;
+
+    book_event_data_t()
+    {
+        _this = NULL;
+        ret = 0;
+    }
+};
 
 class Book : public PageCache
 {
@@ -34,7 +50,7 @@ public:
     bool OpenBook(HWND hWnd);
     bool OpenBook(char *data, int size, HWND hWnd);
     bool CloseBook(void);
-    bool IsLoading(void);
+    virtual bool IsLoading(void);
 #if ENABLE_MD5
     void SetMd5(u128_t *md5);
     u128_t * GetMd5(void);
@@ -46,20 +62,22 @@ public:
     int GetTextLength(void);
     chapters_t * GetChapters(void);
     void SetChapterRule(chapter_rule_t *rule);
-    void JumpChapter(HWND hWnd, int index);
-    void JumpPrevChapter(HWND hWnd);
-    void JumpNextChapter(HWND hWnd);
-    int GetCurChapterIndex(void);
+    virtual void JumpChapter(HWND hWnd, int index);
+    virtual void JumpPrevChapter(HWND hWnd);
+    virtual void JumpNextChapter(HWND hWnd);
+    virtual int GetCurChapterIndex(void);
+    virtual LRESULT OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
     bool GetChapterTitle(TCHAR *title, int size);
 #if ENABLE_MD5
     static bool CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size);
 #endif
+    bool FormatText(wchar_t* text, int* len, bool flag = true);
 
-public:
-    virtual bool ParserBook(void) = 0;
+protected:
+    virtual bool ParserBook(HWND hWnd) = 0;
     // srcsize and dstsize not include \0
     virtual bool DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
-    virtual bool FormatText(wchar_t *text, int *len, bool flag = true);
+    
     bool IsBlanks(wchar_t c);
     void ForceKill(void);
 

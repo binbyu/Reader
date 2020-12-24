@@ -5,11 +5,13 @@
 #include "Reader.h"
 #include "TextBook.h"
 #include "EpubBook.h"
+#include "OnlineBook.h"
 #include "Keyset.h"
 #include "Editctrl.h"
 #include "Advset.h"
 #include "DPIAwareness.h"
 #include "barcode.h"
+#include "OnlineDlg.h"
 #if ENABLE_TAG
 #include "tagset.h"
 #endif
@@ -28,7 +30,7 @@
 
 #define MIN_ALPHA_VALUE             0x64
 
-#define MAX_LOADSTRING              100
+#define MAX_LOADSTRING              256
 
 // Global Variables:
 HINSTANCE hInst;                                // current instance
@@ -86,13 +88,13 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
         return 0;
     }
 
+    // init com
+    CoInitialize(NULL);
+
     // init gdiplus
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-
-    // init com
-    CoInitialize(NULL);
 
     // load cache file
     if (!Init())
@@ -125,11 +127,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
     Exit();
 
-    // uninit com
-    CoUninitialize();
-
     // uninit gdiplus
     GdiplusShutdown(gdiplusToken);
+
+    // uninit com
+    CoUninitialize();
 
     ReleaseMutex(hMutex);
     CloseHandle(hMutex);
@@ -190,21 +192,52 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    // prepare for XP style controls
    InitCommonControls();
 
-   // fixed rect exception bug.
-   if (_header->rect.right <= 0 || _header->rect.bottom <= 0)
+   // update for dpi
+   UpdateLayoutForDpi(&_header->rect);
+   UpdateFontForDpi(&_header->font);
+#if ENABLE_TAG
+   for (int i = 0; i < MAX_TAG_COUNT; i++)
    {
-       int w = _header->rect.right - _header->rect.left;
-       int h = _header->rect.bottom - _header->rect.top;
-       if (w <= 0 || h <= 0)
+       UpdateFontForDpi(&_header->tags[i].font);
+   }
+#endif
+
+   // fixed rect exception bug.
+   if (ENABLE_TAG)
+   {
+       int sw,sh;
+       sw = GetCxScreenForDpi();
+       sh = GetCyScreenForDpi();
+       if (_header->rect.left < 0 && _header->rect.right - _header->rect.left <= sw)
        {
-           // using default
-           w = 300;
-           h = 500;
+           _header->rect.right -= _header->rect.left;
+           _header->rect.left = 0;
        }
-       _header->rect.left = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
-       _header->rect.top = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
-       _header->rect.right = _header->rect.left + w;
-       _header->rect.bottom = _header->rect.top + h;
+       if (_header->rect.right > sw && _header->rect.right - _header->rect.left <= sw)
+       {
+           _header->rect.left -= _header->rect.right - sw;
+           _header->rect.right = sw;
+       }
+       if (_header->rect.top < 0 && _header->rect.bottom - _header->rect.top <= sh)
+       {
+           _header->rect.bottom -= _header->rect.top;
+           _header->rect.top = 0;
+       }
+       if (_header->rect.bottom > sh && _header->rect.bottom - _header->rect.top <= sh)
+       {
+           _header->rect.top -= _header->rect.bottom - sh;
+           _header->rect.bottom = sh;
+       }
+       if (_header->rect.left < 0 || _header->rect.top < 0
+           || _header->rect.right > sw || _header->rect.bottom > sh)
+       {
+           // default rect
+           _header->rect.left = (GetCxScreenForDpi() - DEFAULT_APP_WIDTH) / 2;
+           _header->rect.top = (GetCyScreenForDpi() - DEFAULT_APP_HEIGHT) / 2;
+           _header->rect.right = _header->rect.left + DEFAULT_APP_WIDTH;
+           _header->rect.bottom = _header->rect.top + DEFAULT_APP_HEIGHT;
+           UpdateLayoutForDpi(&_header->rect);
+       }
    }
    // -- fixed end
    
@@ -219,14 +252,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
    _hWnd = hWnd;
-   UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
-   UpdateFontForDpi(hWnd, &_header->font);
-#if ENABLE_TAG
-   for (int i=0; i<MAX_TAG_COUNT; i++)
-   {
-       UpdateFontForDpi(hWnd, &_header->tags[i].font);
-   }
-#endif
    SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
 
    ShowSysTray(hWnd, _header->show_systray);
@@ -273,15 +298,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PauseAutoPage(hWnd);
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
-        // Parse the menu selections:
-        if (wmId >= IDM_CHAPTER_BEGIN && wmId <= IDM_CHAPTER_END)
-        {
-            if (_Book)
-                _Book->JumpChapter(hWnd, wmId);
-            ResumeAutoPage(hWnd);
-            break;
-        }
-        else if (wmId >= IDM_OPEN_BEGIN && wmId <= IDM_OPEN_END)
+        if (wmId >= IDM_OPEN_BEGIN && wmId <= IDM_OPEN_END)
         {
             int item_id = wmId - IDM_OPEN_BEGIN;
             OnOpenItem(hWnd, item_id, FALSE);
@@ -319,6 +336,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_ADVSET:
             ADV_OpenDlg(hInst, hWnd, &(_header->chapter_rule), _Book);
+            break;
+        case IDM_ONLINE:
+            OpenOnlineDlg(hInst, hWnd);
             break;
 #if ENABLE_TAG
         case IDM_TAGSET:
@@ -468,24 +488,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (wParam == (WPARAM)_hTreeMark)
         {
             POINT pt;
+            HTREEITEM Selected;
+            TVITEM item;
             pt.x = LOWORD(lParam); 
             pt.y = HIWORD(lParam);
-            HMENU hMenu = CreatePopupMenu();
-            if(hMenu)
+            Selected = TreeView_GetSelection(_hTreeMark);
+            if (Selected)
             {
-                InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_MK_DEL, _T("Delete"));
-                SetForegroundWindow(hWnd);
-                int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, _hTreeMark, NULL);
-                DestroyMenu(hMenu);
-                if (IDM_MK_DEL == ret)
+                HMENU hMenu = CreatePopupMenu();
+                if (hMenu)
                 {
-                    HTREEITEM Selected;
-                    TVITEM item;
-                    Selected = TreeView_GetSelection(_hTreeMark);
-                    if (Selected)
+                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_MK_DEL, _T("Delete"));
+                    SetForegroundWindow(hWnd);
+                    int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, _hTreeMark, NULL);
+                    DestroyMenu(hMenu);
+                    if (IDM_MK_DEL == ret)
                     {
-                        item.mask       = TVIF_PARAM;
-                        item.hItem      = Selected;
+                        item.mask = TVIF_PARAM;
+                        item.hItem = Selected;
                         TreeView_GetItem(_hTreeMark, &item);
 
                         if (_Cache.del_mark(_item, item.lParam))
@@ -511,6 +531,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ResetLayerd(hWnd);
             OnPaint(hWnd, hdc);
         }
+        if (_NeedSave)
+        {
+            _NeedSave = FALSE;
+            Save(hWnd);
+        }
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
@@ -522,7 +547,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             _nid.uTimeout = 1000;
             Shell_NotifyIcon(NIM_MODIFY, &_nid);
             ShowHideWindow(hWnd);
-            _Cache.save();
         }
         else
         {
@@ -538,7 +562,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             UnhookWindowsHookEx(_hMouseHook);
             _hMouseHook = NULL;
         }
-        PostQuitMessage(0);
         // save rect
         if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
         {
@@ -554,12 +577,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             _header->rect.right = rc.right;
             _header->rect.bottom = rc.bottom;
         }
-        RestoreRectForDpi(hWnd, &_header->rect);
-        RestoreFontForDpi(hWnd, &_header->font);
+        RestoreRectForDpi(&_header->rect);
+        RestoreFontForDpi(&_header->font);
 #if ENABLE_TAG
         for (int i=0; i<MAX_TAG_COUNT; i++)
         {
-            RestoreFontForDpi(hWnd, &_header->tags[i].font);
+            RestoreFontForDpi(&_header->tags[i].font);
         }
 #endif
         // stop loading
@@ -580,10 +603,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             delete _Book;
             _Book = NULL;
         }
+        PostQuitMessage(0);
         break;
-    case WM_QUERYENDSESSION:
-        //Exit(); // save data when poweroff ?
-        return TRUE;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
         if (hit == HTCLIENT && _WndInfo.bHideBorder && !_WndInfo.bFullScreen)
@@ -626,6 +647,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (!IsZoomed(hWnd) && !IsIconic(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
             GetWindowRect(hWnd, &_header->rect);
         GetWindowRect(hWnd, &s_rect);
+        ResetAutoPage(hWnd);
         break;
     case WM_MOVE:
         OnMove(hWnd);
@@ -915,16 +937,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wParam)
         {
         case IDT_TIMER_PAGE:
-            if (_header->autopage_mode == 0)
+            if ((_header->autopage_mode & 0x0f) == apm_page)
                 OnPageDown(hWnd, message, wParam, lParam);
             else
                 OnLineDown(hWnd, message, wParam, lParam);
             if (_Book && _Book->IsLastPage())
                 StopAutoPage(hWnd);
+            else
+                ResetAutoPage(hWnd);
             break;
 #if ENABLE_NETWORK
         case IDT_TIMER_UPGRADE:
             _Upgrade.Check(UpgradeCallback, hWnd);
+            break;
+        case IDT_TIMER_CHECKBOOK:
+            OnCheckBookUpdate(hWnd);
             break;
 #endif
         case IDT_TIMER_LOADING:
@@ -933,7 +960,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 KillTimer(hWnd, IDT_TIMER_LOADING);
                 Guid = FrameDimensionTime;
                 _loading->image->SelectActiveFrame(&Guid, _loading->frameIndex);
-                SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item[0].value)[_loading->frameIndex] * 10, NULL);
+                SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item->value)[_loading->frameIndex] * 10, NULL);
                 _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
                 GetClientRectExceptStatusBar(hWnd, &rc);
                 InvalidateRect(hWnd, &rc, FALSE);
@@ -954,6 +981,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #endif
     case WM_OPEN_BOOK:
         OnOpenBookResult(hWnd, wParam == 1);
+        break;
+    case WM_BOOK_EVENT:
+        {
+            book_event_data_t* be = (book_event_data_t*)lParam;
+            if (_Book && (!be || _Book == be->_this))
+                _Book->OnBookEvent(hWnd, message, wParam, lParam);
+#if ENABLE_NETWORK
+            else
+            {
+                chkbook_arg_t* arg = GetCheckBookArguments();
+                book_event_data_t* be = (book_event_data_t*)lParam;
+                if (arg && arg->book && be && arg->book == be->_this)
+                    arg->book->OnBookEvent(hWnd, message, wParam, lParam);
+            }
+#endif
+        }
+        break;
+    case WM_SAVE_CACHE:
+        OnSave(hWnd);
         break;
     case WM_SYSTRAY:
         switch(lParam)
@@ -1006,6 +1052,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return (LRESULT) GetStockObject(DC_BRUSH);
         }
         break;
+    case WM_QUERYENDSESSION:
+        //Exit(); // save data when poweroff ?
+        return TRUE;
     case WM_ENDSESSION:
         {
             // save rect
@@ -1023,12 +1072,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->rect.right = rc.right;
                 _header->rect.bottom = rc.bottom;
             }
-            RestoreRectForDpi(hWnd, &_header->rect);
-            RestoreFontForDpi(hWnd, &_header->font);
+            RestoreRectForDpi(&_header->rect);
+            RestoreFontForDpi(&_header->font);
 #if ENABLE_TAG
             for (int i=0; i<MAX_TAG_COUNT; i++)
             {
-                RestoreFontForDpi(hWnd, &_header->tags[i].font);
+                RestoreFontForDpi(&_header->tags[i].font);
             }
 #endif
             Exit();
@@ -1106,7 +1155,7 @@ INT_PTR CALLBACK RewardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
         image = LoadBarCode();
         if (image)
         {
-            dpiscaled = GetDpiScaled(GetParent(GetParent(hDlg)));
+            dpiscaled = GetDpiScaled();
             if (dpiscaled <= 1.0f)
             {
                 ::SetRect(&client, 0, 0, (int)(image->GetWidth()/2.0f), (int)(image->GetHeight()/2.0f));
@@ -1119,7 +1168,7 @@ INT_PTR CALLBACK RewardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             {
                 ::SetRect(&client, 0, 0, image->GetWidth(), image->GetHeight());
             }
-            AdjustWindowRect(&client, GetWindowLong(hDlg, GWL_STYLE), FALSE);
+            AdjustWindowRect(&client, GetWindowLongPtr(hDlg, GWL_STYLE), FALSE);
             SetWindowPos(hDlg, NULL, client.left, client.top, client.right-client.left, client.bottom-client.top, SWP_NOMOVE);
         }
         return (INT_PTR)TRUE;
@@ -1202,7 +1251,9 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         GetWindowRect(hWnd, &rc);
         if (PtInRect(&rc, pt))
         {
+#if ENABLE_NETWORK
             ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader"), NULL, NULL, SW_SHOWNORMAL);
+#endif
         }
         break;
     default:
@@ -1219,11 +1270,14 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     int cid;
     LRESULT res;
     BYTE temp;
+    TCHAR buf[256] = { 0 };
+    RECT rc = { 0 };
     switch (message)
     {
     case WM_INITDIALOG:
+        _stprintf(buf, _T("%d,%d,%d,%d"), _header->internal_border.left, _header->internal_border.top, _header->internal_border.right, _header->internal_border.bottom);
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
-        SetDlgItemInt(hDlg, IDC_EDIT_BORDER, _header->internal_border, FALSE);
+        SetDlgItemText(hDlg, IDC_EDIT_BORDER, buf);
         SetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, _header->uElapse, TRUE);
         if (_header->page_mode == 0)
             cid = IDC_RADIO_MODE1;
@@ -1250,11 +1304,20 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_UNCHECKED, NULL);
         else
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_CHECKED, NULL);
-        if (_header->autopage_mode == 0)
+        if ((_header->autopage_mode & 0x0f) == apm_page)
             SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_SETCHECK, BST_CHECKED, NULL);
         else
             SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATWHEEL), BM_SETCHECK, BST_CHECKED, NULL);
-        SendMessage(GetDlgItem(hDlg, IDC_CHECK_MENU_FONT), BM_SETCHECK, _header->meun_font ? BST_CHECKED : BST_UNCHECKED, NULL);
+        LoadString(hInst, IDS_FIXED_TIME, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_APM), CB_ADDSTRING, 0, (LPARAM)buf);
+        LoadString(hInst, IDS_DYNAMIC_CALC, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_APM), CB_ADDSTRING, 0, (LPARAM)buf);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_APM), CB_SETCURSEL, _header->autopage_mode >> 8, NULL);
+        SendMessage(GetDlgItem(hDlg, IDC_CHECK_MENU_FONT), BM_SETCHECK, _header->meun_font_follow ? BST_CHECKED : BST_UNCHECKED, NULL);
+        if (_header->word_wrap)
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_SETCHECK, BST_CHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_SETCHECK, BST_UNCHECKED, NULL);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -1264,19 +1327,20 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             GetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, &bResult, FALSE);
             if (!bResult)
             {
-                MessageBox(hDlg, _T("Invalid line gap value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                MessageBox_(hDlg, IDS_INVALID_LINEGAP, IDS_ERROR, MB_OK|MB_ICONERROR);
                 return (INT_PTR)TRUE;
             }
-            GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
-            if (!bResult)
+            GetDlgItemText(hDlg, IDC_EDIT_BORDER, buf, 256);
+            value = _stscanf(buf, _T("%d,%d,%d,%d"), &rc.left, &rc.top, &rc.right, &rc.bottom);
+            if (value != 4)
             {
-                MessageBox(hDlg, _T("Invalid internal border value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                MessageBox_(hDlg, IDS_INVALID_INBORDER, IDS_ERROR, MB_OK|MB_ICONERROR);
                 return (INT_PTR)TRUE;
             }
             value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
             if (!bResult || value == 0)
             {
-                MessageBox(hDlg, _T("Invalid auto page time value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                MessageBox_(hDlg, IDS_INVALID_AUTOPAGE, IDS_ERROR, MB_OK|MB_ICONERROR);
                 return (INT_PTR)TRUE;
             }
             if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
@@ -1306,10 +1370,11 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _header->line_gap = value;
                 bUpdated = TRUE;
             }
-            value = GetDlgItemInt(hDlg, IDC_EDIT_BORDER, &bResult, FALSE);
-            if (value != _header->internal_border)
+            GetDlgItemText(hDlg, IDC_EDIT_BORDER, buf, 256);
+            _stscanf(buf, _T("%d,%d,%d,%d"), &rc.left, &rc.top, &rc.right, &rc.bottom);
+            if (memcmp(&rc, &_header->internal_border, sizeof(RECT)))
             {
-                _header->internal_border = value;
+                memcpy(&_header->internal_border, &rc, sizeof(RECT));
                 bUpdated = TRUE;
             }
             value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
@@ -1335,20 +1400,31 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_GETCHECK, 0, NULL);
             _header->disable_lrhide = res == BST_CHECKED ? 0 : 1;
             res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_GETCHECK, 0, NULL);
-            _header->autopage_mode = res == BST_CHECKED ? 0 : 1;
+            _header->autopage_mode = 0;
+            _header->autopage_mode |= res == BST_CHECKED ? apm_page : apm_line;
+            res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_APM), CB_GETCURSEL, 0, NULL);
+            _header->autopage_mode |= res == 1 ? apm_count : apm_fixed;
             res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_MENU_FONT), BM_GETCHECK, 0, NULL);
             temp = res == BST_CHECKED ? 1 : 0;
-            if (temp != _header->meun_font)
+            if (temp != _header->meun_font_follow)
             {
-                _header->meun_font = temp;
+                _header->meun_font_follow = temp;
                 SetTreeviewFont();
             }
-            _header->meun_font = temp;
+            _header->meun_font_follow = temp;
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_GETCHECK, 0, NULL);
+            value = res == BST_CHECKED ? 1 : 0;
+            if (value != _header->word_wrap)
+            {
+                _header->word_wrap = value;
+                bUpdated = TRUE;
+            }
             if (bUpdated)
             {
                 if (_Book)
                     _Book->Reset(GetParent(hDlg));
             }
+            Save(GetParent(hDlg));
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1385,12 +1461,14 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT res;
     BOOL bResult = FALSE;
     int value = 0;
-    TCHAR buf[64] = {0};
+    TCHAR buf[256] = {0};
     switch (message)
     {
     case WM_INITDIALOG:
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("不使用代理"));
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)_T("使用代理"));
+        LoadString(hInst, IDS_DISABLE_PROXY, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)buf);
+        LoadString(hInst, IDS_ENABLE_PROXY, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_ADDSTRING, 0, (LPARAM)buf);
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_PROXY), CB_SETCURSEL, _header->proxy.enable ? 1 : 0, NULL);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_ADDR), _header->proxy.addr);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_USER), _header->proxy.user);
@@ -1425,7 +1503,7 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 value = GetDlgItemInt(hDlg, IDC_EDIT_PROXY_PORT, &bResult, FALSE);
                 if (!bResult || value <= 0 || value >= 0xFFFF)
                 {
-                    MessageBox(hDlg, _T("Invalid port value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    MessageBox_(hDlg, IDS_INVALID_PORT, IDS_ERROR, MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 _header->proxy.port = value;
@@ -1450,6 +1528,7 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             wcscpy(_header->proxy.user, buf);
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), buf, 64-1);
             wcscpy(_header->proxy.pass, buf);
+            Save(GetParent(hDlg));
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1493,9 +1572,12 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
         SendMessage(GetDlgItem(hDlg, IDC_CHECK_BIENABLE), BM_SETCHECK, _header->bg_image.enable ? BST_CHECKED : BST_UNCHECKED, NULL);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_BIFILE), _header->bg_image.file_name);
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 0, (LPARAM)_T("拉伸缩放"));
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 1, (LPARAM)_T("平铺"));
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 2, (LPARAM)_T("旋转平铺"));
+        LoadString(hInst, IDS_STRETCH, text, MAX_PATH);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 0, (LPARAM)text);
+        LoadString(hInst, IDS_TILE, text, MAX_PATH);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 1, (LPARAM)text);
+        LoadString(hInst, IDS_TILEFLIP, text, MAX_PATH);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_ADDSTRING, 2, (LPARAM)text);
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_SETCURSEL, _header->bg_image.mode, NULL);
         if (_header->bg_image.enable)
         {
@@ -1521,7 +1603,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 GetWindowText(GetDlgItem(hDlg, IDC_EDIT_BIFILE), text, MAX_PATH-1);
                 if (!text[0])
                 {
-                    MessageBox(hDlg, _T("Please select a image!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    MessageBox_(hDlg, IDS_PLS_SEL_IMG, IDS_ERROR, MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 ext = PathFindExtension(text);
@@ -1530,18 +1612,18 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     && _tcscmp(ext, _T(".bmp")) != 0
                     && _tcscmp(ext, _T(".jpeg")) != 0)
                 {
-                    MessageBox(hDlg, _T("Invalid image format!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    MessageBox_(hDlg, IDS_INVALID_IMG, IDS_ERROR, MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 if (!FileExists(text))
                 {
-                    MessageBox(hDlg, _T("image is not exists!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    MessageBox_(hDlg, IDS_IMG_NOT_EXIST, IDS_ERROR, MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 res = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BIMODE), CB_GETCURSEL, 0, NULL);
                 if (res == -1)
                 {
-                    MessageBox(hDlg, _T("Invalid layout mode format!"), _T("Error"), MB_OK|MB_ICONERROR);
+                    MessageBox_(hDlg, IDS_INVALID_LAYOUT, IDS_ERROR, MB_OK|MB_ICONERROR);
                     return (INT_PTR)TRUE;
                 }
                 _header->bg_image.mode = res;
@@ -1566,6 +1648,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(GetParent(hDlg), &rc, FALSE);
                 }
             }
+            Save(GetParent(hDlg));
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1636,7 +1719,9 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             _stprintf(buf, _T("%0.2f"), progress);
             SetWindowText(hWnd, buf);
         }
-        return (INT_PTR)TRUE;
+        SetFocus(hWnd);
+        SendMessage(hWnd, EM_SETSEL, 0, -1);
+        return (INT_PTR)FALSE;
 
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
@@ -1650,7 +1735,7 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                     progress = _tstof(buf);
                     if (progress < 0.0 || progress > 100.0)
                     {
-                        MessageBox(hDlg, _T("Invalid value!"), _T("Error"), MB_OK|MB_ICONERROR);
+                        MessageBox_(hDlg, IDS_INVALID_VALUE, IDS_ERROR, MB_OK|MB_ICONERROR);
                         return (INT_PTR)TRUE;
                     }
                     if (_Book)
@@ -1659,6 +1744,7 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                         if (_item->index == _Book->GetTextLength())
                             _item->index--;
                         _Book->Reset(GetParent(hDlg));
+                        Save(GetParent(hDlg));
                     }
                 }
             }
@@ -1744,6 +1830,7 @@ LRESULT OnCreate(HWND hWnd)
     // check upgrade
 #if ENABLE_NETWORK
     CheckUpgrade(hWnd);
+    StartCheckBookUpdate(hWnd);
 #endif
 
     // init keyset
@@ -1754,28 +1841,56 @@ LRESULT OnCreate(HWND hWnd)
 
 LRESULT OnUpdateMenu(HWND hWnd)
 {
+    static Bitmap* s_bitmap = NULL;
+    static HGLOBAL s_hMemory = NULL;
+    static HBITMAP hBitmap = NULL;
+    TCHAR buf[MAX_LOADSTRING];
     int menu_begin_id = IDM_OPEN_BEGIN;
     HMENU hMenuBar = GetMenu(hWnd);
     HMENU hFile = GetSubMenu(hMenuBar, 0);
+    MENUITEMINFO mi = { 0 };
+
     if (hFile)
     {
         DeleteMenu(hMenuBar, 0, MF_BYPOSITION);
         hFile = NULL;
     }
+    if (hBitmap)
+    {
+        DeleteObject(hBitmap);
+        hBitmap = NULL;
+    }
+    if (!s_bitmap)
+    {
+        LoadResourceImage(MAKEINTRESOURCE(IDB_PNG_NEW), _T("PNG"), &s_bitmap, &s_hMemory);
+    }
+    if (s_bitmap)
+    {
+        s_bitmap->GetHBITMAP(Color(0, 0, 0, 0), &hBitmap);
+    }
     hFile = CreateMenu();
-    AppendMenu(hFile, MF_STRING, IDM_OPEN, _T("打开"));
+    LoadString(hInst, IDS_MENU_OPEN, buf, MAX_LOADSTRING);
+    AppendMenu(hFile, MF_STRING, IDM_OPEN, buf);
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     for (int i=0; i<_header->item_count; i++)
     {
         item_t* item = _Cache.get_item(i);
-        AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id++, item->file_name);
+        AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id, item->file_name);
+        if (0 == _tcscmp(PathFindExtension(item->file_name), _T(".ol")) && item->is_new)
+        {
+            SetMenuItemBitmaps(hFile, menu_begin_id, MF_BITMAP, hBitmap, hBitmap);
+        }
+        menu_begin_id++;
     }
     if (_header->item_count > 0)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hFile, MF_STRING, IDM_CLEAR, _T("清空"));
+    LoadString(hInst, IDS_MENU_CLEAR, buf, MAX_LOADSTRING);
+    AppendMenu(hFile, MF_STRING, IDM_CLEAR, buf);
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hFile, MF_STRING, IDM_EXIT, _T("退出"));
-    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, L"文件(&F)");
+    LoadString(hInst, IDS_MENU_EXIT, buf, MAX_LOADSTRING);
+    AppendMenu(hFile, MF_STRING, IDM_EXIT, buf);
+    LoadString(hInst, IDS_MENU_FILE, buf, MAX_LOADSTRING);
+    InsertMenu(hMenuBar, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, buf);
     DrawMenuBar(hWnd);
 
     return 0;
@@ -1838,6 +1953,7 @@ LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     SetWindowText(hWnd, szTitle);
     StopLoadingImage(hWnd);
     StopAutoPage(hWnd);
+    Save(hWnd);
     return 0;
 }
 
@@ -1875,6 +1991,7 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             SetTreeviewFont();
             _Book->Reset(hWnd);
+            Save(hWnd);
         }
     }
 
@@ -1902,6 +2019,7 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //_Book->ReDraw(hWnd);
             GetClientRectExceptStatusBar(hWnd, &rect);
             InvalidateRect(hWnd, &rect, FALSE);
+            Save(hWnd);
         }
     }
     
@@ -1911,34 +2029,38 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int lastrule = _header->chapter_rule.rule;
+    BYTE lastmenufont = _header->meun_font_follow;
+
+    if (IDNO == MessageBox_(hWnd, IDS_RESTORE_DEFAULT, IDS_WARN, MB_ICONINFORMATION|MB_YESNO))
+    {
+        return 0;
+    }
+
     if (IsZoomed(hWnd))
         SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     KS_UnRegisterAllHotKey(hWnd);
     _Cache.default_header();
-    UpdateLayoutForDpi(hWnd, &_header->rect, &_header->isDefault);
-    UpdateFontForDpi(hWnd, &_header->font);
-    SetTreeviewFont();
-    if (GetDpiScaled(hWnd) == 1.0f)
+    UpdateLayoutForDpi(&_header->rect);
+    UpdateFontForDpi(&_header->font);
+#if 0 // needn't
+#if ENABLE_TAG
+    for (int i = 0; i < MAX_TAG_COUNT; i++)
     {
-        SetWindowPos(hWnd, NULL,
-            _header->rect.left, _header->rect.top,
-            _header->rect.right - _header->rect.left,
-            _header->rect.bottom - _header->rect.top,
-            /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+        UpdateFontForDpi(hWnd, &_header->tags[i].font);
     }
-    if (lastrule != _header->chapter_rule.rule)
-    {
-        // reload book
-        OnOpenItem(hWnd, 0, TRUE);
-    }
-    else
-    {
-        if (_Book)
-            _Book->Reset(hWnd);
-    }
+#endif
+#endif
     KS_RegisterAllHotKey(hWnd);
     ShowSysTray(hWnd, _header->show_systray);
     ShowInTaskbar(hWnd, !_header->hide_taskbar);
+
+    // change window size
+    SetWindowPos(hWnd, NULL,
+        _header->rect.left, _header->rect.top,
+        _header->rect.right - _header->rect.left,
+        _header->rect.bottom - _header->rect.top,
+        /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+
     if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
     {
         ResetLayerd(hWnd);
@@ -1950,6 +2072,21 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
         InvalidateRect(hWnd, NULL, TRUE);
     }
+
+    if (lastrule != _header->chapter_rule.rule)
+    {
+        // reload book
+        OnOpenItem(hWnd, 0, TRUE);
+    }
+    else
+    {
+        if (_Book)
+            _Book->Reset(hWnd);
+    }
+    if (lastmenufont != _header->meun_font_follow)
+        SetTreeviewFont();
+
+    Save(hWnd);
     return 0;
 }
 
@@ -1997,7 +2134,7 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     SetBkMode(memdc, TRANSPARENT);
 
     if (_Book && !_Book->IsLoading() && _bShowText)
-        _Book->DrawPage(memdc);
+        _Book->DrawPage(hWnd, memdc);
     if (_loading && _loading->enable && _bShowText)
     {
         g = new Graphics(memdc);
@@ -2144,7 +2281,7 @@ void OnDraw(HWND hWnd)
     if (_Book && !_Book->IsLoading() && _bShowText)
     {
         hFont = CreateFontIndirect(&_header->font);
-        hTextBmp = CreateAlphaTextBitmap(hFont, _header->font_color, w, h);
+        hTextBmp = CreateAlphaTextBitmap(hWnd, hFont, _header->font_color, w, h);
     }
     if (_loading && _loading->enable && _bShowText)
     {
@@ -2230,11 +2367,11 @@ void ResetLayerd(HWND hWnd)
 
     if (s_bHideBorder != _WndInfo.bHideBorder || s_bFullScreen != _WndInfo.bFullScreen)
     {
-        DWORD exstyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+        DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
         exstyle &= ~WS_EX_LAYERED;
-        SetWindowLong(hWnd, GWL_EXSTYLE, exstyle);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle);
         exstyle |= WS_EX_LAYERED;
-        SetWindowLong(hWnd, GWL_EXSTYLE, exstyle);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle);
         s_bHideBorder = _WndInfo.bHideBorder;
         s_bFullScreen = _WndInfo.bFullScreen;
     }
@@ -2278,8 +2415,8 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     // save status
     if (!_WndInfo.bHideBorder)
     {
-        _WndInfo.hbStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
-        _WndInfo.hbExStyle = (DWORD)GetWindowLong(hWnd, GWL_EXSTYLE);
+        _WndInfo.hbStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+        _WndInfo.hbExStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
         GetWindowRect(hWnd, &_WndInfo.hbRect);
         _WndInfo.hbRect.left = rc.left - _WndInfo.hbRect.left;
         _WndInfo.hbRect.right = _WndInfo.hbRect.right - rc.right;
@@ -2300,8 +2437,8 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     // hide border
     if (_WndInfo.bHideBorder)
     {
-        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.hbStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.hbStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
         SetMenu(hWnd, NULL);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
         SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
@@ -2309,8 +2446,8 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     // show border
     else
     {
-        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.hbStyle);
-        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
+        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.hbStyle);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
         SetMenu(hWnd, _WndInfo.hMenu);
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
         SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
@@ -2340,8 +2477,8 @@ LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (!_WndInfo.bFullScreen)
     {
-        _WndInfo.fsStyle = (DWORD)GetWindowLong(hWnd, GWL_STYLE);
-        _WndInfo.fsExStyle = (DWORD)GetWindowLong(hWnd, GWL_EXSTYLE);
+        _WndInfo.fsStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+        _WndInfo.fsExStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
         GetWindowRect(hWnd, &_WndInfo.fsRect);
     }
 
@@ -2349,8 +2486,8 @@ LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (_WndInfo.bFullScreen)
     {
-        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.fsStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.fsStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
         SetMenu(hWnd, NULL);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
 
@@ -2362,8 +2499,8 @@ LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     else
     {
-        SetWindowLong(hWnd, GWL_STYLE, _WndInfo.fsStyle);
-        SetWindowLong(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle);
+        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.fsStyle);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle);
         if (!_WndInfo.bHideBorder)
         {
             SetMenu(hWnd, _WndInfo.hMenu);
@@ -2404,11 +2541,10 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         _hFindDlg = NULL;
     }
     TCHAR szFileName[MAX_PATH] = {0};
-    TCHAR szTitle[MAX_PATH] = {0};
     OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);  
     ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("Files (*.txt;*.epub)\0*.txt;*.epub\0\0");
+    ofn.lpstrFilter = _T("Files (*.txt;*.epub;*.ol)\0*.txt;*.epub;*.ol\0\0");
     ofn.lpstrInitialDir = NULL;
     ofn.lpstrFile = szFileName; 
     ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
@@ -2427,13 +2563,16 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnAddMark(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int ret;
-    if (_Book && !_Book->IsLoading())
+    if (_Book && !_Book->IsLoading() && _Book->GetBookType() != book_online)
     {
-        ret = MessageBox(hWnd, _T("确认添加书签？"), _T("书签"), MB_ICONINFORMATION|MB_YESNO);
+        ret = MessageBox_(hWnd, IDS_ADD_BOOKMARK_TIPS, IDS_BOOKMARK, MB_ICONINFORMATION|MB_YESNO);
         if (ret == IDYES)
         {
             if (_Cache.add_mark(_item, _item->index))
+            {
                 OnUpdateBookMark(hWnd);
+                Save(hWnd);
+            }
         }
     }
     return 0;
@@ -2486,6 +2625,7 @@ int Editwordbreakproc(
 LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     TCHAR *text = NULL;
+    BOOL readonly = TRUE;
 
     if (EC_IsEditMode())
     {
@@ -2502,7 +2642,12 @@ LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnHideBorder(hWnd, message, wParam, lParam);
             }
 
-            EC_EnterEditMode(hInst, hWnd, &_header->font, text, _Book->GetBookType() == book_epub);
+            if (_Book->GetBookType() == book_text)
+            {
+                readonly = FALSE;
+            }
+
+            EC_EnterEditMode(hInst, hWnd, &_header->font, text, readonly);
 
             free(text);
         }
@@ -2514,42 +2659,102 @@ LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT OnPageUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->PageUp(hWnd);
+        _NeedSave = TRUE;
+    }
     return 0;
 }
 
 LRESULT OnPageDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->PageDown(hWnd);
+        _NeedSave = TRUE;
+    }
     return 0;
 }
 
 LRESULT OnLineUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->LineUp(hWnd, _header->wheel_speed);
+        _NeedSave = TRUE;
+    }
     return 0;
 }
 
 LRESULT OnLineDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->LineDown(hWnd, _header->wheel_speed);
+        _NeedSave = TRUE;
+    }
     return 0;
 }
 
 LRESULT OnChapterUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->JumpPrevChapter(hWnd);
+        Save(hWnd);
+    }
     return 0;
 }
 
 LRESULT OnChapterDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (_Book && !_Book->IsLoading())
+    {
         _Book->JumpNextChapter(hWnd);
+        Save(hWnd);
+    }
+    return 0;
+}
+
+LRESULT OnFontZoomIn(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    const int ZOOM_MIN = 1;
+    const int ZOOM_MAX = 96;
+    const int ZOOM_STEP = 1;
+
+    if (_header && _Book && !_Book->IsLoading())
+    {
+        if (abs(_header->font.lfHeight) < ZOOM_MAX)
+        {
+            if (_header->font.lfHeight > 0)
+                _header->font.lfHeight++;
+            else
+                _header->font.lfHeight--;
+            _Book->Reset(hWnd);
+            Save(hWnd);
+        }
+    }
+    return 0;
+}
+
+LRESULT OnFontZoomOut(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    const int ZOOM_MIN = 1;
+    const int ZOOM_MAX = 96;
+    const int ZOOM_STEP = 1;
+
+    if (_header && _Book && !_Book->IsLoading())
+    {
+        if (abs(_header->font.lfHeight) > ZOOM_MIN)
+        {
+            if (_header->font.lfHeight > 0)
+                _header->font.lfHeight--;
+            else
+                _header->font.lfHeight++;
+            _Book->Reset(hWnd);
+            Save(hWnd);
+        }
+    }
     return 0;
 }
 
@@ -2573,7 +2778,7 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         // check is txt file
         ext = PathFindExtension(szFileName);
-        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
         {
             continue;
         }
@@ -2614,6 +2819,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     _item->index = i;
                     _Book->Reset(hWnd);
+                    Save(hWnd);
                     break;
                 }
             }
@@ -2626,6 +2832,7 @@ LRESULT OnFindText(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     _item->index = i;
                     _Book->Reset(hWnd);
+                    Save(hWnd);
                     break;
                 }
             }
@@ -2655,24 +2862,7 @@ LRESULT OnUpdateChapters(HWND hWnd)
 {
     chapters_t *chapters;
     chapters_t::iterator itor;
-#if USING_MENU_CHAPTERS
-    HMENU hMenuBar = NULL;
-    HMENU hView = NULL;
 
-    hMenuBar = GetMenu(hWnd);
-    hView = CreateMenu();
-    if (_Book)
-    {
-        chapters = _Book->GetChapters();
-        for (itor = chapters->begin(); itor != chapters->end(); itor++)
-        {
-            AppendMenu(hView, MF_STRING, itor->first, itor->second.title.c_str());
-        }
-    }
-    DeleteMenu(hMenuBar, 1, MF_BYPOSITION);
-    InsertMenu(hMenuBar, 1, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hView, L"&View");
-    DrawMenuBar(hWnd);
-#else
     TVITEM tvi = {0};
     TVINSERTSTRUCT tvins = {0};
     HTREEITEM hPrev = (HTREEITEM)TVI_FIRST;
@@ -2696,7 +2886,6 @@ LRESULT OnUpdateChapters(HWND hWnd)
             hPrev = (HTREEITEM)SendMessage(_hTreeView, TVM_INSERTITEM, 0, (LPARAM)(LPTVINSERTSTRUCT)&tvins);
         }
     }
-#endif
 
     return 0;
 }
@@ -2718,7 +2907,7 @@ LRESULT OnUpdateBookMark(HWND hWnd)
 
         for (i=0; i<_item->mark_size; i++)
         {
-            len = _item->mark[i] + (MAX_MARK_TEXT - 1) > _Book->GetTextLength() ? _Book->GetTextLength() - _item->index : (MAX_MARK_TEXT - 1);
+            len = _item->mark[i] + (MAX_MARK_TEXT - 1) > _Book->GetTextLength() ? _Book->GetTextLength() - _item->mark[i] : (MAX_MARK_TEXT - 1);
             memcpy(szText, _Book->GetText()+_item->mark[i], sizeof(TCHAR)*len);
             szText[len] = 0;
 
@@ -2742,14 +2931,21 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 {
     item_t *item = NULL;
     RECT rect;
+    UINT type;
+    TCHAR fileName[MAX_PATH] = { 0 };
 
     StopLoadingImage(hWnd);
     //EnableWindow(hWnd, TRUE);
     if (!result)
     {
+        _tcscpy(fileName, _Book->GetFileName());
+        type = _Book->GetBookType() == book_online ? MB_RETRYCANCEL : MB_OK;
         delete _Book;
         _Book = NULL;
-        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        if (IDRETRY == MessageBox_(hWnd, IDS_OPEN_FILE_FAILED, IDS_ERROR, type | MB_ICONERROR))
+        {
+            OnOpenBook(hWnd, fileName, FALSE);
+        }
         return FALSE;
     }
 
@@ -2775,12 +2971,17 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     // set param
     GetClientRectExceptStatusBar(hWnd, &rect);
 #if ENABLE_TAG
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border, _header->tags);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &(_header->internal_border), _header->tags);
 #else
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->internal_border);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &(_header->internal_border));
 #endif
     _Book->SetRect(&rect);
     _Book->SetChapterRule(&(_header->chapter_rule));
+    if (_Book->GetBookType() == book_online)
+    {
+        _item->is_new = FALSE;
+        ((OnlineBook*)_Book)->UpdateBookSource();
+    }
 
     // update menu
     OnUpdateMenu(hWnd);
@@ -2793,6 +2994,9 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 
     // repaint
     _Book->ReDraw(hWnd);
+
+    // save
+    Save(hWnd);
 
     return 0;
 }
@@ -2853,26 +3057,27 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 #endif
     int size = 0;
     TCHAR szFileName[MAX_PATH] = {0};
+    chkbook_arg_t* arg = NULL;
 
     _tcscpy(szFileName, filename);
     ext = PathFindExtension(szFileName);
-    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
     {
-        MessageBox(hWnd, _T("Unknown file format."), _T("Error"), MB_OK|MB_ICONERROR);
+        MessageBox_(hWnd, IDS_UNKNOWN_FORMAT, IDS_ERROR, MB_OK | MB_ICONERROR);
         return;
     }
 
 #if ENABLE_MD5
     if (!Book::CalcMd5(szFileName, &md5, &data, &size))
     {
-        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        MessageBox_(hWnd, IDS_OPEN_FILE_FAILED, IDS_ERROR, MB_OK | MB_ICONERROR);
         return;
     }
 #else
     fp = _tfopen(szFileName, _T("rb"));
     if (!fp)
     {
-        MessageBox(hWnd, _T("Open file failed."), _T("Error"), MB_OK|MB_ICONERROR);
+        MessageBox_(hWnd, IDS_OPEN_FILE_FAILED, IDS_ERROR, MB_OK | MB_ICONERROR);
         return;
     }
     fseek(fp, 0, SEEK_END);
@@ -2885,7 +3090,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 #if ENABLE_MD5
         free(data);
 #endif
-        MessageBox(hWnd, _T("Open file failed.\r\nThis is a empty file."), _T("Error"), MB_OK|MB_ICONERROR);
+        MessageBox_(hWnd, IDS_EMPTY_FILE, IDS_ERROR, MB_OK | MB_ICONERROR);
         return;
     }
 
@@ -2930,7 +3135,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
         _Book->SetChapterRule(&(_header->chapter_rule));
         _Book->OpenBook(NULL, size, hWnd);
     }
-    else
+    else if (_tcscmp(ext, _T(".epub")) == 0)
     {
 #if ENABLE_MD5
         free(data);
@@ -2942,50 +3147,122 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 #endif
         _Book->SetFileName(szFileName);
         _Book->OpenBook(hWnd);
+}
+    else if (_tcscmp(ext, _T(".ol")) == 0)
+    {
+#if ENABLE_NETWORK
+        arg = GetCheckBookArguments();
+        if (arg && arg->book && arg->book->GetBookType() == book_online
+            && 0 == _tcscmp(arg->book->GetFileName(), szFileName))
+        {
+            delete arg->book;
+            arg->book = NULL;
+        }
+#endif
+        _Book = new OnlineBook;
+        _Book->SetFileName(szFileName);
+        _Book->OpenBook(NULL, size, hWnd);
     }
     
     //EnableWindow(hWnd, FALSE);
     PlayLoadingImage(hWnd);
 }
 
-UINT GetCacheVersion(void)
+void OnOpenOlBook(HWND hWnd, void* olparam)
 {
-    std::wstring version;
-    UINT ver = 0;
+    static TCHAR oldir[MAX_PATH] = { 0 };
+    TCHAR savepath[MAX_PATH] = { 0 };
+    ol_book_param_t* param = (ol_book_param_t*)olparam;
+    ol_header_t olheader = { 0 };
+    FILE* fp = NULL;
+    int i;
 
-    version = _Upgrade.GetApplicationVersion();
+    // create save path
+    if (!oldir[0])
+    {
+        // generate online file save path
+        GetModuleFileName(NULL, oldir, sizeof(TCHAR) * (MAX_PATH - 1));
+        for (i = _tcslen(oldir) - 1; i >= 0; i--)
+        {
+            if (oldir[i] == _T('\\') || oldir[i] == _T('/'))
+            {
+                memcpy(&oldir[i + 1], ONLINE_FILE_SAVE_PATH, (_tcslen(ONLINE_FILE_SAVE_PATH) + 1) * sizeof(TCHAR));
+                break;
+            }
+        }
 
-    unsigned int v1 = 0, v2 = 0, v3 = 0, v4 = 0;
-    swscanf(version.c_str(), L"%d.%d.%d.%d", &v1, &v2, &v3, &v4);    
+        // create path
+        if (CreateDirectory(oldir, NULL))
+        {
+            SetFileAttributes(oldir, FILE_ATTRIBUTE_HIDDEN);
+        }
+    }
+    _tcscpy(savepath, oldir);
+    _tcscat(savepath, param->book_name);
+    _tcscat(savepath, _T(".ol"));
 
-    ver = v1 << 24 | v2 << 16 | v3 << 8 | v4;
-    return ver;
+    // check .ol file is exist
+    if (PathFileExists(savepath))
+    {
+        OnOpenBook(hWnd, savepath, FALSE);
+        return;
+    }
+
+    // generate ol_header_t
+    olheader.header_size = sizeof(ol_header_t) - sizeof(ol_chapter_info_t);
+    olheader.book_name_offset = olheader.header_size;
+    olheader.header_size += (_tcslen(param->book_name) + 1) * sizeof(TCHAR);
+    olheader.main_page_offset = olheader.header_size;
+    olheader.header_size += (strlen(param->main_page) + 1) * sizeof(char);
+    olheader.host_offset = olheader.header_size;
+    olheader.header_size += (strlen(param->host) + 1) * sizeof(char);
+    olheader.update_time = 0;
+    olheader.is_finished = param->is_finished;
+    olheader.chapter_size = 0;
+
+    // write file
+    fp = _tfopen(savepath, _T("wb"));
+    fwrite(&olheader, 1, olheader.book_name_offset, fp);
+    fwrite(param->book_name, 1, olheader.main_page_offset - olheader.book_name_offset, fp);
+    fwrite(param->main_page, 1, olheader.host_offset - olheader.main_page_offset, fp);
+    fwrite(param->host, 1, olheader.header_size - olheader.host_offset, fp);
+    fclose(fp);
+
+    OnOpenBook(hWnd, savepath, FALSE);
+}
+
+VOID GetCacheVersion(TCHAR *ver)
+{
+    TCHAR version[256] = { 0 };
+    Utils::GetApplicationVersion(version);
+    wcscpy(ver, version);
 }
 
 BOOL Init(void)
 {
     if (!_Cache.init())
     {
-        MessageBox(NULL, _T("Init Cache fail."), _T("Error"), MB_OK);
+        MessageBox_(NULL, IDS_INIT_CACHE_FAIL, IDS_ERROR, MB_OK);
         return FALSE;
     }
 
     _header = _Cache.get_header();
 
     // delete not exist items
-    std::vector<int> delVec;
     for (int i=0; i<_header->item_count; i++)
     {
         item_t* item = _Cache.get_item(i);
         if (!PathFileExists(item->file_name))
         {
-            delVec.push_back(i);
+            _Cache.delete_item(i);
+            i--;
         }
     }
-    for (size_t i=0; i<delVec.size(); i++)
-    {
-        _Cache.delete_item(delVec[i]);
-    }
+
+#if ENABLE_NETWORK
+    // set proxy for http client
+    HttpClient::Instance()->SetProxy(&_header->proxy);
+#endif
 
     return TRUE;
 }
@@ -3000,19 +3277,81 @@ void Exit(void)
 
     if (!_Cache.exit())
     {
-        MessageBox(NULL, _T("Save Cache fail."), _T("Error"), MB_OK);
+        MessageBox_(NULL, IDS_SAVE_CACHE_FAIL, IDS_ERROR, MB_OK);
     }
+#if ENABLE_NETWORK
+    HtmlParser::ReleaseInstance();
+    HttpClient::ReleaseInstance();
+#endif
+}
+
+void Save(HWND hWnd)
+{
+#if ENABLE_REALTIME_SAVE
+    PostMessage(hWnd, WM_SAVE_CACHE, 0, NULL);
+#endif
+}
+
+LRESULT OnSave(HWND hWnd)
+{
+#if ENABLE_REALTIME_SAVE
+    RECT rc, rcbak;
+    LOGFONT fontbak;
+#if ENABLE_TAG
+    LOGFONT tagfontbak[MAX_TAG_COUNT] = { 0 };
+#endif
+
+    // save rect
+    rcbak = _header->rect;
+    fontbak = _header->font;
+    if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+    {
+        GetClientRectExceptStatusBar(hWnd, &rc);
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+        rc.left = rc.left - _WndInfo.hbRect.left;
+        rc.right = rc.right + _WndInfo.hbRect.right;
+        rc.top = rc.top - _WndInfo.hbRect.top;
+        rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
+        _header->rect = rc;
+    }
+    RestoreRectForDpi(&_header->rect);
+    RestoreFontForDpi(&_header->font);
+#if ENABLE_TAG
+    for (int i = 0; i < MAX_TAG_COUNT; i++)
+    {
+        tagfontbak[i] = _header->tags[i].font;
+        RestoreFontForDpi(&_header->tags[i].font);
+    }
+#endif
+
+    // save
+    _Cache.save();
+
+    // restore
+    _header->rect = rcbak;
+    _header->font = fontbak;
+#if ENABLE_TAG
+    for (int i = 0; i < MAX_TAG_COUNT; i++)
+    {
+        _header->tags[i].font = tagfontbak[i];
+    }
+#endif
+#endif
+    return 0;
 }
 
 void UpdateProgess(void)
 {
     TCHAR progress[256] = {0};
+    TCHAR str[256] = { 0 };
     double dprog = 0.0;
     int nprog = 0;
 
     if (EC_IsEditMode())
     {
-        SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)_T("当前为【编辑模式】，再次使用快捷键可退出"));
+        LoadString(hInst, IDS_EDIT_MODE_TIPS, progress, 256);
+        SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
         return;
     }
 
@@ -3021,11 +3360,15 @@ void UpdateProgess(void)
         dprog = (double)_Book->GetProgress();
         nprog = (int)(dprog * 100);
         dprog = (double)nprog / 100.0;
-#if 0
-        _stprintf(progress, _T("Progress: %.2f%%"), dprog);
-#else
-        _stprintf(progress, _T("Progress: %.2f%%    ( %d / %d )"), dprog, _item->index + _Book->GetCurPageSize(), _Book->GetTextLength());
-#endif
+        if (!_IsAutoPage)
+        {
+            _stprintf(progress, _T("  %.2f%%  ( %d / %d )"), dprog, _item->index + _Book->GetCurPageSize(), _Book->GetTextLength());
+        }
+        else
+        {
+            LoadString(hInst, IDS_AUTOPAGING, str, 256);
+            _stprintf(progress, _T("  %.2f%%  ( %d / %d )  [%s]"), dprog, _item->index + _Book->GetCurPageSize(), _Book->GetTextLength(), str);
+        }
         SendMessage(_WndInfo.hStatusBar, SB_SETTEXT, (WPARAM)0, (LPARAM)progress);
     }
     else
@@ -3103,6 +3446,7 @@ void RemoveMenus(HWND hWnd, BOOL redraw)
 
 #if !ENABLE_NETWORK
     RemoveMenuById(hMenu, TRUE, IDM_PROXY);
+    RemoveMenuById(hMenu, TRUE, IDM_ONLINE);
 #endif
 
 #if !ENABLE_TAG
@@ -3252,10 +3596,18 @@ BOOL FileExists(TCHAR *file)
 
 void StartAutoPage(HWND hWnd)
 {
-    if (_item && !_IsAutoPage)
+    if (_item && !_IsAutoPage && _Book && !_Book->IsLoading())
     {
-        SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
+        if ((_header->autopage_mode & 0xf0) == apm_count)
+        {
+            SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse * _Book->GetCurPageSize(), NULL);
+        }
+        else
+        {
+            SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
+        }
         _IsAutoPage = TRUE;
+        UpdateProgess();
     }
 }
 
@@ -3265,6 +3617,7 @@ void StopAutoPage(HWND hWnd)
     {
         KillTimer(hWnd, IDT_TIMER_PAGE);
         _IsAutoPage = FALSE;
+        UpdateProgess();
     }
 }
 
@@ -3278,9 +3631,33 @@ void PauseAutoPage(HWND hWnd)
 
 void ResumeAutoPage(HWND hWnd)
 {
-    if (_item && _IsAutoPage)
+    if (_item && _IsAutoPage && _Book && !_Book->IsLoading())
     {
-        SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
+        if ((_header->autopage_mode & 0xf0) == apm_count)
+        {
+            SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse * _Book->GetCurPageSize(), NULL);
+        }
+        else
+        {
+            SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse, NULL);
+        }
+    }
+    else
+    {
+        KillTimer(hWnd, IDT_TIMER_PAGE);
+        _IsAutoPage = FALSE;
+    }
+}
+
+void ResetAutoPage(HWND hWnd)
+{
+    if (_item && _IsAutoPage && _Book && !_Book->IsLoading())
+    {
+        if ((_header->autopage_mode & 0xf0) == apm_count)
+        {
+            KillTimer(hWnd, IDT_TIMER_PAGE);
+            SetTimer(hWnd, IDT_TIMER_PAGE, _header->uElapse * _Book->GetCurPageSize(), NULL);
+        }
     }
 }
 
@@ -3301,6 +3678,150 @@ bool UpgradeCallback(void *param, json_item_data_t *item)
     PostMessage(hWnd, WM_NEW_VERSION, 0, NULL);
     return true;
 }
+
+chkbook_arg_t* GetCheckBookArguments()
+{
+    static chkbook_arg_t* s_arg = NULL;
+    if (!s_arg)
+    {
+        s_arg = new chkbook_arg_t;
+    }
+    return s_arg;
+}
+
+void StartCheckBookUpdate(HWND hWnd)
+{
+    KillTimer(hWnd, IDT_TIMER_CHECKBOOK);
+    SetTimer(hWnd, IDT_TIMER_CHECKBOOK, 60 * 1000 /*one minute*/, NULL);
+}
+
+void OnCheckBookUpdateCallback(int is_update, int err, void* param)
+{
+    chkbook_arg_t* arg = (chkbook_arg_t*)param;
+    int i;
+#if TEST_MODEL
+    char msg[1024] = { 0 };
+    char* ansi = NULL;
+    int len;
+#endif
+
+    if (!arg)
+        return;
+
+    if (!arg->book)
+        return;
+
+#if TEST_MODEL
+    ansi = Utils::utf16_to_ansi(arg->book->GetFileName(), &len);
+    sprintf(msg, "{%s:%d} file=%s\n", __FUNCTION__, __LINE__, ansi);
+    OutputDebugStringA(msg);
+    free(ansi);
+#endif
+
+    if (is_update)
+    {
+        for (i = 0; i < _header->item_count; i++)
+        {
+            item_t* item = _Cache.get_item(i);
+            if (_tcscmp(item->file_name, arg->book->GetFileName()) == 0)
+            {
+                item->is_new = TRUE;
+                Save(arg->hWnd);
+                break;
+            }
+        }
+
+        OnUpdateMenu(arg->hWnd);
+    }
+
+    if (arg->book)
+    {
+        delete arg->book;
+        arg->book = NULL;
+    }   
+
+    // check next book
+    if (arg->hWnd)
+    {
+        KillTimer(arg->hWnd, IDT_TIMER_CHECKBOOK);
+        SetTimer(arg->hWnd, IDT_TIMER_CHECKBOOK, 60 * 1000 /*one minute*/, NULL);
+    }
+}
+
+void OnCheckBookUpdate(HWND hWnd)
+{
+    chkbook_arg_t* arg = GetCheckBookArguments();
+    item_t* item = NULL;
+    int i;
+    int found = -1;
+
+    if (!arg)
+        return;
+
+    if (arg->book)
+    {
+        delete arg->book;
+        arg->book = NULL;
+    }   
+
+_check_next:
+    found = -1;
+    // find an online book
+    for (i = 0; i < _header->item_count; i++)
+    {
+        item = _Cache.get_item(i);
+        if (0 == _tcscmp(PathFindExtension(item->file_name), _T(".ol")))
+        {
+            if (arg->checked_list.find(item->file_name) != arg->checked_list.end())
+            {
+                continue;
+            }
+            found = i;
+            break;
+        }
+    }
+
+    if (found != -1)
+    {
+        item = _Cache.get_item(found);
+        if (_Book && _Book->GetBookType() == book_online && _tcscmp(_Book->GetFileName(), item->file_name) == 0)
+        {
+            arg->hWnd = hWnd;
+            arg->checked_list.insert(item->file_name);
+            if (2 != ((OnlineBook*)_Book)->CheckUpdate(hWnd, OnCheckBookUpdateCallback, arg))
+            {
+                found = -1;
+                goto _check_next;
+            }
+        }
+        else
+        {
+            arg->hWnd = hWnd;
+            arg->checked_list.insert(item->file_name);
+            arg->book = new OnlineBook;
+            arg->book->SetFileName(item->file_name);
+            if (2 != arg->book->CheckUpdate(hWnd, OnCheckBookUpdateCallback, arg))
+            {
+                delete arg->book;
+                arg->book = NULL;
+
+                found = -1;
+                goto _check_next;
+            }
+        }
+    }
+    else
+    {
+        if (arg->book)
+        {
+            delete arg->book;
+            arg->book = NULL;
+        }
+        arg->checked_list.clear();
+        KillTimer(hWnd, IDT_TIMER_CHECKBOOK);
+        SetTimer(hWnd, IDT_TIMER_CHECKBOOK, 60 * 60 * 1000 /*one hour*/, NULL);
+    }
+}
 #endif
 
 bool PlayLoadingImage(HWND hWnd)
@@ -3320,61 +3841,13 @@ bool PlayLoadingImage(HWND hWnd)
         memset(_loading, 0, sizeof(loading_data_t));
 
         // load image from resource
+        if (!LoadResourceImage(MAKEINTRESOURCE(IDR_GIF_LOADING), _T("GIF"), &(_loading->image), &(_loading->hMemory)))
         {
-            HRSRC hResource;
-            DWORD imageSize;
-            const void* pResourceData = NULL;
-            void * buffer;
-            IStream* pStream = NULL;
-
-            hResource = ::FindResource(hInst, MAKEINTRESOURCE(IDR_GIF_LOADING), _T("GIF"));
-            if (!hResource)
-                return false;
-
-            imageSize = ::SizeofResource(hInst, hResource);
-            if (!imageSize)
-                return false;
-
-            pResourceData = ::LockResource(::LoadResource(hInst, hResource));
-            if (!pResourceData)
-                return false;
-
-            _loading->hMemory = ::GlobalAlloc(GMEM_MOVEABLE, imageSize);
-            if (!_loading->hMemory)
-                return false;
-
-            buffer = ::GlobalLock(_loading->hMemory);
-            if (!buffer)
-            {
-                ::GlobalFree(_loading->hMemory);
-                return false;
-            }
-
-            CopyMemory(buffer, pResourceData, imageSize);
-            if (::CreateStreamOnHGlobal(_loading->hMemory, FALSE, &pStream) == S_OK)
-            {
-                _loading->image = Gdiplus::Bitmap::FromStream(pStream);
-                pStream->Release();
-            }
-            ::GlobalUnlock(_loading->hMemory);
-            //::GlobalFree(_loading->hMemory);
-        }
-
-        if (!_loading->image)
-        {
-            //::GlobalFree(_loading->hMemory);
-            //free(_loading);
-            //_loading = NULL;
+            free(_loading);
+            _loading = NULL;
             return false;
         }
-        if (Gdiplus::Ok != _loading->image->GetLastStatus())
-        {
-            //::GlobalFree(_loading->hMemory);
-            //delete _loading->image;
-            //free(_loading);
-            //_loading = NULL;
-            return false;
-        }
+
         count = _loading->image->GetFrameDimensionsCount();
         pDimensionIDs = (GUID*)malloc(sizeof(GUID)*count);
         _loading->image->GetFrameDimensionsList(pDimensionIDs, count);
@@ -3391,7 +3864,7 @@ bool PlayLoadingImage(HWND hWnd)
     Guid = FrameDimensionTime;
     _loading->image->SelectActiveFrame(&Guid, _loading->frameIndex);
 
-    SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item[0].value)[_loading->frameIndex] * 10, NULL);
+    SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item->value)[_loading->frameIndex] * 10, NULL);
     _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
     GetClientRectExceptStatusBar(hWnd, &rect);
     InvalidateRect(hWnd, &rect, FALSE);
@@ -3519,7 +3992,7 @@ void ShowSysTray(HWND hWnd, BOOL bShow)
     }
 }
 
-HBITMAP CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int height)
+HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int width, int height)
 {
     // Create DC and select font into it
     HDC hTextDC = CreateCompatibleDC(NULL);
@@ -3552,7 +4025,7 @@ HBITMAP CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int he
         SetBkMode(hTextDC, OPAQUE);
 
         // Draw text to buffer
-        _Book->DrawPage(hTextDC);
+        _Book->DrawPage(hWnd, hTextDC);
         if (!_Book->IsCoverPage())
         {
             DataPtr = (BYTE*)pvBits;
@@ -3598,7 +4071,7 @@ void SetTreeviewFont()
         s_hFont = NULL;
     }
 
-    if (_header->meun_font)
+    if (_header->meun_font_follow)
     {
         s_hFont = CreateFontIndirect(&_header->font);
         int height = abs((int)(_header->font.lfHeight * 1.5f));
@@ -3625,4 +4098,157 @@ void SetTreeviewFont()
         SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)s_hFont, NULL);
         SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
     }
+}
+
+BOOL LoadResourceImage(LPCWSTR lpName, LPCWSTR lpType, Bitmap **image, HGLOBAL *hMemory)
+{
+    HRSRC hResource;
+    HGLOBAL hResLoad;
+    const void* pResourceData = NULL;
+    IStream* pStream = NULL;
+    DWORD imageSize;
+    void* buffer = NULL;
+
+    hResource = ::FindResource(hInst, lpName, lpType);
+    if (!hResource)
+        return FALSE;
+
+    hResLoad = ::LoadResource(hInst, hResource);
+    if (!hResLoad)
+        return FALSE;
+
+    pResourceData = ::LockResource(hResLoad);
+    if (!pResourceData)
+    {
+        ::FreeResource(hResLoad);
+        return FALSE;
+    }
+
+    imageSize = ::SizeofResource(hInst, hResource);
+    if (0 == imageSize)
+    {
+        ::FreeResource(hResLoad);
+        return FALSE;
+    }
+
+    *hMemory = ::GlobalAlloc(GMEM_MOVEABLE, imageSize);
+    if (!(*hMemory))
+    {
+        ::FreeResource(hResLoad);
+        return FALSE;
+    }
+
+    buffer = ::GlobalLock(*hMemory);
+    if (!buffer)
+    {
+        ::FreeResource(hResLoad);
+        ::GlobalFree(*hMemory);
+        return FALSE;
+    }
+
+    CopyMemory(buffer, pResourceData, imageSize);
+
+    if (::CreateStreamOnHGlobal(*hMemory, FALSE, &pStream) == S_OK)
+    {
+        *image = Gdiplus::Bitmap::FromStream(pStream);
+        pStream->Release();
+    }
+    ::FreeResource(hResLoad);
+    ::GlobalUnlock(*hMemory);
+    //::GlobalFree(hMemory);
+
+    if ((*image) && Gdiplus::Ok == (*image)->GetLastStatus())
+    {
+        return TRUE;
+    }
+
+    if (*image)
+        delete (*image);
+    *image = NULL;
+    ::GlobalFree(*hMemory);
+    *hMemory = NULL;
+    return FALSE;
+}
+
+book_source_t* FindBookSource(const char* host)
+{
+    int i = 0;
+
+    if (!host)
+        return NULL;
+    for (i = 0; i < _header->book_source_count; i++)
+    {
+        if (0 == strcmp(_header->book_sources[i].host, host))
+            return &_header->book_sources[i];
+    }
+    return NULL;
+}
+
+HHOOK hMsgBoxHook = NULL;
+LRESULT CALLBACK MsgBoxHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    HWND hParent;
+    RECT rc;
+    int w, h, x, y;
+    LPCBT_CREATEWND cbt;
+    if (nCode == HCBT_CREATEWND)
+    {
+        cbt = ((LPCBT_CREATEWND)lParam);
+
+        if (cbt->lpcs->lpszClass == (LPWSTR)(ATOM)32770)  // #32770 = dialog box class
+        {
+            hParent = cbt->lpcs->hwndParent;
+            if (hParent)
+            {
+                GetWindowRect(hParent, &rc);
+                w = rc.right - rc.left;
+                h = rc.bottom - rc.top;
+                x = rc.left + (w - cbt->lpcs->cx) / 2;
+                y = rc.top + (h - cbt->lpcs->cy) / 2;
+                cbt->lpcs->x = x;
+                cbt->lpcs->y = y;
+            }
+        }
+    }
+
+    return CallNextHookEx(hMsgBoxHook, nCode, wParam, lParam);
+}
+
+int MessageBox_(HWND hWnd, UINT textId, UINT captionId, UINT uType)
+{
+    TCHAR szText[MAX_LOADSTRING] = { 0 };
+    TCHAR szCaption[MAX_LOADSTRING] = { 0 };
+    int res;
+
+    hMsgBoxHook = SetWindowsHookEx(WH_CBT, MsgBoxHookProc, hInst, GetCurrentThreadId());
+    LoadString(hInst, textId, szText, MAX_LOADSTRING);
+    LoadString(hInst, captionId, szCaption, MAX_LOADSTRING);
+    res = MessageBoxEx(hWnd, szText, szCaption, uType, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
+
+    if (hMsgBoxHook)
+        UnhookWindowsHookEx(hMsgBoxHook);
+    return res;
+}
+
+int MessageBoxFmt_(HWND hWnd, UINT captionId, UINT uType, UINT formatId, ...)
+{
+    TCHAR szText[MAX_LOADSTRING] = { 0 };
+    TCHAR szCaption[MAX_LOADSTRING] = { 0 };
+    TCHAR szFormat[MAX_LOADSTRING] = { 0 };
+    int res;
+    va_list args;
+
+    hMsgBoxHook = SetWindowsHookEx(WH_CBT, MsgBoxHookProc, hInst, GetCurrentThreadId());
+    LoadString(hInst, formatId, szFormat, MAX_LOADSTRING);
+    LoadString(hInst, captionId, szCaption, MAX_LOADSTRING);
+
+    va_start(args, formatId);
+    _sntprintf(szText, MAX_LOADSTRING, szFormat, args);
+    va_end(args);
+    
+    res = MessageBoxEx(hWnd, szText, szCaption, uType, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
+
+    if (hMsgBoxHook)
+        UnhookWindowsHookEx(hMsgBoxHook);
+    return res;
 }

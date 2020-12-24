@@ -2,11 +2,30 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.8.2.0`<br/>
+最新release版本：`v1.9.0.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1JMd0YroXYbBsSB2f6qv4kg](https://pan.baidu.com/s/1JMd0YroXYbBsSB2f6qv4kg)<br/>
-提取码: `9r6e`
+链接: [https://pan.baidu.com/s/1w4f_xGrSWvpjGIGED6dnkA](https://pan.baidu.com/s/1w4f_xGrSWvpjGIGED6dnkA)<br/>
+提取码: `v65a`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.9.0.0 2020/12/12 功能更新<br/>
+1. 新增在线阅读功能<br/>
+   1.1 使用方法，【设置】>【在线小说】内搜索小说并打开<br/>
+   1.2 书源来自：笔趣阁 http://www.biquge.info<br/>
+   1.3 暂不支持书源修改<br/>
+   1.4 软件以爬虫的方式获取小说文本。<br/>
+       如果快速切换章节，可能会出现打开或者获取章节内容失败的情况（触发了书源服务器防爬机制）。<br/>
+       遇到时，请多重试几次。一般可以解决。<br/>
+       如果实在不行，请使用浏览器访问 http://www.biquge.info<br/>
+       按Ctrl+F5强制刷新浏览器，搜索并打开小说。直到正常获取网页内容后，再次使用软件。<br/>
+2. 增加【恢复默认设置】确认框，防止误操作<br/>
+3. 增加英文文档单词自动换行功能<br/>
+   3.1 需要手动启用，【基本设置】勾选【Word wrap】<br/>
+4. 其他bug修复。<br/>
+5. 1.9版本初次发布，可能会引入一些bug。<br/>
 <br/>
 <br/>
 <br/>
@@ -19,6 +38,9 @@ A win32 txt/epub file reader
 4. 关于杀毒软件报毒问题：<br/>
    我暂时没有好的处理方法。<br/>
    我只能保证软件没有病毒。<br/>
+版本：`v1.8.2.0`<br/>
+链接: https://pan.baidu.com/s/1JMd0YroXYbBsSB2f6qv4kg<br/>
+提取码: 9r6e<br/>
 <br/>
 <br/>
 <br/>

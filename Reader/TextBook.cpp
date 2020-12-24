@@ -64,7 +64,7 @@ bool TextBook::UpdateChapters(int offset)
     return true;
 }
 
-bool TextBook::ParserBook(void)
+bool TextBook::ParserBook(HWND hWnd)
 {
     bool ret = false;
 
@@ -106,7 +106,7 @@ bool TextBook::ReadBook(void)
         len = ftell(fp);
         fseek(fp, 0, SEEK_SET);
 
-        buf = (char *)malloc(len + 1);
+        buf = (char *)malloc(len + 2);
         buf[len] = 0;
         if (!buf)
             goto end;
@@ -169,7 +169,7 @@ bool TextBook::ParserChaptersDefault(void)
     bool bFound = false;
     int idx_1 = -1, idx_2 = -1;
     chapter_item_t chapter;
-    int menu_begin_id = IDM_CHAPTER_BEGIN;
+    int menu_begin_id = 0;
 
     while (true)
     {
@@ -250,7 +250,7 @@ bool TextBook::ParserChaptersKeyword(void)
     int idx_1 = -1;
     int cmplen;
     chapter_item_t chapter;
-    int menu_begin_id = IDM_CHAPTER_BEGIN;
+    int menu_begin_id = 0;
 
     while (true)
     {
@@ -303,7 +303,7 @@ bool TextBook::ParserChaptersRegex(void)
     int title_len = 0;
     bool bFound = false;
     chapter_item_t chapter;
-    int menu_begin_id = IDM_CHAPTER_BEGIN;
+    int menu_begin_id = 0;
     int offset = 0;
     std::wcmatch cm;
     std::wregex *e = NULL;

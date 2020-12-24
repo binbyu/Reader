@@ -19,6 +19,13 @@
 
 
 // TODO: reference additional headers your program requires here
+#ifdef  FD_SETSIZE
+#undef  FD_SETSIZE
+#define FD_SETSIZE  1024
+#else 
+#define FD_SETSIZE  1024
+#endif
+
 #include <objidl.h>
 #include <GdiPlus.h>
 using namespace Gdiplus;
@@ -35,6 +42,14 @@ using namespace Gdiplus;
 
 
 #pragma comment(lib, "Msimg32.lib")
+
+#ifdef _DEBUG
+#pragma comment(lib, "zlibstatd.lib")
+#pragma comment(lib, "libxml2_ad.lib")
+#else
+#pragma comment(lib, "zlibstat.lib")
+#pragma comment(lib, "libxml2_a.lib")
+#endif
 
 
 #ifdef _UNICODE

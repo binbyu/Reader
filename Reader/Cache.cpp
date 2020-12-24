@@ -2,14 +2,19 @@
 #include "Cache.h"
 #include "Keyset.h"
 #include "Upgrade.h"
+#include "jsondata.h"
+#include "HttpClient.h"
+#include "DPIAwareness.h"
 #include <stdio.h>
 #include <string.h>
 #include <shlwapi.h>
 
 
-extern UINT GetCacheVersion(void);
+extern VOID GetCacheVersion(TCHAR *);
 
 Cache::Cache(TCHAR* file)
+    : m_jsonbak(NULL)
+    , m_jsonlen(0)
 {
     GetModuleFileName(NULL, m_file_name, sizeof(TCHAR)*(MAX_PATH-1));
     for (int i=_tcslen(m_file_name)-1; i>=0; i--)
@@ -37,7 +42,9 @@ Cache::~Cache(void)
 
 bool Cache::init()
 {
-    FILE* fp = NULL;
+    void* json = NULL;
+    int size = 0;
+    header_t header;
 
     if (!PathFileExists(m_file_name)) // not exist
     {
@@ -46,11 +53,25 @@ bool Cache::init()
     }
     else
     {
-        if (read())
+        if (read(&json, &size))
         {
-            // check data
-            if (!check_cache())
-                return false;
+            // backup file data
+            if (m_jsonbak)
+            {
+                free(m_jsonbak);
+                m_jsonbak = NULL;
+            }
+            m_jsonlen = size;
+            m_jsonbak = malloc(m_jsonlen);
+            memcpy(m_jsonbak, json, m_jsonlen);
+
+            // parser json string
+            decode(json, size);
+            memset(&header, 0, sizeof(header_t));
+            header.item_id = -1;
+            default_header(&header);
+            parser_json((char *)json, &header, &m_buffer, &m_size);
+            free(json);
             return true;
         }
         return false;
@@ -61,12 +82,11 @@ bool Cache::init()
 
 bool Cache::exit()
 {
-    FILE* fp = NULL;
     bool result = true;
 
     if (m_buffer)
     {
-        result = write();
+        result = save();
 
         // free
         free(m_buffer);
@@ -74,12 +94,54 @@ bool Cache::exit()
         m_size = 0;
     }
 
+    if (m_jsonbak)
+    {
+        free(m_jsonbak);
+        m_jsonbak = NULL;
+        m_jsonlen = NULL;
+    }
+
     return result;
 }
 
 bool Cache::save()
 {
-    return write();
+    bool result = false;
+    char* json = NULL;
+    int size = 0;
+
+    json = create_json(get_header());
+    if (json)
+    {
+        size = strlen(json);
+        encode(json, size);
+
+        // check if data is changed
+        if (size != m_jsonlen
+            || 0 != memcmp(m_jsonbak, json, m_jsonlen))
+        {
+            result = write(json, size);
+
+            // backup
+            if (size != m_jsonlen)
+            {
+                m_jsonlen = size;
+                m_jsonbak = realloc(m_jsonbak, m_jsonlen);
+                if (!m_jsonbak)
+                {
+                    m_jsonlen = 0;
+                }
+            }
+            if (m_jsonbak)
+                memcpy(m_jsonbak, json, m_jsonlen);
+        }
+        else
+        {
+            result = true; // no change, don't need write file
+        }
+    }
+    create_json_free(json);
+    return result;
 }
 
 header_t* Cache::get_header()
@@ -245,41 +307,40 @@ header_t* Cache::default_header()
         header = (header_t*)m_buffer;
     }
 
-    // default flag
-    header->flag = CACHE_FIXED;
-    header->header_size = sizeof(header_t);
-    header->item_size = sizeof(item_t);
-    
+    default_header(header);	
+    return header;
+}
+
+void Cache::default_header(header_t* header)
+{
     // default font
     static HFONT hFont = NULL;
     static LOGFONT lf;
     if (!hFont)
     {
         hFont = CreateFont(20, 0, 0, 0,
-            FW_THIN,false,false,false,
-            ANSI_CHARSET,OUT_DEFAULT_PRECIS,
+            FW_THIN, false, false, false,
+            ANSI_CHARSET, OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
-            DEFAULT_PITCH | FF_SWISS,_T("Consolas"));
+            DEFAULT_PITCH | FF_SWISS, _T("Consolas"));
         GetObject(hFont, sizeof(lf), &lf);
     }
     memcpy(&header->font, &lf, sizeof(lf));
     header->font_color = 0x00;      // black
 
     // default rect
-    int width = 300;
-    int height = 500;
-    header->rect.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
-    header->rect.top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
-    header->rect.right = header->rect.left + width;
-    header->rect.bottom = header->rect.top + height;
+    header->rect.left = (GetCxScreenForDpi() - DEFAULT_APP_WIDTH) / 2;
+    header->rect.top = (GetCyScreenForDpi() - DEFAULT_APP_HEIGHT) / 2;
+    header->rect.right = header->rect.left + DEFAULT_APP_WIDTH;
+    header->rect.bottom = header->rect.top + DEFAULT_APP_HEIGHT;
 
     // default bk color
     header->bg_color = 0x00ffffff;  // White
     header->alpha = 0xff;
 
     header->line_gap = 5;
-    header->internal_border = 0;
-    header->version = GetCacheVersion();
+    header->internal_border = { 0 };
+    GetCacheVersion(header->version);
 
     // default others
     header->wheel_speed = 1;
@@ -292,9 +353,7 @@ header_t* Cache::default_header()
 
     header->show_systray = 0;
     header->hide_taskbar = 0;
-
-    // set flag for dpi;
-    header->isDefault = 1;
+    header->word_wrap = 0;
 
     // default hotkey
     KS_GetDefaultKeyBuff(header->keyset);
@@ -302,18 +361,38 @@ header_t* Cache::default_header()
     // default chapter rule
     header->chapter_rule.rule = 0;
 
+    header->meun_font_follow = 0;
+
     // default tags
 #if ENABLE_TAG
-    for (int i=0; i<MAX_TAG_COUNT; i++)
+    for (int i = 0; i < MAX_TAG_COUNT; i++)
     {
-        memcpy(&header->tags[i].font, &lf, sizeof(lf));
-        header->tags[i].bg_color = 0x00FFFFFF;
+        if (header->tags[i].font.lfHeight == 0)
+        {
+            memcpy(&header->tags[i].font, &lf, sizeof(lf));
+        }
+        if (header->tags[i].bg_color == 0)
+        {
+            header->tags[i].bg_color = 0x00FFFFFF;
+        }
         header->tags[i].enable = 0;
-        header->tags[i].font_color = 0x00;
     }
 #endif
-	
-    return header;
+
+    // default book sources
+    if (header->book_source_count == 0)
+    {
+        header->book_source_count = 1;
+        _tcscpy(header->book_sources[0].title, _T("±ÊÈ¤¸ó"));
+        strcpy(header->book_sources[0].host, "http://www.biquge.info");
+        strcpy(header->book_sources[0].query_url_format, "http://www.biquge.info/modules/article/search.php?searchkey=%s");
+        strcpy(header->book_sources[0].books_th_xpath, "//*[@id='wrapper']/table/tr/th");
+        strcpy(header->book_sources[0].books_td_xpath, "//*[@id='wrapper']/table/tr/td");
+        strcpy(header->book_sources[0].book_mainpage_xpath, "//*[@id='wrapper']/table/tr/td[1]/a/@href");
+        strcpy(header->book_sources[0].chapter_title_xpath, "//*[@id='list']/dl/dd/a/@title");
+        strcpy(header->book_sources[0].chapter_url_xpath, "//*[@id='list']/dl/dd/a/@href");
+        strcpy(header->book_sources[0].content_xpath, "//*[@id='content']");
+    }
 }
 
 bool Cache::add_mark(item_t *item, int value)
@@ -397,13 +476,15 @@ bool Cache::move_item(int from, int to)
     return true;
 }
 
-bool Cache::read()
+bool Cache::read(void** data, int* size)
 {
     HANDLE hFile = NULL;
     BOOL bErrorFlag = FALSE;
     DWORD dwFileSize = 0;
     DWORD dwBytesRead = 0;
 
+    *data = NULL;
+    *size = 0;
     hFile = CreateFile(m_file_name,                // file to open
         GENERIC_READ,          // open for reading
         FILE_SHARE_READ,       // share for reading
@@ -424,16 +505,16 @@ bool Cache::read()
         return false;
     }
 
-    m_buffer = malloc(dwFileSize);
-    if (!m_buffer)
+    *size = dwFileSize;
+    *data = (char *)malloc(dwFileSize);
+    if (!(*data))
     {
         CloseHandle(hFile);
         return false;
     }
-    m_size = dwFileSize;
 
     bErrorFlag = ReadFile(hFile,
-        m_buffer,
+        *data,
         dwFileSize,
         &dwBytesRead,
         NULL);
@@ -441,13 +522,17 @@ bool Cache::read()
     if (FALSE == bErrorFlag)
     {
         CloseHandle(hFile);
+        free(*data);
+        *size = 0;
         return false;
     }
     else
     {
-        if (dwBytesRead != m_size)
+        if (dwBytesRead != *size)
         {
             CloseHandle(hFile);
+            free(*data);
+            *size = 0;
             return false;
         }
     }
@@ -456,7 +541,7 @@ bool Cache::read()
     return true;
 }
 
-bool Cache::write()
+bool Cache::write(void* data, int size)
 {
     HANDLE hFile = NULL;
     BOOL bErrorFlag = FALSE;
@@ -476,8 +561,8 @@ bool Cache::write()
 
     bErrorFlag = WriteFile( 
         hFile,           // open file handle
-        m_buffer,        // start of data to write
-        m_size,          // number of bytes to write
+        data,        // start of data to write
+        size,          // number of bytes to write
         &dwBytesWritten, // number of bytes that were written
         NULL);           // no overlapped structure
 
@@ -488,7 +573,7 @@ bool Cache::write()
     }
     else
     {
-        if (dwBytesWritten != m_size)
+        if (dwBytesWritten != size)
         {
             CloseHandle(hFile);
             return false;
@@ -511,83 +596,24 @@ void Cache::update_addr(void)
     KS_UpdateBuffAddr(header->keyset);
 #if ENABLE_NETWORK
     _Upgrade.SetProxy(&header->proxy);
+    HttpClient::Instance()->SetProxy(&header->proxy);
 #endif
 }
 
-bool Cache::check_cache(void)
+void Cache::encode(void* data, int size)
 {
-    header_t *header;
+#ifndef _DEBUG
+    char* p = (char*)data;
+    int i;
 
-    header = (header_t *)m_buffer;
-
-    if (!header)
-        return false;
-
-    if (header->flag == CACHE_REMOVE)
+    for (i = 0; i < size; i++)
     {
-        // remove old cache data
-        DeleteFile(m_file_name);
-        free(m_buffer);
-        m_buffer = NULL;
-        if (!default_header())
-            return false;
+        p[i] ^= 0x3a;
     }
-    else if (header->flag == CACHE_FIXED)
-    {
-        // need fixed
-        if (header->header_size != sizeof(header_t)
-            || header->item_size != sizeof(item_t))
-        {
-            void *buffer;
-            int i, offset;
-            void *item;
-            int len;
+#endif
+}
 
-            // backup old buffer
-            buffer = m_buffer;
-
-            // malloc new buffer
-            m_size = sizeof(header_t) + (header->item_count * sizeof(item_t));
-            m_buffer = malloc(m_size);
-            memset(m_buffer, 0, m_size);
-
-            // default new buffer
-            if (!default_header())
-            {
-                free(buffer);
-                return false;
-            }
-            get_header()->item_count = header->item_count;
-
-            // copy header
-            len = sizeof(header_t) > header->header_size ? header->header_size : sizeof(header_t);
-            memcpy(get_header(), header, len);
-            get_header()->header_size = sizeof(header_t);
-            get_header()->item_size = sizeof(item_t);
-            get_header()->item_count = header->item_count;
-
-            // copy item list
-            for (i=0; i<header->item_count; i++)
-            {
-                offset = header->header_size + i * header->item_size;
-                item = (void*)((char*)buffer + offset);
-                len = sizeof(item_t) > header->item_size ? header->item_size : sizeof(item_t);
-
-                memcpy(get_item(i), item, len);
-            }
-
-            free(buffer);
-        }
-    }
-    else
-    {
-        // remove old cache data
-        DeleteFile(m_file_name);
-        free(m_buffer);
-        m_buffer = NULL;
-        if (!default_header())
-            return false;
-    }
-
-    return true;
+void Cache::decode(void* data, int size)
+{
+    encode(data, size);
 }

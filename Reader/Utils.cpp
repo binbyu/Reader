@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <Wincrypt.h>
 #include <string.h>
+#include <stdio.h>
+#include "zlib.h"
 
 
 Utils::Utils(void)
@@ -124,6 +126,70 @@ void Utils::free_buffer(void* buffer)
     {
         free(buffer);
     }
+}
+
+
+char* Utils::g_result = NULL;
+int Utils::g_len = 0;
+wchar_t* Utils::g_wresult = NULL;
+int Utils::g_wlen = 0;
+
+char* Utils::Utf16ToUtf8(const wchar_t* str)
+{
+    int len;
+
+    len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+    if (!g_result)
+    {
+        g_len = len + 1;
+        g_result = (char*)malloc(g_len * sizeof(char));
+    }
+    else if (g_len < len + 1)
+    {
+        g_len = len + 1;
+        g_result = (char*)realloc(g_result, g_len * sizeof(char));
+    }
+
+    WideCharToMultiByte(CP_UTF8, 0, str, -1, g_result, len, NULL, NULL);
+    g_result[len] = 0;
+    return g_result;
+}
+
+wchar_t* Utils::Utf8ToUtf16(const char* str)
+{
+    int len;
+
+    len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    if (!g_wresult)
+    {
+        g_wlen = len + 1;
+        g_wresult = (wchar_t*)malloc(g_wlen * sizeof(wchar_t));
+    }
+    else if (g_wlen < len + 1)
+    {
+        g_wlen = len + 1;
+        g_wresult = (wchar_t*)realloc(g_wresult, g_wlen * sizeof(wchar_t));
+    }
+
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)g_wresult, len);
+    g_wresult[len] = 0;
+    return g_wresult;
+}
+
+void Utils::FreeConvertBuffer()
+{
+    if (g_result)
+    {
+        free(g_result);
+        g_result = NULL;
+    }
+    if (g_wresult)
+    {
+        free(g_wresult);
+        g_wresult = NULL;
+    }
+    g_len = 0;
+    g_wlen = 0;
 }
 
 const char *UTF_16_BE_BOM = "\xFE\xFF";
@@ -342,4 +408,197 @@ BOOL Utils::isWindowsXP(void)
         ( (osvi.dwMajorVersion == 5) && (osvi.dwMinorVersion >= 1) ));
 
     return bIsWindowsXPorLater;
+}
+
+void Utils::UrlEncode(const char* src, char** dst)
+{
+    static char rfc3986[256] = { 0 };
+    static char html5[256] = { 0 };
+    static int i = 0;
+
+    char* enc = NULL;
+    unsigned char* s = (unsigned char*)src;
+    int len = strlen(src);
+    *dst = (char*)malloc((len * 3) + 1);
+    memset(*dst, 0, (len * 3) + 1);
+    enc = *dst;
+
+    // init
+    if (i == 0)
+    {
+        for (i = 0; i < 256; i++) {
+            rfc3986[i] = isalnum(i) || i == '~' || i == '-' || i == '.' || i == '_'
+                ? i : 0;
+            html5[i] = isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_'
+                ? i : (i == ' ') ? '+' : 0;
+        }
+    }
+
+    // encode
+    for (; *s; s++) {
+        if (html5[*s])
+            sprintf(enc, "%c", html5[*s]);
+        else
+            sprintf(enc, "%%%02X", *s);
+        while (*++enc);
+    }
+
+    //free(*dst);
+}
+
+#define ishex(x) ((x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F'))
+void Utils::UrlDecode(const char* src, char** dst)
+{
+    int len = strlen(src);
+    char* out = NULL;
+    char* o = out;
+    const char* s = src;
+    const char* end = s + (len - 1);
+    int c;
+
+    *dst = NULL;
+    out = (char*)malloc(len + 1);
+    if (!out)
+    {
+        return;
+    }
+
+    for (o = out; s <= end; o++)
+    {
+        c = *s++;
+        if (c == '+')
+        {
+            c = ' ';
+        }
+        else if (c == '%'
+            && (!ishex(*s++) || !ishex(*s++) || !sscanf(s - 2, "%2x", &c)))
+        {
+            // bad uri
+            free(out);
+            return;
+        }
+
+        if (out)
+        {
+            *o = c;
+        }
+    }
+
+    *dst = out;
+    //free(out);
+}
+
+void Utils::UrlFree(char* url)
+{
+    if (url)
+        free(url);
+}
+
+BOOL Utils::gzipInflate(const unsigned char* src, int srclen, unsigned char** dst, int* dstlen)
+{
+    z_stream stream = { 0 };
+    bool done = false;
+    unsigned char* buf = NULL;
+    int buflen = 0;
+    int err;
+
+    *dst = NULL;
+    *dstlen = 0;
+    if (srclen <= 0)
+        return FALSE;
+
+    stream.next_in = (Bytef*)src;
+    stream.avail_in = srclen;
+    stream.total_out = 0;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+
+    if (inflateInit2(&stream, (16 + MAX_WBITS)) != Z_OK)
+        return FALSE;
+
+    buflen = srclen + srclen / 2;
+    buf = (unsigned char*)malloc(buflen);
+
+    while (1)
+    {
+        if ((int)stream.total_out >= buflen)
+        {
+            // increase output buffer  
+            buflen += srclen / 2;
+            buf = (unsigned char*)realloc(buf, buflen);
+        }
+
+        stream.next_out = buf + stream.total_out;
+        stream.avail_out = buflen - stream.total_out;
+
+        // Inflate next chunk
+        err = inflate(&stream, Z_SYNC_FLUSH);
+        if (err == Z_STREAM_END)
+        {
+            err = Z_OK;
+            break;
+        }
+        else if (err != Z_OK)
+        {
+            break;
+        }
+    }
+
+    if (inflateEnd(&stream) != Z_OK)
+    {
+        free(buf);
+        return FALSE;
+    }
+
+    if (err != Z_OK)
+    {
+        free(buf);
+        return FALSE;
+    }
+
+    *dst = buf;
+    *dstlen = stream.total_out;
+    return TRUE;
+}
+
+void Utils::GetApplicationVersion(TCHAR* version)
+{
+    TCHAR szModPath[MAX_PATH] = { 0 };
+    DWORD dwHandle;
+    DWORD dwSize;
+    BYTE* pBlock;
+    TCHAR SubBlock[MAX_PATH] = { 0 };
+    TCHAR* buffer;
+    UINT cbTranslate;
+
+    if (!version)
+        return;
+
+    *version = 0;
+    GetModuleFileName(NULL, szModPath, sizeof(TCHAR) * (MAX_PATH - 1));
+    dwSize = GetFileVersionInfoSize(szModPath, &dwHandle);
+    if (dwSize > 0)
+    {
+        pBlock = (BYTE*)malloc(dwSize);
+        memset(pBlock, 0, dwSize);
+        if (GetFileVersionInfo(szModPath, dwHandle, dwSize, pBlock))
+        {
+            struct LANGANDCODEPAGE {
+                WORD wLanguage;
+                WORD wCodePage;
+            } *lpTranslate;
+
+            // Read the list of languages and code pages.
+            if (VerQueryValue(pBlock, _T("\\VarFileInfo\\Translation"), (LPVOID*)&lpTranslate, &cbTranslate))
+            {
+                // Read the file description for each language and code page.
+                _stprintf(SubBlock, _T("\\StringFileInfo\\%04x%04x\\FileVersion"), lpTranslate->wLanguage, lpTranslate->wCodePage);
+                if (VerQueryValue(pBlock, SubBlock, (LPVOID*)&buffer, &cbTranslate))
+                {
+                    _tcscpy(version, buffer);
+                }
+            }
+        }
+        free(pBlock);
+    }
 }

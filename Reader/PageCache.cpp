@@ -32,14 +32,15 @@ PageCache::~PageCache()
 }
 
 #if ENABLE_TAG
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib, tagitem_t *tags)
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib, tagitem_t *tags)
 #else
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *ib)
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib)
 #endif
 {
     m_CurrentPos = pos;
     m_lineGap = lg;
     m_InternalBorder = ib;
+    m_WordWrap = word_wrap;
     // fixed bug for txt modified
     if (*m_CurrentPos < 0 || *m_CurrentPos >= m_TextLength)
         *m_CurrentPos = 0;
@@ -93,6 +94,8 @@ void PageCache::PageDown(HWND hWnd)
 
 void PageCache::LineUp(HWND hWnd, INT n)
 {
+    if (!OnLineUpDownEvent(hWnd, TRUE, n))
+        return;
     if (!IsValid())
         return;
     if (n == 0)
@@ -121,6 +124,8 @@ void PageCache::LineUp(HWND hWnd, INT n)
 
 void PageCache::LineDown(HWND hWnd, INT n)
 {
+    if (!OnLineUpDownEvent(hWnd, FALSE, n))
+        return;
     if (!IsValid())
         return;
     if (n == 0)
@@ -202,7 +207,7 @@ BOOL PageCache::DrawCover(HDC hdc)
     return TRUE;
 }
 
-void PageCache::DrawPage(HDC hdc)
+void PageCache::DrawPage(HWND hWnd, HDC hdc)
 {
     int i;
     int h;
@@ -214,6 +219,9 @@ void PageCache::DrawPage(HDC hdc)
 #endif	
 
     if (!IsValid())
+        return;
+
+    if (!OnDrawPageEvent(hWnd))
         return;
 
 #if ENABLE_TAG
@@ -228,22 +236,22 @@ void PageCache::DrawPage(HDC hdc)
 #else
     h = GetLineHeight(hdc);
 #endif
-    m_OnePageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - 2 * (*m_InternalBorder)) / h;
+    m_OnePageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - (m_InternalBorder->top + m_InternalBorder->bottom)) / h;
 
     if (m_PageInfo.line_size == 0 || m_CurrentLine < 0 
         || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_OnePageLineCount >= m_PageInfo.line_size))
     {
 #if ENABLE_TAG
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder), tagfonts);
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), tagfonts);
 #else
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - 2 * (*m_InternalBorder));
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right));
 #endif
-        UnitTest1();
     }
-    UnitTest2();
-
     if (m_PageInfo.line_size == 0) // fixed bug
         return;
+
+    UnitTest1();
+    UnitTest2();
 
     if (DrawCover(hdc))
 #if ENABLE_TAG
@@ -254,15 +262,15 @@ void PageCache::DrawPage(HDC hdc)
 
     memcpy(&rect, &m_Rect, sizeof(RECT));
     m_CurPageSize = 0;
-    rect.left = (*m_InternalBorder);
-    rect.top = (*m_InternalBorder);
+    rect.left = m_InternalBorder->left;
+    rect.top = m_InternalBorder->top;
     for (i = 0; i < m_OnePageLineCount && m_CurrentLine + i < m_PageInfo.line_size; i++)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
 #if ENABLE_TAG
         SIZE sz = {0};
-        rect.left = (*m_InternalBorder);
+        rect.left = m_InternalBorder->left;
         for (j=0; j<line->length; j++)
         {
             int tagid = IsTag(j+line->start);
@@ -273,7 +281,7 @@ void PageCache::DrawPage(HDC hdc)
                 HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[tagid]);
                 int oldmode = SetBkMode(hdc, OPAQUE);
 
-                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
                 GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
                 SetBkColor(hdc, oldcolor);
                 SetTextColor(hdc, oldfontcolor);
@@ -282,13 +290,13 @@ void PageCache::DrawPage(HDC hdc)
             }
             else
             {
-                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
                 GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
             }
             rect.left += sz.cx;
         }
 #else
-        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_NOCLIP | DT_NOPREFIX);
+        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
 #endif
         rect.top += h;
         m_CurPageSize += line->length;
@@ -498,6 +506,9 @@ INT PageCache::GetCahceUnitSize(HDC hdc)
     return w * h;
 }
 
+#define is_space(c) (c == 0x20 || c == 0x09 /*|| c == 0x0A*/ || c == 0x0B || c == 0x0C /*|| c == 0x0D*/)
+#define is_minus(c) (c == 0x2D /* - */)
+
 #if ENABLE_TAG
 void PageCache::LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts)
 #else
@@ -513,6 +524,8 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
     INT index;
     SIZE sz = { 0 };
     BOOL flag = TRUE;
+    int word_start_pos;
+    int word_width;
 
     // pageup/lineup:         [pos1, pos2)
     // already in cache page: [pos2, pos3)
@@ -529,7 +542,8 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
         pos3 = m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length;
     else
         pos3 = (*m_CurrentPos);
-    pos4 = pos3 + MAX_FIND_SIZE >= m_TextLength ? m_TextLength : pos3 + MAX_FIND_SIZE;
+    //pos4 = pos3 + MAX_FIND_SIZE >= m_TextLength ? m_TextLength : pos3 + MAX_FIND_SIZE; // no use for FAST_MODEL
+    pos4 = m_TextLength;
 
     if (m_CurrentLine < 0)
     {
@@ -540,6 +554,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
         length = 0;
         width = 0;
         index = 0;
+        if (*m_WordWrap)
+        {
+            word_start_pos = start;
+            word_width = 0;
+        }
         for (i = pos1; i < pos2; i++)
         {
             // new line
@@ -557,6 +576,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 start = i + 1;
                 length = 0;
                 width = 0;
+                if (*m_WordWrap)
+                {
+                    word_start_pos = start;
+                    word_width = 0;
+                }
                 continue;
             }
 
@@ -579,18 +603,106 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
 #else
             GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
 #endif
+
+            if (*m_WordWrap)
+            {
+                if (is_space(m_Text[i]))
+                {
+                    word_start_pos = i + 1;
+                    word_width = 0;
+                }
+                else if (is_minus(m_Text[i]) /*&& !is_minus(m_Text[i-1]) && !is_minus(m_Text[i + 1])*/)
+                {
+                    word_start_pos = i + 1;
+                    word_width = 0;
+                }
+                else
+                {
+                    word_width += sz.cx;
+                }
+            }
+
             width += sz.cx;
             if (width > maxw)
             {
-                AddLine(start, length, index++);
-                start = i;
-                length = 1;
-                width = sz.cx;
+                if (*m_WordWrap)
+                {
+                    if (is_space(m_Text[i])) // add left space
+                    {
+                        memset(&sz, 0, sizeof(sz));
+                        for (int j = i; j < pos2; j++)
+                        {
+                            if (is_space(m_Text[j]))
+                            {
+                                length++;
+                                i++;
+                                continue;
+                            }
+                            GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+                            break;
+                        }
+
+                        // add line
+                        AddLine(start, length, index++);
+                        start = i;
+                        length = i == pos2 ? 0 : 1;
+                        width = i == pos2 ? 0 : sz.cx;
+                        word_start_pos = start;
+                        word_width = width;
+                    }
+                    else
+                    {
+                        if (word_start_pos == start) // too long word
+                        {
+                            // do nothing
+
+                            // add line
+                            AddLine(start, length, index++);
+                            start = i;
+                            length = 1;
+                            width = sz.cx;
+                            word_start_pos = start;
+                            word_width = width;
+                        }
+                        else
+                        {
+                            // move current word to next line
+                            length -= i - word_start_pos;
+
+                            // add line
+                            AddLine(start, length, index++);
+                            start = word_start_pos;
+                            length = i - word_start_pos + 1;
+                            width = word_width;
+                            word_start_pos = start;
+                            word_width = width;
+
+                            if (width > maxw) // goto -> [too long word]
+                            {
+                                // add line
+                                length--;
+                                AddLine(start, length, index++);
+                                start = i;
+                                length = 1;
+                                width = sz.cx;
+                                word_start_pos = start;
+                                word_width = width;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    AddLine(start, length, index++);
+                    start = i;
+                    length = 1;
+                    width = sz.cx;
+                }
                 continue;
             }
             length++;
         }
-        if (width > 0 && width <= maxw)
+        if ((width > 0 && width <= maxw) || (length > 0 && pos2 - start == length))
         {
             AddLine(start, length, index++);
         }
@@ -617,6 +729,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
         length = 0;
         width = 0;
         index = 0;
+        if (*m_WordWrap)
+        {
+            word_start_pos = start;
+            word_width = 0;
+        }
         for (i = pos3; i < pos4; i++)
         {
             // new line
@@ -634,6 +751,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 start = i + 1;
                 length = 0;
                 width = 0;
+                if (*m_WordWrap)
+                {
+                    word_start_pos = start;
+                    word_width = 0;
+                }
 #if FAST_MODEL
                 if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
                     break;
@@ -660,13 +782,102 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
 #else
             GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
 #endif
+
+            if (*m_WordWrap)
+            {
+                if (is_space(m_Text[i]))
+                {
+                    word_start_pos = i + 1;
+                    word_width = 0;
+                }
+                else if (is_minus(m_Text[i]) /*&& !is_minus(m_Text[i-1]) && !is_minus(m_Text[i + 1])*/)
+                {
+                    word_start_pos = i + 1;
+                    word_width = 0;
+                }
+                else
+                {
+                    word_width += sz.cx;
+                }
+            }
+
             width += sz.cx;
             if (width > maxw)
             {
-                AddLine(start, length);
-                start = i;
-                length = 1;
-                width = sz.cx;
+                if (*m_WordWrap)
+                {
+                    if (is_space(m_Text[i])) // add left space
+                    {
+                        memset(&sz, 0, sizeof(sz));
+                        for (int j = i; j < pos4; j++)
+                        {
+                            if (is_space(m_Text[j]))
+                            {
+                                length++;
+                                i++;
+                                continue;
+                            }
+                            GetTextExtentPoint32(hdc, &m_Text[i], 1, &sz);
+                            break;
+                        }
+
+                        // add line
+                        AddLine(start, length);
+                        start = i;
+                        length = i == pos4 ? 0 : 1;
+                        width = i == pos4 ? 0 : sz.cx;
+                        word_start_pos = start;
+                        word_width = width;
+                    }
+                    else
+                    {
+                        if (word_start_pos == start) // too long word
+                        {
+                            // do nothing
+
+                            // add line
+                            AddLine(start, length);
+                            start = i;
+                            length = 1;
+                            width = sz.cx;
+                            word_start_pos = start;
+                            word_width = width;
+                        }
+                        else
+                        {
+                            // move current word to next line
+                            length -= i - word_start_pos;
+
+                            // add line
+                            AddLine(start, length);
+                            start = word_start_pos;
+                            length = i - word_start_pos + 1;
+                            width = word_width;
+                            word_start_pos = start;
+                            word_width = width;
+
+                            if (width > maxw) // goto -> [too long word]
+                            {
+                                // add line
+                                length--;
+                                AddLine(start, length);
+                                start = i;
+                                length = 1;
+                                width = sz.cx;
+                                word_start_pos = start;
+                                word_width = width;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    AddLine(start, length);
+                    start = i;
+                    length = 1;
+                    width = sz.cx;
+                }
+
 #if FAST_MODEL
                 if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
                 {
@@ -707,12 +918,12 @@ void PageCache::AddLine(INT start, INT length, INT pos)
         m_PageInfo.alloc_size += UNIT_SIZE;
         m_PageInfo.line_info = (line_info_t *)realloc(m_PageInfo.line_info, m_PageInfo.alloc_size * sizeof(line_info_t));
     }
-    if (pos == -1)
+    if (pos == -1) // append
     {
         m_PageInfo.line_info[m_PageInfo.line_size].start = start;
         m_PageInfo.line_info[m_PageInfo.line_size].length = length;
     }
-    else
+    else // insert
     {
         memcpy(&m_PageInfo.line_info[pos + 1], &m_PageInfo.line_info[pos], sizeof(line_info_t) * (m_PageInfo.line_size - pos));
         m_PageInfo.line_info[pos].start = start;
@@ -755,6 +966,16 @@ BOOL PageCache::IsValid(void)
     if (!m_lineGap || !m_CurrentPos || !m_InternalBorder)
         return FALSE;
     return TRUE;
+}
+
+bool PageCache::OnDrawPageEvent(HWND hWnd)
+{
+    return true;
+}
+
+bool PageCache::OnLineUpDownEvent(HWND hWnd, BOOL up, int n)
+{
+    return true;
 }
 
 #if ENABLE_TAG
@@ -801,7 +1022,7 @@ void PageCache::UnitTest2(void)
     {
         v1 = m_PageInfo.line_info[i].start;
         v2 = m_PageInfo.line_info[i].length;
-        assert(v1 >= 0 && v2 > 0 && v1 + v2 <= m_TextLength);
+        assert(v1 >= 0 && v2 >= 0 && v1 + v2 <= m_TextLength);
         if (v1 + v2 == m_TextLength)
         {
             assert(i == m_PageInfo.line_size - 1);

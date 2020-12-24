@@ -9,14 +9,6 @@
 #include <shlwapi.h>
 
 
-#ifdef _DEBUG
-#pragma comment(lib, "zlibstatd.lib")
-#pragma comment(lib, "libxml2_ad.lib")
-#else
-#pragma comment(lib, "zlibstat.lib")
-#pragma comment(lib, "libxml2_a.lib")
-#endif
-
 EpubBook::EpubBook()
     : m_Cover(NULL)
 {
@@ -54,7 +46,7 @@ Bitmap * EpubBook::GetCoverImage(void)
     return m_Cover;
 }
 
-bool EpubBook::ParserBook(void)
+bool EpubBook::ParserBook(HWND hWnd)
 {
     bool ret = false;
     epub_t epub;
@@ -761,7 +753,7 @@ bool EpubBook::ParserChapters(epub_t &epub)
                         if (title)
                             free(title);
                         if (!chapter.title.empty())
-                            m_Chapters.insert(std::make_pair(IDM_CHAPTER_BEGIN + cidx++, chapter));
+                            m_Chapters.insert(std::make_pair(cidx++, chapter));
                         index++;
                     }
                 }

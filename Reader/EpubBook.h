@@ -57,7 +57,7 @@ public:
     Bitmap * GetCoverImage(void);
 
 protected:
-    virtual bool ParserBook(void);
+    virtual bool ParserBook(HWND hWnd);
     void FreeFilelist(void);
     bool UnzipBook(void);
     bool ParserOcf(epub_t &epub);

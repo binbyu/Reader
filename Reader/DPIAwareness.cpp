@@ -6,14 +6,14 @@
 static int g_lastDpix = DEFAULT_DPI;
 static int g_lastDpiy = DEFAULT_DPI;
 
-static void GetDPI(HWND hWnd, int *dpix, int *dpiy)
+static void GetDPI(int *dpix, int *dpiy)
 {
     HDC hdc;
 
-    hdc = GetDC(hWnd);
+    hdc = GetDC(NULL);
     *dpix = GetDeviceCaps(hdc, LOGPIXELSX);
-    *dpiy = GetDeviceCaps(hdc, LOGPIXELSX);
-    ReleaseDC(hWnd, hdc);
+    *dpiy = GetDeviceCaps(hdc, LOGPIXELSY);
+    ReleaseDC(NULL, hdc);
 #if 0 // for test
     *dpix = 120;
     *dpiy = 120;
@@ -22,53 +22,63 @@ static void GetDPI(HWND hWnd, int *dpix, int *dpiy)
     g_lastDpiy = *dpiy;
 }
 
-void UpdateLayoutForDpi(HWND hWnd, const RECT *rect, BYTE *isDefault)
+int GetCxScreenForDpi(void)
+{
+    int dpix = 0, dpiy = 0;
+    GetDPI(&dpix, &dpiy);
+    return MulDiv(GetSystemMetrics(SM_CXSCREEN), DEFAULT_DPI, dpix);
+}
+
+int GetCyScreenForDpi(void)
+{
+    int dpix = 0, dpiy = 0;
+    GetDPI(&dpix, &dpiy);
+    return MulDiv(GetSystemMetrics(SM_CYSCREEN), DEFAULT_DPI, dpiy);
+}
+
+void UpdateLayoutForDpi(RECT *rect)
 {
     int dpix = 0, dpiy = 0;
     int scaledx, scaledy, scaledw, scaledh;
 
-    GetDPI(hWnd, &dpix, &dpiy);
+    GetDPI(&dpix, &dpiy);
 
     if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
     {
         return;
     }
 
-    if (*isDefault)
-    {
-        scaledw = MulDiv(rect->right-rect->left, dpix, DEFAULT_DPI);
-        scaledh = MulDiv(rect->bottom-rect->top, dpiy, DEFAULT_DPI);
-        scaledx = (GetSystemMetrics(SM_CXSCREEN) - scaledw) / 2;
-        scaledy = (GetSystemMetrics(SM_CYSCREEN) - scaledh) / 2;
-        *isDefault = 0;
-    }
-    else
-    {
-        scaledx = MulDiv(rect->left, dpix, DEFAULT_DPI);
-        scaledy = MulDiv(rect->top, dpiy, DEFAULT_DPI);
-        scaledw = MulDiv(rect->right-rect->left, dpix, DEFAULT_DPI);
-        scaledh = MulDiv(rect->bottom-rect->top, dpiy, DEFAULT_DPI);
-    }
-    
-
-    SetWindowPos(hWnd, hWnd, scaledx, scaledy, scaledw, scaledh, SWP_NOZORDER | SWP_NOACTIVATE);
+    scaledx = MulDiv(rect->left, dpix, DEFAULT_DPI);
+    scaledy = MulDiv(rect->top, dpiy, DEFAULT_DPI);
+    scaledw = MulDiv(rect->right - rect->left, dpix, DEFAULT_DPI);
+    scaledh = MulDiv(rect->bottom - rect->top, dpiy, DEFAULT_DPI);
+    rect->left = scaledx;
+    rect->top = scaledy;
+    rect->right = scaledx + scaledw;
+    rect->bottom = scaledy + scaledh;
 }
 
-void UpdateFontForDpi(HWND hWnd, LOGFONT *lf)
+void UpdateFontForDpi(LOGFONT *lf)
 {
     int dpix, dpiy;
 
-    GetDPI(hWnd, &dpix, &dpiy);
+    GetDPI(&dpix, &dpiy);
+
+    if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
+    {
+        return;
+    }
+
     lf->lfWidth = MulDiv(lf->lfWidth, dpix, DEFAULT_DPI);
     lf->lfHeight = MulDiv(lf->lfHeight, dpiy, DEFAULT_DPI);
 }
 
-void RestoreRectForDpi(HWND hWnd, RECT *rect)
+void RestoreRectForDpi(RECT *rect)
 {
     int dpix = 0, dpiy = 0;
     int scaledx, scaledy, scaledw, scaledh;
 
-    GetDPI(hWnd, &dpix, &dpiy);
+    GetDPI(&dpix, &dpiy);
 
     if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
     {
@@ -85,11 +95,17 @@ void RestoreRectForDpi(HWND hWnd, RECT *rect)
     rect->bottom = scaledy + scaledh;
 }
 
-void RestoreFontForDpi(HWND hWnd, LOGFONT *lf)
+void RestoreFontForDpi(LOGFONT *lf)
 {
     int dpix, dpiy;
 
-    GetDPI(hWnd, &dpix, &dpiy);
+    GetDPI(&dpix, &dpiy);
+
+    if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
+    {
+        return;
+    }
+
     lf->lfWidth = MulDiv(lf->lfWidth, DEFAULT_DPI, dpix);
     lf->lfHeight = MulDiv(lf->lfHeight, DEFAULT_DPI, dpiy);
 }
@@ -102,14 +118,16 @@ void DpiChanged(HWND hWnd, LOGFONT *lf, RECT *rect, WPARAM newdpi, RECT *newRect
     // set font
     lf->lfWidth = MulDiv(lf->lfWidth, newdpix, g_lastDpix);
     lf->lfHeight = MulDiv(lf->lfHeight, newdpiy, g_lastDpiy);
+    g_lastDpix = newdpix;
+    g_lastDpiy = newdpiy;
 
     memcpy(rect, newRect, sizeof(RECT));
     SetWindowPos(hWnd, hWnd, newRect->left, newRect->top, newRect->right-newRect->left, newRect->bottom-newRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-double GetDpiScaled(HWND hWnd)
+double GetDpiScaled(void)
 {
     int dpix = 0, dpiy = 0;
-    GetDPI(hWnd, &dpix, &dpiy);
+    GetDPI(&dpix, &dpiy);
     return (((double)dpix)/((double)DEFAULT_DPI));
 }

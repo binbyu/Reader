@@ -30,7 +30,6 @@ public:
     void SetIngoreVersion(TCHAR *ingorev);
     void Check(upgrade_callback_t cb, void *param);
     json_item_data_t * GetVersionInfo(void);
-    std::wstring GetApplicationVersion(void);
 
 private:
     void CancelRequest(void);

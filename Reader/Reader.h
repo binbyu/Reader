@@ -9,18 +9,34 @@
 #include "Upgrade.h"
 #endif
 #include "Book.h"
+#include "OnlineBook.h"
+#include "HttpClient.h"
+#include "HtmlParser.h"
 #include <map>
 #include <shellapi.h>
 
 typedef struct loading_data_t
 {
     BOOL enable;
-    Image *image;
+    Bitmap*image;
     PropertyItem *item;
     UINT frameCount;
     UINT frameIndex;
     HGLOBAL hMemory;
 } loading_data_t;
+
+struct chkbook_arg_t
+{
+    HWND hWnd;
+    OnlineBook* book;
+    std::set<std::wstring> checked_list;
+
+    chkbook_arg_t()
+    {
+        hWnd = NULL;
+        book = NULL;
+    }
+};
 
 
 Cache               _Cache(CACHE_FILE_NAME);
@@ -42,6 +58,7 @@ HHOOK               _hMouseHook             = NULL;
 HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
 BYTE                _textAlpha              = 0xFF;
+BOOL                _NeedSave               = FALSE;
 
 
 LRESULT             OnCreate(HWND);
@@ -73,6 +90,8 @@ LRESULT             OnLineUp(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnLineDown(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnChapterUp(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnChapterDown(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnFontZoomIn(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnFontZoomOut(HWND, UINT, WPARAM, LPARAM);
 // WM_KEYWORD end
 LRESULT             OnDropFiles(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
@@ -82,9 +101,12 @@ LRESULT             OnOpenBookResult(HWND, BOOL);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
 void                ShowHideWindow(HWND);
 void                OnOpenBook(HWND, TCHAR *, BOOL);
-UINT                GetCacheVersion(void);
+void                OnOpenOlBook(HWND, void*);
+VOID                GetCacheVersion(TCHAR *);
 BOOL                Init(void);
 void                Exit(void);
+void                Save(HWND);
+LRESULT             OnSave(HWND);
 void                UpdateProgess(void);
 void                UpdateTitle(HWND);
 void                RemoveMenus(HWND, BOOL);
@@ -96,18 +118,27 @@ void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
 void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
+void                ResetAutoPage(HWND hWnd);
 #if ENABLE_NETWORK
 void                CheckUpgrade(HWND);
 bool                UpgradeCallback(void *, json_item_data_t *);
+chkbook_arg_t*      GetCheckBookArguments();
+void                StartCheckBookUpdate(HWND hWnd);
+void                OnCheckBookUpdateCallback(int is_update, int err, void* param);
+void                OnCheckBookUpdate(HWND hWnd);
 #endif
 bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);
-ULONGLONG           GetDllVersion(LPCTSTR lpszDllName);
-BOOL CALLBACK       EnumWindowsProc(HWND hWnd, LPARAM lParam);
-void                ShowInTaskbar(HWND hWnd, BOOL bShow);
-void                ShowSysTray(HWND hWnd, BOOL bShow);
-HBITMAP             CreateAlphaTextBitmap(HFONT inFont, COLORREF inColour, int width, int height);
+ULONGLONG           GetDllVersion(LPCTSTR);
+BOOL CALLBACK       EnumWindowsProc(HWND, LPARAM);
+void                ShowInTaskbar(HWND, BOOL);
+void                ShowSysTray(HWND, BOOL);
+HBITMAP             CreateAlphaTextBitmap(HWND, HFONT, COLORREF, int, int);
 void                SetTreeviewFont();
+BOOL                LoadResourceImage(LPCWSTR, LPCWSTR, Bitmap**, HGLOBAL*);
+book_source_t*      FindBookSource(const char* host);
+int                 MessageBox_(HWND, UINT, UINT, UINT);
+int                 MessageBoxFmt_(HWND, UINT, UINT, UINT, ...);
 
 
 #endif
