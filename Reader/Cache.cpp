@@ -379,6 +379,7 @@ void Cache::default_header(header_t* header)
     }
 #endif
 
+#if ENABLE_INSIDE_BOOKSOURCE
     // default book sources
     if (header->book_source_count == 0)
     {
@@ -393,6 +394,7 @@ void Cache::default_header(header_t* header)
         strcpy(header->book_sources[0].chapter_url_xpath, "//*[@id='list']/dl/dd/a/@href");
         strcpy(header->book_sources[0].content_xpath, "//*[@id='content']");
     }
+#endif
 }
 
 bool Cache::add_mark(item_t *item, int value)

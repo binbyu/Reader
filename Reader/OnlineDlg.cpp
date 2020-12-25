@@ -4,6 +4,7 @@
 #include "HtmlParser.h"
 #include "HttpClient.h"
 #include "Utils.h"
+#include <shellapi.h>
 
 static HINSTANCE g_Inst = NULL;
 static HWND g_hWnd = NULL;
@@ -102,6 +103,16 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
         case IDC_BUTTON_OL_QUERY:
             if (g_Enable)
             {
+#if (!ENABLE_INSIDE_BOOKSOURCE)
+                if (_header->book_source_count == 0)
+                {
+                    if (IDYES == MessageBox_(hDlg, IDS_NOTEXIST_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_YESNO))
+                    {
+                        OpenBookSourceDlg(g_Inst, hDlg);
+                    }
+                    break;
+                }
+#endif
                 GetDlgItemText(hDlg, IDC_EDIT_QUERY_KEYWORD, text, 256);
                 if (_tcslen(text) == 0)
                 {
@@ -181,8 +192,10 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             SetDlgItemText(hDlg, IDC_EDIT_BS_CTX, Utils::Utf8ToUtf16(_header->book_sources[0].content_xpath));
             ListView_SetItemState(hList, 0, LVIS_FOCUSED | LVIS_SELECTED, 0x000F);
         }
+#if ENABLE_INSIDE_BOOKSOURCE
         EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BS_SAVE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDOK), FALSE);
+#endif
         return (INT_PTR)TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))
@@ -409,6 +422,9 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             lvitem.iSubItem = 0;
             lvitem.pszText = _header->book_sources[iPos].title;
             ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
+            break;
+        case IDC_BS_MANUAL:
+            ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/booksource.docx"), NULL, NULL, SW_SHOWNORMAL);
             break;
         default:
             break;

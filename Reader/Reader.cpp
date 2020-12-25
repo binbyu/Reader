@@ -3061,6 +3061,17 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 
     _tcscpy(szFileName, filename);
     ext = PathFindExtension(szFileName);
+#if (!ENABLE_INSIDE_BOOKSOURCE)
+    if (!_header || _header->book_source_count == 0)
+    {
+        if (0 == _tcscmp(ext, _T(".ol")))
+        {
+            MessageBox_(hWnd, IDS_NO_BOOKSOURCE_FAIL, IDS_ERROR, MB_OK | MB_ICONERROR);
+            return;
+        }
+    }
+#endif
+
     if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
     {
         MessageBox_(hWnd, IDS_UNKNOWN_FORMAT, IDS_ERROR, MB_OK | MB_ICONERROR);

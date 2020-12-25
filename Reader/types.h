@@ -13,6 +13,7 @@
 #define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
 #define ENABLE_REALTIME_SAVE        1
+#define ENABLE_INSIDE_BOOKSOURCE    0
 
 #ifdef _DEBUG
 #define TEST_MODEL                  1
