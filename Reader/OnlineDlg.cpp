@@ -424,7 +424,7 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
             break;
         case IDC_BS_MANUAL:
-            ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/booksource.docx"), NULL, NULL, SW_SHOWNORMAL);
+            ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/booksource.md"), NULL, NULL, SW_SHOWNORMAL);
             break;
         default:
             break;
