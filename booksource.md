@@ -38,7 +38,7 @@ HOST: http://www.biquge.info
 
 章节内容 xpath：//\*[@id=&#39;content&#39;]
 
-![bsexample.jpg](https://github.com/binbyu/Reader/edit/master/bsexample.jpg)
+![bsexample.jpg](https://github.com/binbyu/Reader/blob/master/bsexample.jpg)
 
 ## 免责声明：
 
