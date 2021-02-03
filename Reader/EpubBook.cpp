@@ -2,7 +2,6 @@
 #include "EpubBook.h"
 #include "Utils.h"
 #include "unzip.h"
-#include "iowin32.h"
 #include "libxml/xmlreader.h"
 #include "libxml/HTMLparser.h"
 #include "libxml/xpath.h"
@@ -125,9 +124,12 @@ bool EpubBook::UnzipBook(void)
     char filename_inzip[MAX_PATH] = {0};
     char *buf = NULL;
     file_data_t fdata;
+    char* filename = NULL;
+    int len = 0;
 
-    fill_win32_filefunc64W(&ffunc);
-    uf = unzOpen2_64(m_fileName, &ffunc);
+    filename = Utils::utf16_to_ansi(m_fileName, &len);
+    fill_fopen64_filefunc(&ffunc);
+    uf = unzOpen2_64(filename, &ffunc);
     if (!uf)
         goto end;
 
@@ -192,6 +194,8 @@ bool EpubBook::UnzipBook(void)
     }
 
 end:
+    if (filename)
+        free(filename);
     if (uf)
     {
         unzCloseCurrentFile(uf);

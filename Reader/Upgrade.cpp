@@ -2,6 +2,7 @@
 #include "Upgrade.h"
 #include "cJSON.h"
 #include "Utils.h"
+#include "HtmlParser.h"
 #include <process.h>
 #include <winhttp.h>
 
@@ -160,8 +161,10 @@ end:
 
 unsigned __stdcall Upgrade::DoRequest(void* param)
 {
-    const WCHAR* szURL = L"https://raw.githubusercontent.com/binbyu/Reader/master/version.json";
-    //const WCHAR* szURL = L"https://www.baidu.com";
+    const WCHAR* szURL1 = L"https://raw.githubusercontent.com/binbyu/Reader/master/version.json";
+    const WCHAR* szURL2 = L"https://github.com/binbyu/Reader/blob/master/version.json";
+    const WCHAR* szURL = NULL;
+
     Upgrade* _this = (Upgrade*)param;
     HINTERNET hSession = NULL;
     HINTERNET hConnect = NULL;
@@ -174,7 +177,17 @@ unsigned __stdcall Upgrade::DoRequest(void* param)
     DWORD dwSize = 0;
     DWORD dwDownloaded = 0;
     char *data = NULL;
+    DWORD dwFlags;
     std::string json;
+    BOOL doBackup = FALSE;
+    std::vector<std::string> value;
+
+_tryagain:
+
+    if (doBackup)
+        szURL = szURL2;
+    else
+        szURL = szURL1;
 
     ZeroMemory(&urlComp, sizeof(urlComp));
     urlComp.dwStructSize = sizeof(urlComp);
@@ -251,7 +264,7 @@ unsigned __stdcall Upgrade::DoRequest(void* param)
     }
 
     // ssl
-    DWORD dwFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA |
+    dwFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA |
         SECURITY_FLAG_IGNORE_CERT_WRONG_USAGE |
         SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
         SECURITY_FLAG_IGNORE_CERT_DATE_INVALID;
@@ -315,7 +328,44 @@ unsigned __stdcall Upgrade::DoRequest(void* param)
     if (_this->m_bForceKill)
         goto fail;
 
-    _this->ParserJson(json.c_str());
+    if (!json.empty())
+    {
+        if (!doBackup)
+            _this->ParserJson(json.c_str());
+        else
+        {
+            HtmlParser::Instance()->HtmlParseByXpath(json.c_str(), json.size(), "//*[@id='LC1']", value, &_this->m_bForceKill);
+            if (!value.empty())
+            {
+                _this->ParserJson(value.front().c_str());
+            }
+        }
+    }
+    else if (!doBackup)
+    {
+        doBackup = TRUE;
+        if (hRequest)
+        {
+            WinHttpCloseHandle(hRequest);
+            hRequest = NULL;
+        }            
+        if (hConnect)
+        {
+            WinHttpCloseHandle(hConnect);
+            hConnect = NULL;
+        }
+        if (hSession)
+        {
+            WinHttpCloseHandle(hSession);
+            hSession = NULL;
+        }   
+        if (data)
+        {
+            free(data);
+            data = NULL;
+        }   
+        goto _tryagain;
+    }
 
 fail:
     if (hRequest)

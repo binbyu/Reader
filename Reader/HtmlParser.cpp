@@ -70,7 +70,7 @@ void HtmlParser::ReleaseContent(char *content)
 
 #define GOTO_STOP(s) if (*(s)) goto _stop
 
-int HtmlParser::HtmlParseByXpath(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, bool* stop)
+int HtmlParser::HtmlParseByXpath(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, bool* stop, bool clear)
 {
     int i;
     xmlDocPtr doc = NULL;
@@ -122,14 +122,21 @@ int HtmlParser::HtmlParseByXpath(const char* html, int len, const std::string& x
     {
         GOTO_STOP(stop);
         keyword = xmlNodeGetContent(nodeset->nodeTab[i]);
-#if 0
-        content = CreateContent((const char*)keyword);
-        value.push_back(content);
-        ReleaseContent(content);
-#else
-        if (keyword)
-            value.push_back((const char*)keyword);
-#endif
+
+        if (clear)
+        {
+            if (keyword)
+            {
+                content = CreateContent((const char*)keyword);
+                value.push_back(content);
+                ReleaseContent(content);
+            }
+        }
+        else
+        {
+            if (keyword)
+                value.push_back((const char*)keyword);
+        }
         if (keyword)
             xmlFree(keyword);
     }
@@ -183,7 +190,7 @@ _stop:
     return 1;
 }
 
-int HtmlParser::HtmlParseByXpath(void* doc_, void* ctx_, const std::string& xpath, std::vector<std::string>& value, bool* stop)
+int HtmlParser::HtmlParseByXpath(void* doc_, void* ctx_, const std::string& xpath, std::vector<std::string>& value, bool* stop, bool clear)
 {
     int i;
     xmlDocPtr doc = (xmlDocPtr)doc_;
@@ -216,14 +223,20 @@ int HtmlParser::HtmlParseByXpath(void* doc_, void* ctx_, const std::string& xpat
     {
         GOTO_STOP(stop);
         keyword = xmlNodeGetContent(nodeset->nodeTab[i]);
-#if 0
-        content = CreateContent((const char*)keyword);
-        value.push_back(content);
-        ReleaseContent(content);
-#else
-        if (keyword)
-            value.push_back((const char*)keyword);
-#endif
+        if (clear)
+        {
+            if (keyword)
+            {
+                content = CreateContent((const char*)keyword);
+                value.push_back(content);
+                ReleaseContent(content);
+            }
+        }
+        else
+        {
+            if (keyword)
+                value.push_back((const char*)keyword);
+        }
         if (keyword)
             xmlFree(keyword);
     }

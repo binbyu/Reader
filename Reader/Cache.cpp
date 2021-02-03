@@ -339,11 +339,12 @@ void Cache::default_header(header_t* header)
     header->alpha = 0xff;
 
     header->line_gap = 5;
+    header->paragraph_gap = 0;
     header->internal_border = { 0 };
     GetCacheVersion(header->version);
 
     // default others
-    header->wheel_speed = 1;
+    header->wheel_speed = ws_single_line;
     header->page_mode = 1;
     header->autopage_mode = 0;
     header->uElapse = 3000;
@@ -354,6 +355,7 @@ void Cache::default_header(header_t* header)
     header->show_systray = 0;
     header->hide_taskbar = 0;
     header->word_wrap = 0;
+    header->line_indent = 1;
 
     // default hotkey
     KS_GetDefaultKeyBuff(header->keyset);
@@ -376,23 +378,6 @@ void Cache::default_header(header_t* header)
             header->tags[i].bg_color = 0x00FFFFFF;
         }
         header->tags[i].enable = 0;
-    }
-#endif
-
-#if ENABLE_INSIDE_BOOKSOURCE
-    // default book sources
-    if (header->book_source_count == 0)
-    {
-        header->book_source_count = 1;
-        _tcscpy(header->book_sources[0].title, _T("±ÊÈ¤¸ó"));
-        strcpy(header->book_sources[0].host, "http://www.biquge.info");
-        strcpy(header->book_sources[0].query_url_format, "http://www.biquge.info/modules/article/search.php?searchkey=%s");
-        strcpy(header->book_sources[0].books_th_xpath, "//*[@id='wrapper']/table/tr/th");
-        strcpy(header->book_sources[0].books_td_xpath, "//*[@id='wrapper']/table/tr/td");
-        strcpy(header->book_sources[0].book_mainpage_xpath, "//*[@id='wrapper']/table/tr/td[1]/a/@href");
-        strcpy(header->book_sources[0].chapter_title_xpath, "//*[@id='list']/dl/dd/a/@title");
-        strcpy(header->book_sources[0].chapter_url_xpath, "//*[@id='list']/dl/dd/a/@href");
-        strcpy(header->book_sources[0].content_xpath, "//*[@id='content']");
     }
 #endif
 }
@@ -604,7 +589,7 @@ void Cache::update_addr(void)
 
 void Cache::encode(void* data, int size)
 {
-#ifndef _DEBUG
+//#ifndef _DEBUG
     char* p = (char*)data;
     int i;
 
@@ -612,7 +597,7 @@ void Cache::encode(void* data, int size)
     {
         p[i] ^= 0x3a;
     }
-#endif
+//#endif
 }
 
 void Cache::decode(void* data, int size)

@@ -270,13 +270,20 @@ LRESULT OnlineBook::OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                 chapters->ret = 1;
                 break; // invalid data
             }
-#if TEST_MODEL
             for (i = 0; i < m_Chapters.size(); i++)
             {
+#if TEST_MODEL
                 assert(m_Chapters[i].title == (chapters->chapters)[i].title);
                 assert(m_Chapters[i].url == (chapters->chapters)[i].url);
-            }
 #endif
+                // fixed
+                if (m_Chapters[i].index == -1
+                    && (m_Chapters[i].title != (chapters->chapters)[i].title || m_Chapters[i].url != (chapters->chapters)[i].url))
+                {
+                    m_Chapters[i].title = (chapters->chapters)[i].title;
+                    m_Chapters[i].url = (chapters->chapters)[i].url;
+                }
+            }
             for (i = m_Chapters.size(); i < chapters->chapters.size(); i++)
             {
                 m_Chapters.insert(std::make_pair(i, (chapters->chapters)[i]));
@@ -523,6 +530,7 @@ bool OnlineBook::ParserContent(HWND hWnd, int idx, u32 todo)
     std::set<req_handler_t>::iterator it;
     request_t* preq;
     char cookie[1024] = { 0 };
+    char url[1024] = { 0 };
 #if TEST_MODEL
     char msg[1024];
 #endif
@@ -558,9 +566,32 @@ bool OnlineBook::ParserContent(HWND hWnd, int idx, u32 todo)
 
     GetCookie(cookie);
 
+    // check URL
+    if (_strnicmp("http", m_Chapters[idx].url.c_str(), 4) == 0)
+    {
+        strcpy(url, m_Chapters[idx].url.c_str());
+    }
+    else
+    {
+        char* bookid = strstr(m_MainPage, m_Host);
+        if (bookid)
+        {
+            bookid += strlen(m_Host);
+            if (strstr(m_Chapters[idx].url.c_str(), bookid))
+            {
+                strcpy(url, m_Host);
+                strcat(url, m_Chapters[idx].url.c_str());
+            }
+            else
+            {
+                strcpy(url, m_MainPage);
+                strcat(url, m_Chapters[idx].url.c_str());
+            }
+        }
+    }
+
     req.method = GET;
-    req.url = m_MainPage;
-    req.url.append(m_Chapters[idx].url);
+    req.url = url;
     req.cookie = cookie;
     req.writer = writer_buffer;
     req.stream = writer;
@@ -621,7 +652,7 @@ bool OnlineBook::ParserBookStatus(HWND hWnd)
     GetCookie(cookie);
 
     Utils::UrlEncode(Utils::Utf16ToUtf8(m_BookName), &encode);
-    sprintf(url, m_Booksrc->query_url_format, encode);
+    sprintf(url, m_Booksrc->query_url, encode);
     Utils::UrlFree(encode);
 
     req.method = GET;
@@ -646,6 +677,58 @@ bool OnlineBook::ParserBookStatus(HWND hWnd)
         ReleaseMutex(m_hMutex);
     }
     return true;
+}
+
+bool _check_olfile(const TCHAR *filename)
+{
+    FILE* fp = NULL;
+    char* buf = NULL;
+    int len = 0;
+    int basesize = 0;
+    ol_header_t* header = NULL;
+    char host[1024] = {0};
+
+    // read file to memory
+    fp = _tfopen(filename, _T("rb"));
+    if (!fp)
+        goto fail;
+    fseek(fp, 0, SEEK_END);
+    len = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    basesize = sizeof(ol_header_t) - sizeof(ol_chapter_info_t);
+    if (basesize > len)
+        goto fail;
+
+    buf = (char*)malloc(basesize);
+    if (!buf)
+        goto fail;
+
+    fread(buf, 1, basesize, fp);
+    fclose(fp);
+    fp = NULL;
+
+    header = (ol_header_t*)buf;
+    if (len < (int)header->header_size)
+    {
+        // invalid file
+        goto fail;
+    }
+
+    strcpy(host, buf + header->host_offset);
+    if (!FindBookSource(host))
+    {
+        goto fail;
+    }
+
+    return true;
+
+fail:
+    if (fp)
+        fclose(fp);
+    if (buf)
+        free(buf);
+    return false;
 }
 
 bool OnlineBook::ReadOlFile(BOOL fast)
@@ -1076,6 +1159,12 @@ BOOL OnlineBook::GetCookie(char* cookie)
     // 2309 is book id
     // 6dfe3c8f195b43b8e667a2a2e5936122 is md5 for (date?): get this data from https://www.biquge.info/heibing/js/hm.js
 
+    if (strcmp(m_Host, "http://www.biquge.info") != 0)
+    {
+        cookie[0] = 0;
+        return TRUE;
+    }
+        
     u64 curtime = 0;
     const char* url = "http://www.biquge.info/heibing/js/hm.js";
     int bookid = 0;
@@ -1289,6 +1378,7 @@ unsigned int OnlineBook::GetChaptersCompleter(bool result, request_t* req, int i
     int htmllen = 0;
     std::vector<std::string> title_list;
     std::vector<std::string> title_url;
+    std::vector<std::string> book_status;
     void* doc = NULL;
     void* ctx = NULL;
     int i;
@@ -1322,6 +1412,8 @@ unsigned int OnlineBook::GetChaptersCompleter(bool result, request_t* req, int i
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_title_xpath, title_list, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_url_xpath, title_url, &_this->m_bForceKill);
+    if (_this->m_Booksrc->book_status_pos == 2)
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_status_xpath, book_status, &_this->m_bForceKill, true);
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
     if (_this->m_bForceKill)
@@ -1339,6 +1431,17 @@ unsigned int OnlineBook::GetChaptersCompleter(bool result, request_t* req, int i
             return 1;
         }
         goto end;
+    }
+
+    if (_this->m_Booksrc->book_status_pos == 2)
+    {
+        if (!book_status.empty())
+        {
+            if (strcmp(book_status[0].c_str(), _this->m_Booksrc->book_status_keyword) == 0)
+            {
+                _this->m_IsFinished = TRUE;
+            }
+        }
     }
 
     // update chapter
@@ -1370,7 +1473,10 @@ unsigned int OnlineBook::GetChaptersCompleter(bool result, request_t* req, int i
     {
         if (chapters.ret == 0 && !_this->m_IsFinished)
         {
-            _this->ParserBookStatus(param->hWnd);
+            if (_this->m_Booksrc->book_status_pos == 1)
+                _this->ParserBookStatus(param->hWnd);
+            else
+                chapters.ret = 1;
         }
     }
     else
@@ -1539,14 +1645,16 @@ unsigned int OnlineBook::GetBookStatusCompleter(bool result, request_t* req, int
     OnlineBook* _this = (OnlineBook*)param->_this;
     char* html = NULL;
     int htmllen = 0;
-    std::vector<std::string> table_th;
-    std::vector<std::string> table_td;
+    int i;
+    std::vector<std::string> table_name;
     std::vector<std::string> table_url;
+    std::vector<std::string> table_author;
+    std::vector<std::string> table_status;
     void* doc = NULL;
     void* ctx = NULL;
-    size_t i;
     book_event_data_t data;
     int ret = 1;
+    char Url[1024] = { 0 };
 
     if (req->cancel)
         goto end;
@@ -1570,15 +1678,18 @@ unsigned int OnlineBook::GetBookStatusCompleter(bool result, request_t* req, int
         goto end;
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &_this->m_bForceKill);
-    HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->books_th_xpath, table_th, &_this->m_bForceKill);
-    HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->books_td_xpath, table_td, &_this->m_bForceKill);
+    HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_name_xpath, table_name, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_mainpage_xpath, table_url, &_this->m_bForceKill);
+    if (_this->m_Booksrc->book_author_xpath[0])
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_author_xpath, table_author, &_this->m_bForceKill);
+    if (_this->m_Booksrc->book_status_pos == 1)
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_status_xpath, table_status, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
     if (_this->m_bForceKill)
         goto end;
 
-    if (/*table_td.size() == 0 || */table_th.size() == 0 /*|| table_url.size() == 0*/ || (table_th.size() != 0 && table_td.size() / table_th.size() != table_url.size()))
+    if (table_url.empty() || table_url.size() != table_name.size())
     {
         // redirect test...
         if (_this->Redirect(req, html, htmllen))
@@ -1591,16 +1702,24 @@ unsigned int OnlineBook::GetBookStatusCompleter(bool result, request_t* req, int
         }
     }
 
-    for (i = 0; i < table_url.size(); i++)
+    if (table_url.size() == table_status.size())
     {
-        if (_this->m_MainPage == _this->m_Host + table_url[i])
+        for (i = 0; i < (int)table_url.size(); i++)
         {
-            const char* status = table_td[i * table_th.size() + 5].c_str();
-            _this->m_IsFinished = _tcscmp(Utils::Utf8ToUtf16(status), _T("Íê±¾")) == 0;
-
-            data._this = _this;
-            SendMessage(param->hWnd, WM_BOOK_EVENT, BE_SAVE_FILE, (LPARAM)&data);
-            break;
+            if (_strnicmp("http", table_url[i].c_str(), 4) != 0)
+            {
+                sprintf(Url, "%s%s", _this->m_Host, table_url[i].c_str());
+            }
+            if (strcmp(_this->m_MainPage, Url) == 0)
+            {
+                if (strcmp(table_status[i].c_str(), _this->m_Booksrc->book_status_keyword) == 0)
+                {
+                    _this->m_IsFinished = TRUE;
+                }
+                data._this = _this;
+                SendMessage(param->hWnd, WM_BOOK_EVENT, BE_SAVE_FILE, (LPARAM)&data);
+                break;
+            }
         }
     }
 

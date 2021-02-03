@@ -13,7 +13,6 @@
 #define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
 #define ENABLE_REALTIME_SAVE        1
-#define ENABLE_INSIDE_BOOKSOURCE    0
 
 #ifdef _DEBUG
 #define TEST_MODEL                  1
@@ -97,6 +96,14 @@ typedef enum auto_page_mode_t
     apm_count = 0x10
 } auto_page_mode_t;
 
+typedef enum wheel_speed_t
+{
+    ws_single_line = 0,
+    ws_double_line,
+    ws_three_line,
+    ws_fullpage
+} wheel_speed_t;
+
 typedef struct bg_image_t
 {
     BOOL enable;
@@ -135,13 +142,18 @@ typedef struct book_source_t
 {
     TCHAR title[256];
     char host[1024];
-    char query_url_format[1024];
-    char books_th_xpath[1024];
-    char books_td_xpath[1024];
+    char query_url[1024];
+    int query_method; // 0: GET, 1: POST
+    char query_params[1024]; // POST params
+    char book_name_xpath[1024];
     char book_mainpage_xpath[1024];
+    char book_author_xpath[1024];
     char chapter_title_xpath[1024];
     char chapter_url_xpath[1024];
     char content_xpath[1024];
+    int book_status_pos; // 0:null, 1:query_page, 2:main_page
+    char book_status_xpath[1024];
+    char book_status_keyword[256];
 } book_sourc_t;
 
 typedef struct header_t
@@ -155,8 +167,9 @@ typedef struct header_t
     u32 bg_color;
     BYTE alpha;
     int line_gap;
+    int paragraph_gap;
     RECT internal_border;
-    int wheel_speed;
+    int wheel_speed; // wheel_speed_t
     int page_mode;
     int autopage_mode; // auto_page_mode_t
     bg_image_t bg_image;
@@ -167,6 +180,7 @@ typedef struct header_t
     int show_systray;
     int disable_lrhide;
     int word_wrap;
+    int line_indent;
     u32 keyset[64];
     chapter_rule_t chapter_rule;
 #if ENABLE_TAG

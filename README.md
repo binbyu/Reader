@@ -2,11 +2,25 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.9.0.0`<br/>
+最新release版本：`v1.9.1.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1w4f_xGrSWvpjGIGED6dnkA](https://pan.baidu.com/s/1w4f_xGrSWvpjGIGED6dnkA)<br/>
-提取码: `v65a`
+链接: [https://pan.baidu.com/s/1uRncUXFaKyyHCztgYVQJow](https://pan.baidu.com/s/1uRncUXFaKyyHCztgYVQJow)<br/>
+提取码: `bfyr`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.9.1.0 2021/02/03 功能更新<br/>
+1. 更新在线书源配置<br/>
+   1.1 修改书源配置规则<br/>
+   1.2 支持GET和POST，暂时不支持ssl(即https)<br/>
+   1.3 修复原在线书源已经失效的问题<br/>
+   1.4 由于书源网站一直在变，无法保证书源配置一直可用。<br/>
+       如果有书源更新时，我会尽量及时更新到<br/>
+       https://github.com/binbyu/Reader/blob/main/bs.json<br/>
+2. 新增首行缩进功能<br/>
+3. 修复page up/down按键不能设置为快捷键的问题<br/>
 <br/>
 <br/>
 <br/>
@@ -29,6 +43,9 @@ A win32 txt/epub file reader
    3.1 需要手动启用，【基本设置】勾选【Word wrap】<br/>
 4. 其他bug修复。<br/>
 5. 1.9版本初次发布，可能会引入一些bug。<br/>
+版本：`v1.9.0.0`<br/>
+链接: https://pan.baidu.com/s/1w4f_xGrSWvpjGIGED6dnkA<br/>
+提取码: v65a<br/>
 <br/>
 <br/>
 <br/>

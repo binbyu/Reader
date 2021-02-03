@@ -42,7 +42,7 @@ public:
     static void b64_decode(const char *src, int slen, char *dst, int *dlen);
 
     // check system version
-    static BOOL isWindowsXP(void);
+    static BOOL Is_WinXP_SP2_or_Later(void);
 
     // url
     static void UrlEncode(const char *src, char **dst); // free by UrlFree

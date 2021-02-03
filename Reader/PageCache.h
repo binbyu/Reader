@@ -7,6 +7,7 @@ typedef struct line_info_t
 {
     INT start;
     INT length;
+    INT indent;
 } line_info_t;
 
 typedef struct page_info_t
@@ -25,9 +26,9 @@ public:
 
 public:
 #if ENABLE_TAG
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib, tagitem_t *tags);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
 #else
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, RECT *ib);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib);
 #endif
     void SetRect(RECT *rect);
     void SetLeftLine(int lines);
@@ -39,7 +40,6 @@ public:
     void LineDown(HWND hWnd, INT n);
     void DrawPage(HWND hWnd, HDC hdc);
     INT GetCurPageSize(void);
-    INT GetOnePageLineCount(void);
     INT GetTextLength(void);
     BOOL IsFirstPage(void);
     BOOL IsLastPage(void);
@@ -55,12 +55,14 @@ protected:
     LONG GetLineHeight(HDC hdc);
 #endif
     INT GetCahceUnitSize(HDC hdc);
+    LONG GetIndentWidth(HDC hdc);
+    VOID SetIndent(HDC hdc, INT index, BOOL *indent, LONG* width);
 #if ENABLE_TAG
     void LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts);
 #else
     void LoadPageInfo(HDC hdc, INT maxw);
 #endif
-    void AddLine(INT start, INT length, INT pos = -1);
+    void AddLine(INT start, INT length, BOOL indent, INT pos = -1);
     void RemoveAllLine(BOOL freemem = FALSE);
     BOOL IsValid(void);
     Bitmap * GetCover(void);
@@ -87,6 +89,7 @@ protected:
     RECT *m_InternalBorder;
     INT m_LeftLineCount;
     INT *m_WordWrap;
+    INT *m_LineIndent;
     page_info_t m_PageInfo;
 #if ENABLE_TAG
     tagitem_t *m_tags;

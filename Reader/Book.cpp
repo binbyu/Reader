@@ -319,16 +319,26 @@ bool Book::FormatText(wchar_t *text, int *len, bool flag)
             continue;
         flag = false;
 #endif
+        // fixed bug : invalid utf8 text
         if (i < ((*len) - 1) && text[i] == 0x00)
-            continue; // fixed bug : invalid utf8 text
+            continue; 
+
+        // 0x0d 0x0a -> 0x0a
         if (text[i] == 0x0D)
-            continue; // 0x0d 0x0a -> 0x0a
-#if 1
-        if (index > 1 && buf[index-1] == text[i] && buf[index-2] == text[i] && IsBlanks(text[i]))
-#else
-        if (index > 0 && buf[index-1] == text[i] && IsBlanks(text[i]))
-#endif
-            continue; // max tow same blanks
+            continue;
+
+        // Remove extra spaces
+        if (0x20 == text[i]) // Keep up to 4 consecutive spaces
+        {
+            if (index > 3 && buf[index - 1] == text[i] && buf[index - 2] == text[i] && buf[index - 3] == text[i] && buf[index - 4] == text[i])
+                continue;
+        }
+        else if (IsBlanks(text[i])) // Keep up to 2 consecutive spaces
+        {
+            if (index > 1 && buf[index - 1] == text[i] && buf[index - 2] == text[i])
+                continue;
+        }
+		
         buf[index++] = text[i];
     }
     buf[index] = 0;

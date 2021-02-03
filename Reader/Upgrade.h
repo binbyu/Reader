@@ -45,7 +45,7 @@ private:
     upgrade_callback_t m_cb;
     void* m_param;
     HANDLE m_hThread;
-    BOOL m_bForceKill;
+    bool m_bForceKill;
 };
 
 #endif

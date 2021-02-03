@@ -243,7 +243,8 @@ DWORD ToHotkey(WPARAM wParam)
         hw |= HOTKEYF_ALT;
     }
 
-    if (wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_UP || wParam == VK_DOWN)
+    if (wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_UP || wParam == VK_DOWN
+        || wParam == VK_PRIOR || wParam == VK_NEXT)
     {
         hw |= HOTKEYF_EXT;
     }

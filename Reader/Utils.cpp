@@ -393,21 +393,35 @@ void Utils::b64_decode(const char *src, int slen, char *dst, int *dlen)
     *dlen = out_len;
 }
 
-BOOL Utils::isWindowsXP(void)
+BOOL Utils::Is_WinXP_SP2_or_Later(void)
 {
-    OSVERSIONINFO osvi;
-    BOOL bIsWindowsXPorLater;
+    OSVERSIONINFOEX osvi;
+    DWORDLONG dwlConditionMask = 0;
+    int op = VER_GREATER_EQUAL;
 
-    ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    // Initialize the OSVERSIONINFOEX structure.
 
-    GetVersionEx(&osvi);
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    osvi.dwMajorVersion = 5;
+    osvi.dwMinorVersion = 1;
+    osvi.wServicePackMajor = 2;
+    osvi.wServicePackMinor = 0;
 
-    bIsWindowsXPorLater = 
-        ( (osvi.dwMajorVersion > 5) ||
-        ( (osvi.dwMajorVersion == 5) && (osvi.dwMinorVersion >= 1) ));
+    // Initialize the condition mask.
 
-    return bIsWindowsXPorLater;
+    VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+    VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+    VER_SET_CONDITION(dwlConditionMask, VER_SERVICEPACKMAJOR, op);
+    VER_SET_CONDITION(dwlConditionMask, VER_SERVICEPACKMINOR, op);
+
+    // Perform the test.
+
+    return VerifyVersionInfo(
+        &osvi,
+        VER_MAJORVERSION | VER_MINORVERSION |
+        VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
+        dwlConditionMask);
 }
 
 void Utils::UrlEncode(const char* src, char** dst)

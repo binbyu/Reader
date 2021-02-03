@@ -310,6 +310,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
+        case IDM_VERSION:
+#if ENABLE_NETWORK
+            ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/README.md"), NULL, NULL, SW_SHOWNORMAL);
+#endif
+            break;
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
@@ -1277,6 +1282,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
         _stprintf(buf, _T("%d,%d,%d,%d"), _header->internal_border.left, _header->internal_border.top, _header->internal_border.right, _header->internal_border.bottom);
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDIT_PARAGRAPHGAP, _header->paragraph_gap, FALSE);
         SetDlgItemText(hDlg, IDC_EDIT_BORDER, buf);
         SetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, _header->uElapse, TRUE);
         if (_header->page_mode == 0)
@@ -1318,6 +1324,10 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_SETCHECK, BST_CHECKED, NULL);
         else
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_SETCHECK, BST_UNCHECKED, NULL);
+        if (_header->line_indent)
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_INDENT), BM_SETCHECK, BST_CHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_INDENT), BM_SETCHECK, BST_UNCHECKED, NULL);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -1345,7 +1355,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             }
             if (SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) != -1)
             {
-                _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL) + 1;
+                _header->wheel_speed = SendMessage(GetDlgItem(hDlg, IDC_COMBO_SPEED), CB_GETCURSEL, 0, NULL);
             }
             res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_MODE1), BM_GETCHECK, 0, NULL);
             if (res == BST_CHECKED)
@@ -1368,6 +1378,12 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if (value != _header->line_gap)
             {
                 _header->line_gap = value;
+                bUpdated = TRUE;
+            }
+            value = GetDlgItemInt(hDlg, IDC_EDIT_PARAGRAPHGAP, &bResult, FALSE);
+            if (value != _header->paragraph_gap)
+            {
+                _header->paragraph_gap = value;
                 bUpdated = TRUE;
             }
             GetDlgItemText(hDlg, IDC_EDIT_BORDER, buf, 256);
@@ -1417,6 +1433,13 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if (value != _header->word_wrap)
             {
                 _header->word_wrap = value;
+                bUpdated = TRUE;
+            }
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_INDENT), BM_GETCHECK, 0, NULL);
+            value = res == BST_CHECKED ? 1 : 0;
+            if (value != _header->line_indent)
+            {
+                _header->line_indent = value;
                 bUpdated = TRUE;
             }
             if (bUpdated)
@@ -1957,6 +1980,60 @@ LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+LRESULT CALLBACK ChooseFontComboProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubClass, DWORD_PTR udata)
+{
+    static COLORREF acrCustClr[16];
+    CHOOSECOLOR cc;
+    COLORREF co;
+    RECT rc;
+    switch (message)
+    {
+    case WM_LBUTTONDOWN:
+        ZeroMemory(&cc, sizeof(cc));
+        cc.lStructSize = sizeof(cc);
+        cc.hwndOwner = hWnd;
+        cc.lpCustColors = (LPDWORD)acrCustClr;
+        cc.rgbResult = (COLORREF)SendMessage(hWnd, CB_GETITEMDATA, 0, 0);
+        cc.Flags = CC_FULLOPEN | CC_RGBINIT | CC_ANYCOLOR;
+        if (ChooseColor(&cc) == TRUE)
+        {
+            SendMessage(hWnd, CB_SETITEMDATA, 0, cc.rgbResult);
+            SendMessage(hWnd, CB_SETCURSEL, 0, cc.rgbResult);
+            GetClientRect(GetParent(hWnd), &rc);
+            InvalidateRect(GetParent(hWnd), &rc, TRUE);
+        }
+        return 0;
+        break;
+    case CB_GETLBTEXTLEN:
+        return 7;
+        break;
+    case CB_GETLBTEXT:
+        co = (COLORREF)SendMessage(hWnd, CB_GETITEMDATA, 0, 0);
+        _stprintf((TCHAR*)lParam, _T("#%02X%02X%02X"), GetRValue(co), GetGValue(co), GetBValue(co));
+        return 7;
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hWnd, ChooseFontComboProc, uIdSubClass);
+        break;
+    }
+    return DefSubclassProc(hWnd, message, wParam, lParam);
+}
+
+UINT_PTR CALLBACK ChooseFontProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HWND hComb;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        hComb = GetDlgItem(hWnd, 0x473);
+        SendMessage(hComb, CB_SETITEMDATA, 0, _header->font_color);
+        SendMessage(hComb, CB_SETCURSEL, 0, _header->font_color);
+        SetWindowSubclass(hComb, ChooseFontComboProc, 0, 0);
+        break;
+    }
+    return 0;
+};
+
 LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     CHOOSEFONT cf;            // common dialog box structure
@@ -1971,7 +2048,8 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     cf.hwndOwner = hWnd;
     cf.lpLogFont = &logFont;
     cf.rgbColors = _header->font_color;
-    cf.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_EFFECTS;
+    cf.lpfnHook = ChooseFontProc;
+    cf.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_EFFECTS | CF_NOVERTFONTS | CF_ENABLEHOOK;
 
     if (ChooseFont(&cf))
     {
@@ -2678,9 +2756,28 @@ LRESULT OnPageDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnLineUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    int line_count = -1;
     if (_Book && !_Book->IsLoading())
     {
-        _Book->LineUp(hWnd, _header->wheel_speed);
+        switch (_header->wheel_speed)
+        {
+        case ws_single_line:
+            line_count = 1;
+            break;
+        case ws_double_line:
+            line_count = 2;
+            break;
+        case ws_three_line:
+            line_count = 3;
+            break;
+        default:
+            line_count = -1;
+            break;
+        }
+        if (line_count == -1)
+            _Book->PageUp(hWnd);
+        else
+            _Book->LineUp(hWnd, line_count);
         _NeedSave = TRUE;
     }
     return 0;
@@ -2688,9 +2785,28 @@ LRESULT OnLineUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnLineDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    int line_count = -1;
     if (_Book && !_Book->IsLoading())
     {
-        _Book->LineDown(hWnd, _header->wheel_speed);
+        switch (_header->wheel_speed)
+        {
+        case ws_single_line:
+            line_count = 1;
+            break;
+        case ws_double_line:
+            line_count = 2;
+            break;
+        case ws_three_line:
+            line_count = 3;
+            break;
+        default:
+            line_count = -1;
+            break;
+        }
+        if (line_count == -1)
+            _Book->PageDown(hWnd);
+        else
+            _Book->LineDown(hWnd, line_count);
         _NeedSave = TRUE;
     }
     return 0;
@@ -2971,9 +3087,9 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     // set param
     GetClientRectExceptStatusBar(hWnd, &rect);
 #if ENABLE_TAG
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &(_header->internal_border), _header->tags);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &_header->line_indent, &(_header->internal_border), _header->tags);
 #else
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &(_header->internal_border));
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &_header->line_indent, &(_header->internal_border));
 #endif
     _Book->SetRect(&rect);
     _Book->SetChapterRule(&(_header->chapter_rule));
@@ -3061,7 +3177,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 
     _tcscpy(szFileName, filename);
     ext = PathFindExtension(szFileName);
-#if (!ENABLE_INSIDE_BOOKSOURCE)
+
     if (!_header || _header->book_source_count == 0)
     {
         if (0 == _tcscmp(ext, _T(".ol")))
@@ -3070,7 +3186,6 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
             return;
         }
     }
-#endif
 
     if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
     {
@@ -3115,7 +3230,7 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
     {
         if (!forced)
         {
-            if (_item && item->id == _item->id && !_Book->IsLoading()) // current is opened
+            if (_item && item->id == _item->id && _Book && !_Book->IsLoading()) // current is opened
             {
 #if ENABLE_MD5
                 free(data);
@@ -3215,8 +3330,14 @@ void OnOpenOlBook(HWND hWnd, void* olparam)
     // check .ol file is exist
     if (PathFileExists(savepath))
     {
-        OnOpenBook(hWnd, savepath, FALSE);
-        return;
+        // valid .ol file
+        extern bool _check_olfile(const TCHAR * filename);
+        if (_check_olfile(savepath))
+        {
+            OnOpenBook(hWnd, savepath, FALSE);
+            return;
+        }
+        DeleteFile(savepath);
     }
 
     // generate ol_header_t
@@ -3458,6 +3579,7 @@ void RemoveMenus(HWND hWnd, BOOL redraw)
 #if !ENABLE_NETWORK
     RemoveMenuById(hMenu, TRUE, IDM_PROXY);
     RemoveMenuById(hMenu, TRUE, IDM_ONLINE);
+    RemoveMenuById(hMenu, TRUE, IDM_VERSION);
 #endif
 
 #if !ENABLE_TAG
@@ -3482,28 +3604,23 @@ BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)
 
 void WheelSpeedInit(HWND hDlg)
 {
-    int i;
     HWND hWnd = NULL;
-    TCHAR buf[8] = {0};
+    TCHAR szText[MAX_LOADSTRING] = {0};
 
     hWnd = GetDlgItem(hDlg, IDC_COMBO_SPEED);
-    if (_Book)
-    {
-        for (i=1; i<=_Book->GetOnePageLineCount(); i++)
-        {
-            _itot(i, buf, 10);
-            SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
-        }
-    }
-    else
-    {
-        for (i=1; i<=_header->wheel_speed; i++)
-        {
-            _itot(i, buf, 10);
-            SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)buf);
-        }
-    }
-    SendMessage(hWnd, CB_SETCURSEL, _header->wheel_speed - 1, NULL);
+    LoadString(hInst, IDS_SINGLE_LINE, szText, MAX_LOADSTRING);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)szText);
+    LoadString(hInst, IDS_DOUBLE_LINE, szText, MAX_LOADSTRING);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)szText);
+    LoadString(hInst, IDS_THREE_LINE, szText, MAX_LOADSTRING);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)szText);
+    LoadString(hInst, IDS_FULL_PAGE, szText, MAX_LOADSTRING);
+    SendMessage(hWnd, CB_ADDSTRING, 0, (LPARAM)szText);
+
+    if (_header->wheel_speed > ws_fullpage)
+        _header->wheel_speed = ws_fullpage;
+
+    SendMessage(hWnd, CB_SETCURSEL, _header->wheel_speed, NULL);
 }
 
 Bitmap* LoadBGImage(int w, int h, BYTE alpha)
@@ -4095,7 +4212,7 @@ void SetTreeviewFont()
     {
         NONCLIENTMETRICS theMetrics = {0};
         theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
-        if (Utils::isWindowsXP())
+        if (Utils::Is_WinXP_SP2_or_Later())
             theMetrics.cbSize = sizeof(NONCLIENTMETRICS) - sizeof(theMetrics.iPaddedBorderWidth);
         SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
         theMetrics.iMenuHeight = abs((int)(theMetrics.iMenuHeight * 1.25f)); // 1.25 line height
