@@ -1,44 +1,32 @@
 ## 书源配置说明：
 
-标题：书源名（随意自定义，不要重复）
+[必填] 标题：书源名（随意自定义，不要重复）
 
-HOST: 书源Host地址（不要带最后的斜杠&#39;/&#39;）
+[必填] HOST: 书源Host地址（不要带最后的斜杠&#39;/&#39;）
 
-搜索URL: 搜索书籍的地址，关键字段用 %s 代替
+[必填] 搜索URL: 搜索书籍的地址，关键字段用 %s 代替，支持GET/POST，暂不支持ssl(即仅开放https的站点)
 
-书籍列表信息 xpath：解析书籍列表头（表格头）信息的xpath
+[必填] 书籍名称 xpath：用于在搜索结果页面，解析书籍名称的xpath
 
-书籍列表xpath：解析书籍列表的xpath
+[必填] 书籍主页 xpath：用于在搜索结果页面，解析书籍主页(章节列表页)URL的xpath
 
-书籍主页xpath：解析每本小说主页URL的xpath
+[选填] 作者名称 xpath：用于在搜索结果页面，解析作者名称的xpath，可以不填
 
-章节标题xpath：解析小说主页章节名称的xpath
+[必填] 章节标题 xpath：解析小说主页章节名称的xpath
 
-章节URL xpath：解析每章节地址的xpath
+[必填] 章节URL xpath：解析每章节地址的xpath
 
-章节内容 xpath：解析每章小说主文本的xpath
+[必填] 章节内容 xpath：解析每章小说主文本的xpath
+
+[必填] 完结状态位置：用于判断书籍是否已经完结的配置，"搜索页"(如果不会配置，可以选择"无")
+
+
 
 ## 书籍配置样例：
 
-标题：笔趣阁
+下载 [bs.json](https://github.com/binbyu/Reader/blob/master/bs.json) 文件
 
-HOST: http://www.biquge.info
-
-搜索URL: http://www.biquge.info/modules/article/search.php?searchkey=%s
-
-书籍列表信息 xpath：//\*[@id=&#39;wrapper&#39;]/table/tr/th
-
-书籍列表xpath：//\*[@id=&#39;wrapper&#39;]/table/tr/td
-
-书籍主页xpath：//\*[@id=&#39;wrapper&#39;]/table/tr/td[1]/a/@href
-
-章节标题xpath：//\*[@id=&#39;list&#39;]/dl/dd/a/@title
-
-章节URL xpath：//\*[@id=&#39;list&#39;]/dl/dd/a/@href
-
-章节内容 xpath：//\*[@id=&#39;content&#39;]
-
-![参考图片](https://github.com/binbyu/Reader/blob/master/bsexample.jpg)
+然后进入书源配置页面，选择"导入"即可使用
 
 ## 免责声明：
 
