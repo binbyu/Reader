@@ -24,7 +24,7 @@
 
 ## 书籍配置样例：
 
-下载 [bs.json](https://github.com/binbyu/Reader/blob/master/bs.json) 文件
+下载 [bs.json](https://github.com/binbyu/Reader/blob/master/bs.json) 文件, (点击raw，然后右键保存即可。如果raw打不开，可以手动拷贝文件内容，保存到本地文件)
 
 然后进入书源配置页面，选择"导入"即可使用
 
