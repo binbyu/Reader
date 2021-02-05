@@ -26,12 +26,11 @@ public:
 
 public:
 #if ENABLE_TAG
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
 #else
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib);
+    void Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib);
 #endif
     void SetRect(RECT *rect);
-    void SetLeftLine(int lines);
     void Reset(HWND hWnd, BOOL redraw = TRUE);
     void ReDraw(HWND hWnd);
     void PageUp(HWND hWnd);
@@ -87,7 +86,7 @@ protected:
     INT *m_CurrentPos;
     INT *m_lineGap;
     RECT *m_InternalBorder;
-    INT m_LeftLineCount;
+    INT *m_LeftLineCount;
     INT *m_WordWrap;
     INT *m_LineIndent;
     page_info_t m_PageInfo;

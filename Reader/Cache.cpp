@@ -340,6 +340,7 @@ void Cache::default_header(header_t* header)
 
     header->line_gap = 5;
     header->paragraph_gap = 0;
+    header->left_line_count = 0;
     header->internal_border = { 0 };
     GetCacheVersion(header->version);
 

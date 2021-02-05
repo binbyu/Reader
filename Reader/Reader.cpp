@@ -1283,6 +1283,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         _stprintf(buf, _T("%d,%d,%d,%d"), _header->internal_border.left, _header->internal_border.top, _header->internal_border.right, _header->internal_border.bottom);
         SetDlgItemInt(hDlg, IDC_EDIT_LINEGAP, _header->line_gap, FALSE);
         SetDlgItemInt(hDlg, IDC_EDIT_PARAGRAPHGAP, _header->paragraph_gap, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDIT_LEFTLINE, _header->left_line_count, FALSE);
         SetDlgItemText(hDlg, IDC_EDIT_BORDER, buf);
         SetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, _header->uElapse, TRUE);
         if (_header->page_mode == 0)
@@ -1385,6 +1386,11 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 _header->paragraph_gap = value;
                 bUpdated = TRUE;
+            }
+            value = GetDlgItemInt(hDlg, IDC_EDIT_LEFTLINE, &bResult, FALSE);
+            if (value != _header->left_line_count)
+            {
+                _header->left_line_count = value;
             }
             GetDlgItemText(hDlg, IDC_EDIT_BORDER, buf, 256);
             _stscanf(buf, _T("%d,%d,%d,%d"), &rc.left, &rc.top, &rc.right, &rc.bottom);
@@ -3087,9 +3093,9 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     // set param
     GetClientRectExceptStatusBar(hWnd, &rect);
 #if ENABLE_TAG
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &_header->line_indent, &(_header->internal_border), _header->tags);
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->left_line_count, &_header->word_wrap, &_header->line_indent, &(_header->internal_border), _header->tags);
 #else
-    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->word_wrap, &_header->line_indent, &(_header->internal_border));
+    _Book->Setting(hWnd, &_item->index, &_header->line_gap, &_header->left_line_count, &_header->word_wrap, &_header->line_indent, &(_header->internal_border));
 #endif
     _Book->SetRect(&rect);
     _Book->SetChapterRule(&(_header->chapter_rule));

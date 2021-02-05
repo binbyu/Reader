@@ -375,6 +375,7 @@ class json_header_t
     cJSON* item_id;
     cJSON* line_gap;
     cJSON* paragraph_gap;
+    cJSON* left_line_count;
     cJSON* font_color;
     cJSON* bg_color;
     cJSON* alpha;
@@ -413,6 +414,7 @@ public:
         item_id = cJSON_AddNumberToObject(parent, "item_id", data->item_id);
         line_gap = cJSON_AddNumberToObject(parent, "line_gap", data->line_gap);
         paragraph_gap = cJSON_AddNumberToObject(parent, "paragraph_gap", data->paragraph_gap);
+        left_line_count = cJSON_AddNumberToObject(parent, "left_line_count", data->left_line_count);
         font_color = cJSON_AddULongToObject(parent, "font_color", data->font_color);
         bg_color = cJSON_AddULongToObject(parent, "bg_color", data->bg_color);
         alpha = cJSON_AddNumberToObject(parent, "alpha", data->alpha);
@@ -497,6 +499,7 @@ public:
         item_id = cJSON_GetObjectItem(parent, "item_id");
         line_gap = cJSON_GetObjectItem(parent, "line_gap");
         paragraph_gap = cJSON_GetObjectItem(parent, "paragraph_gap");
+        left_line_count = cJSON_GetObjectItem(parent, "left_line_count");
         font_color = cJSON_GetObjectItem(parent, "font_color");
         bg_color = cJSON_GetObjectItem(parent, "bg_color");
         alpha = cJSON_GetObjectItem(parent, "alpha");
@@ -610,6 +613,8 @@ public:
             data->line_gap = line_gap->valueint;
         if (paragraph_gap)
             data->paragraph_gap = paragraph_gap->valueint;
+        if (left_line_count)
+            data->left_line_count = left_line_count->valueint;
         if (font_color)
             data->font_color = *((u32*)&font_color->valueint);
         if (bg_color)

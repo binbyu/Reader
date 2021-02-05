@@ -16,7 +16,7 @@ PageCache::PageCache()
     , m_CurrentPos(NULL)
     , m_lineGap(NULL)
     , m_InternalBorder(NULL)
-    , m_LeftLineCount(0)
+    , m_LeftLineCount(NULL)
     , m_WordWrap(NULL)
     , m_LineIndent(NULL)
 #if ENABLE_TAG
@@ -34,13 +34,14 @@ PageCache::~PageCache()
 }
 
 #if ENABLE_TAG
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags)
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags)
 #else
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *word_wrap, INT *indent, RECT *ib)
+void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib)
 #endif
 {
     m_CurrentPos = pos;
     m_lineGap = lg;
+    m_LeftLineCount = lc;
     m_InternalBorder = ib;
     m_WordWrap = word_wrap;
     m_LineIndent = indent;
@@ -68,11 +69,6 @@ void PageCache::SetRect(RECT *rect)
         RemoveAllLine();
 }
 
-void PageCache::SetLeftLine(int lines)
-{
-    m_LeftLineCount = lines;
-}
-
 void PageCache::Reset(HWND hWnd, BOOL redraw)
 {
     RemoveAllLine();
@@ -87,12 +83,12 @@ void PageCache::ReDraw(HWND hWnd)
 
 void PageCache::PageUp(HWND hWnd)
 {
-    return LineUp(hWnd, m_OnePageLineCount - m_LeftLineCount);
+    return LineUp(hWnd, m_OnePageLineCount - (*m_LeftLineCount));
 }
 
 void PageCache::PageDown(HWND hWnd)
 {
-    return LineDown(hWnd, m_OnePageLineCount - m_LeftLineCount);
+    return LineDown(hWnd, m_OnePageLineCount - (*m_LeftLineCount));
 }
 
 void PageCache::LineUp(HWND hWnd, INT n)

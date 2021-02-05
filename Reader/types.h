@@ -168,6 +168,7 @@ typedef struct header_t
     BYTE alpha;
     int line_gap;
     int paragraph_gap;
+    int left_line_count;
     RECT internal_border;
     int wheel_speed; // wheel_speed_t
     int page_mode;
