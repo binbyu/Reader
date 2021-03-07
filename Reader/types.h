@@ -9,7 +9,6 @@
 #define DEFAULT_APP_WIDTH           (300)
 #define DEFAULT_APP_HEIGHT          (500)
 
-#define ENABLE_NETWORK              1
 #define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
 #define ENABLE_REALTIME_SAVE        1
@@ -37,7 +36,7 @@
 #define IDM_MK_DEL                  (IDM_OPEN_END + 4)
 #define IDM_BS_DEL                  (IDM_OPEN_END + 5)
 
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
 #endif
 #define WM_UPDATE_CHAPTERS          (WM_USER + 101)
@@ -50,7 +49,7 @@
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
 #define IDT_TIMER_PAGE              102
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 #define IDT_TIMER_UPGRADE           103
 #define IDT_TIMER_CHECKBOOK         104
 #endif
@@ -145,6 +144,7 @@ typedef struct book_source_t
     char query_url[1024];
     int query_method; // 0: GET, 1: POST
     char query_params[1024]; // POST params
+    int query_charset; // 0: auto, 1: utf8, 2: gbk
     char book_name_xpath[1024];
     char book_mainpage_xpath[1024];
     char book_author_xpath[1024];
@@ -177,6 +177,7 @@ typedef struct header_t
     UINT uElapse;
     proxy_t proxy;
     TCHAR ingore_version[16];
+    u32 checkver_time;
     int hide_taskbar;
     int show_systray;
     int disable_lrhide;
@@ -236,23 +237,6 @@ typedef struct window_info_t
     RECT fsRect;
 } window_info_t;
 
-typedef struct writer_buffer_param_t
-{
-    unsigned char* buf;
-    size_t total;
-    size_t used;
-} writer_buffer_param_t;
-
-typedef void (*download_progress_cb_t)(void* param, double progress);
-typedef struct writer_file_param_t
-{
-    FILE* fp;
-    int fileSize;
-    int downSize;
-    download_progress_cb_t cb;
-    void* param;
-} writer_file_param_t;
-
 
 typedef struct ol_chapter_info_t
 {
@@ -274,12 +258,6 @@ typedef struct ol_header_t
     u32 chapter_size;
     ol_chapter_info_t chapter_info_list[1];
 } ol_header_t;
-
-typedef struct redirect_kw_t
-{
-    const char* begin;
-    const char* end;
-} redirect_kw_t;
 
 
 #endif

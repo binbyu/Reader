@@ -1,8 +1,9 @@
 #ifndef __ONLINE_BOOK_H__
 #define __ONLINE_BOOK_H__
+#ifdef ENABLE_NETWORK
 
 #include "Book.h"
-#include "HttpClient.h"
+#include "httpclient.h"
 #include "HtmlParser.h"
 #include <set>
 
@@ -51,21 +52,16 @@ protected:
     void TidyUrl(char* html, int* len);
     void PlayLoading(HWND hWnd);
     void StopLoading(HWND hWnd, int idx);
-    BOOL Redirect(request_t* req, char* html, int len);
-    BOOL GetCookie(char *cookie);
+    BOOL Redirect(request_t *r, const char *url, req_handler_t hOld);
 
 public:
     void UpdateBookSource(void);
     int CheckUpdate(HWND hWnd, olbook_checkupdate_callback cb, void* arg);
 
 private:
-    static unsigned int writer_buffer(void* data, unsigned int size, unsigned int nmemb, void* stream);
-
-private:
-    static unsigned int GetChaptersCompleter(bool result, request_t* req, int isgzip);
-    static unsigned int GetContentCompleter(bool result, request_t* req, int isgzip);
-    static unsigned int GetBookStatusCompleter(bool result, request_t* req, int isgzip);
-    static unsigned int GetCookieIDCompleter(bool result, request_t* req, int isgzip);
+    static unsigned int GetChaptersCompleter(request_result_t *result);
+    static unsigned int GetContentCompleter(request_result_t *result);
+    static unsigned int GetBookStatusCompleter(request_result_t *result);
 
 protected:
     HANDLE m_hEvent;
@@ -85,4 +81,5 @@ protected:
     BOOL m_IsCheck;
 };
 
+#endif
 #endif

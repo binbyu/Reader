@@ -3,7 +3,7 @@
 #include "Keyset.h"
 #include "Upgrade.h"
 #include "jsondata.h"
-#include "HttpClient.h"
+#include "httpclient.h"
 #include "DPIAwareness.h"
 #include <stdio.h>
 #include <string.h>
@@ -574,18 +574,11 @@ bool Cache::write(void* data, int size)
 
 void Cache::update_addr(void)
 {
-#if ENABLE_NETWORK
-    extern Upgrade _Upgrade;
-#endif
     header_t* header = NULL;
 
     header = (header_t*)m_buffer;
 
     KS_UpdateBuffAddr(header->keyset);
-#if ENABLE_NETWORK
-    _Upgrade.SetProxy(&header->proxy);
-    HttpClient::Instance()->SetProxy(&header->proxy);
-#endif
 }
 
 void Cache::encode(void* data, int size)

@@ -1,5 +1,6 @@
 #ifndef __ONLINE_DLG_H__
 #define __ONLINE_DLG_H__
+#ifdef ENABLE_NETWORK
 
 #include "types.h"
 
@@ -13,4 +14,5 @@ typedef struct ol_book_param_t
 
 void OpenOnlineDlg(HINSTANCE hInst, HWND hWnd);
 
+#endif
 #endif // !__ONLINE_DLG_H__

@@ -6,6 +6,11 @@
 #include <stdio.h>
 #include "zlib.h"
 
+const char* UTF_16_BE_BOM = "\xFE\xFF";
+const char* UTF_16_LE_BOM = "\xFF\xFE";
+const char* UTF_8_BOM = "\xEF\xBB\xBF";
+const char* UTF_32_BE_BOM = "\x00\x00\xFE\xFF";
+const char* UTF_32_LE_BOM = "\xFF\xFE\x00\x00";
 
 Utils::Utils(void)
 {
@@ -60,6 +65,7 @@ bool Utils::get_md5(void* data, size_t size, u128_t* result)
 }
 #endif
 
+#if 0
 wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
 {
     wchar_t* result;
@@ -69,6 +75,7 @@ wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
     MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)result, *len);
     return result;
 }
+#endif
 
 wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
 {
@@ -80,6 +87,7 @@ wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
     return result;
 }
 
+#if 0
 char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
 {
     char* result;
@@ -89,7 +97,19 @@ char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
     WideCharToMultiByte(CP_ACP, 0, str, -1, result, *len, NULL, NULL);
     return result;
 }
+#endif
 
+char* Utils::utf16_to_ansi_ex(const wchar_t* str, int size, int* len)
+{
+    char* result;
+    *len = WideCharToMultiByte(CP_ACP, 0, str, size, NULL, 0, NULL, NULL);
+    result = (char*)malloc((*len) * sizeof(char));
+    memset(result, 0, (*len) * sizeof(char));
+    WideCharToMultiByte(CP_ACP, 0, str, size, result, *len, NULL, NULL);
+    return result;
+}
+
+#if 0
 wchar_t* Utils::utf8_to_utf16(const char* str, int* len)
 {
     wchar_t* result;
@@ -99,6 +119,7 @@ wchar_t* Utils::utf8_to_utf16(const char* str, int* len)
     MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, *len);
     return result;
 }
+#endif
 
 wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
 {
@@ -110,6 +131,7 @@ wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
     return result;
 }
 
+#if 0
 char* Utils::utf16_to_utf8(const wchar_t* str, int* len)
 {
     char* result;
@@ -117,6 +139,29 @@ char* Utils::utf16_to_utf8(const wchar_t* str, int* len)
     result =(char*)malloc((*len)*sizeof(char));
     memset(result, 0, (*len)*sizeof(char));
     WideCharToMultiByte(CP_UTF8, 0, str, -1, result, *len, NULL, NULL);
+    return result;
+}
+#endif
+
+char* Utils::utf16_to_utf8_ex(const wchar_t* str, int size, int* len)
+{
+    char* result;
+    *len = WideCharToMultiByte(CP_UTF8, 0, str, size, NULL, 0, NULL, NULL);
+    result = (char*)malloc((*len) * sizeof(char));
+    memset(result, 0, (*len) * sizeof(char));
+    WideCharToMultiByte(CP_UTF8, 0, str, size, result, *len, NULL, NULL);
+    return result;
+}
+
+char* Utils::utf16_to_utf8_bom(const wchar_t* str, int size, int* len)
+{
+    char* result;
+    int bom_header_len = 3;//strlen(UTF_8_BOM);
+    *len = WideCharToMultiByte(CP_UTF8, 0, str, size, NULL, 0, NULL, NULL);
+    result = (char*)malloc((*len) * sizeof(char) + bom_header_len);
+    memset(result, 0, (*len) * sizeof(char) + bom_header_len);
+    memcpy(result, UTF_8_BOM, bom_header_len);
+    WideCharToMultiByte(CP_UTF8, 0, str, size, result + bom_header_len, *len, NULL, NULL);
     return result;
 }
 
@@ -151,6 +196,27 @@ char* Utils::Utf16ToUtf8(const wchar_t* str)
     }
 
     WideCharToMultiByte(CP_UTF8, 0, str, -1, g_result, len, NULL, NULL);
+    g_result[len] = 0;
+    return g_result;
+}
+
+char *Utils::Utf16ToAnsi(const wchar_t* str)
+{
+    int len;
+
+    len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
+    if (!g_result)
+    {
+        g_len = len + 1;
+        g_result = (char*)malloc(g_len * sizeof(char));
+    }
+    else if (g_len < len + 1)
+    {
+        g_len = len + 1;
+        g_result = (char*)realloc(g_result, g_len * sizeof(char));
+    }
+
+    WideCharToMultiByte(CP_ACP, 0, str, -1, g_result, len, NULL, NULL);
     g_result[len] = 0;
     return g_result;
 }
@@ -191,12 +257,6 @@ void Utils::FreeConvertBuffer()
     g_len = 0;
     g_wlen = 0;
 }
-
-const char *UTF_16_BE_BOM = "\xFE\xFF";
-const char *UTF_16_LE_BOM = "\xFF\xFE";
-const char *UTF_8_BOM = "\xEF\xBB\xBF";
-const char *UTF_32_BE_BOM = "\x00\x00\xFE\xFF";
-const char *UTF_32_LE_BOM = "\xFF\xFE\x00\x00";
 
 type_t Utils::check_bom(const char *data, size_t size)
 {

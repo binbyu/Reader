@@ -127,7 +127,7 @@ bool EpubBook::UnzipBook(void)
     char* filename = NULL;
     int len = 0;
 
-    filename = Utils::utf16_to_ansi(m_fileName, &len);
+    filename = Utils::Utf16ToAnsi(m_fileName);
     fill_fopen64_filefunc(&ffunc);
     uf = unzOpen2_64(filename, &ffunc);
     if (!uf)
@@ -194,8 +194,6 @@ bool EpubBook::UnzipBook(void)
     }
 
 end:
-    if (filename)
-        free(filename);
     if (uf)
     {
         unzCloseCurrentFile(uf);

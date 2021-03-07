@@ -512,7 +512,7 @@ LONG PageCache::GetIndentWidth(HDC hdc)
     return sz.cx;
 }
 
-#define is_space_indent(c) (c == 0x20 || c == 0x3000 || c == 0x09 || c == 0x0A || c == 0x0B|| c == 0x0C /*|| c == 0x0D*/)
+#define is_space_indent(c) (c == 0x20 || c == 0x3000 || c == 0xA0 || c == 0x09 || c == 0x0A || c == 0x0B || c == 0x0C /*|| c == 0x0D*/)
 
 VOID PageCache::SetIndent(HDC hdc, INT index, BOOL* indent, LONG* width)
 {

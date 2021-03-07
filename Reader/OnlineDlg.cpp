@@ -1,8 +1,9 @@
 #include "stdafx.h"
+#ifdef ENABLE_NETWORK
 #include "OnlineDlg.h"
 #include "resource.h"
 #include "HtmlParser.h"
-#include "HttpClient.h"
+#include "httpclient.h"
 #include "Utils.h"
 #include "Jsondata.h"
 #include <shellapi.h>
@@ -12,7 +13,9 @@
 static HINSTANCE g_Inst = NULL;
 static HWND g_hWnd = NULL;
 static BOOL g_Enable = TRUE;
+static BOOL g_EnableSync = TRUE;
 static req_handler_t g_hRequest = NULL;
+static req_handler_t g_hRequestSync = NULL;
 extern header_t* _header;
 static int g_lastPos = 0;
 
@@ -22,9 +25,11 @@ int MessageBoxFmt_(HWND hWnd, UINT captionId, UINT uType, UINT formatId, ...);
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-static unsigned int writer_buffer(void* data, unsigned int size, unsigned int nmemb, void* stream);
-static int OnRequestQuery(char* keyword, HWND hDlg);
+static int OnRequestQuery(http_charset_t charset, HWND hDlg);
+static int OnRequestCharset(HWND hDlg);
+static int DownloadBooksrc(HWND hDlg);
 static void EnableDialog(HWND hDlg, BOOL enable);
+static void EnableDialog_Sync(HWND hDlg, BOOL enable);
 
 void OpenBookSourceDlg(HINSTANCE hInst, HWND hWnd)
 {
@@ -38,7 +43,57 @@ void OpenOnlineDlg(HINSTANCE hInst, HWND hWnd)
     DialogBox(hInst, MAKEINTRESOURCE(IDD_ONLINE), hWnd, OnlineDlgProc);
 }
 
-BOOL Redirect(const char* host, char* html, int len, HWND hWnd);
+void DumpParseErrorFile(const char *html, int htmllen)
+{
+#if TEST_MODEL
+    FILE *fp;
+    if (html && htmllen > 0)
+    {
+        fp = fopen("dump.html", "wb");
+        if (fp)
+        {
+            fwrite(html, 1, htmllen, fp);
+            fclose(fp);
+        }
+    }
+#endif
+}
+
+#if TEST_MODEL
+void TestXpathFromDump(void)
+{
+    FILE *fp;
+    char *html;
+    int htmllen;
+    void *doc = NULL;
+    void *ctx = NULL;
+    bool fkill = false;
+    const char *xpath1 = "//div[@id='list']/dl/dd[position()>12]/a";
+    const char *xpath2 = "//div[@id='list']/dl/dd[position()>12]/a/@href";
+    std::vector<std::string> value1, value2;
+
+    fp = fopen("dump.html", "rb");
+    if (fp)
+    {
+        fseek(fp, 0, SEEK_END);
+        htmllen = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        html = (char *)malloc(htmllen+1);
+        fread(html, 1, htmllen, fp);
+        fclose(fp);
+
+        // do check
+        HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &fkill);
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, xpath1, value1, &fkill);
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, xpath2, value2, &fkill);
+        HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
+
+        free(html);
+    }
+}
+#endif
+
+BOOL Redirect(request_t *req, const char *url);
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -50,6 +105,7 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
     int i,colnum;
     int idx;
     ol_book_param_t param = { 0 };
+    HWND hHeader = NULL;
     switch (message)
     {
     case WM_INITDIALOG:
@@ -97,7 +153,7 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
         case IDCANCEL:
             if (g_hRequest)
             {
-                HttpClient::Instance()->Cancel(g_hRequest);
+                hapi_cancel(g_hRequest);
             }
             g_hRequest = NULL;
             g_Enable = TRUE;
@@ -120,22 +176,20 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
                     break;
                 }
 
-                GetDlgItemText(hDlg, IDC_EDIT_QUERY_KEYWORD, text, 256);
-                if (_tcslen(text) == 0)
-                {
-                    MessageBox_(hDlg, IDS_EMPTY_KEYWORD, IDS_ERROR, MB_ICONERROR | MB_OK);
-                    break;
-                }
                 EnableDialog(hDlg, FALSE);
-                keyword = Utils::Utf16ToUtf8(text);
-                ListView_DeleteAllItems(GetDlgItem(hDlg, IDC_LIST_QUERY));
-                OnRequestQuery(keyword, hDlg);
+                hList = GetDlgItem(hDlg, IDC_LIST_QUERY);
+                ListView_DeleteAllItems(hList);
+                hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
+                colnum = SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
+                for (i=colnum-1; i>=0; i--)
+                    SendMessage(hList, LVM_DELETECOLUMN, i, 0);
+                OnRequestCharset(hDlg);
             }
             else
             {
                 if (g_hRequest)
                 {
-                    HttpClient::Instance()->Cancel(g_hRequest);
+                    hapi_cancel(g_hRequest);
                 }
             }
             break;
@@ -242,6 +296,7 @@ static void SetBookSourceDlgData(HWND hDlg, int idx, BOOL initList)
         SetDlgItemText(hDlg, IDC_EDIT_BS_KEYWORD, Utils::Utf8ToUtf16(_header->book_sources[idx].book_status_keyword));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_STATUS), CB_SETCURSEL, _header->book_sources[idx].book_status_pos, NULL);
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), CB_SETCURSEL, _header->book_sources[idx].query_method, NULL);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), CB_SETCURSEL, _header->book_sources[idx].query_charset, NULL);
         ListView_SetItemState(hList, idx, LVIS_FOCUSED | LVIS_SELECTED, 0x000F);
     }
     else
@@ -478,6 +533,8 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
     switch (message)
     {
     case WM_INITDIALOG:
+        g_hRequestSync = NULL;
+        g_EnableSync = TRUE;
         hList = GetDlgItem(hDlg, IDC_LIST_BOOKSRC);
         ListView_SetExtendedListViewStyleEx(hList, LVS_REPORT | LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_TWOCLICKACTIVATE);
         LoadString(g_Inst, IDS_NULL, buf, 256);
@@ -489,8 +546,13 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_STATUS), CB_SETCURSEL, 0, NULL);
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), CB_ADDSTRING, 0, (LPARAM)_T("GET"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), CB_ADDSTRING, 0, (LPARAM)_T("POST"));
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), CB_SETCURSEL, 0, NULL);
-        SetBookSourceDlgData(hDlg, 0, TRUE);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), CB_ADDSTRING, 0, (LPARAM)_T("AUTO"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), CB_ADDSTRING, 0, (LPARAM)_T("UTF-8"));
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), CB_ADDSTRING, 0, (LPARAM)_T("GBK"));
+        iPos = SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+        if (iPos < 0 || iPos >= _header->book_source_count)
+            iPos = 0;
+        SetBookSourceDlgData(hDlg, iPos, TRUE);
         return (INT_PTR)TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))
@@ -569,13 +631,22 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             {
                 return (INT_PTR)FALSE;
             }
+            if (g_hRequestSync)
+            {
+                hapi_cancel(g_hRequestSync);
+            }
+            g_hRequestSync = NULL;
+            g_EnableSync = TRUE;
             // update parent combo
             SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_RESETCONTENT, 0, NULL);
             for (i = 0; i < _header->book_source_count; i++)
             {
                 SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_ADDSTRING, 0, (LPARAM)_header->book_sources[i].title);
             }
-            SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_SETCURSEL, 0, NULL);
+            iPos = ListView_GetNextItem(GetDlgItem(hDlg, IDC_LIST_BOOKSRC), -1, LVNI_SELECTED);
+            if (iPos < 0 || iPos >= _header->book_source_count)
+                iPos = 0;
+            SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_SETCURSEL, iPos, NULL);
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -632,6 +703,7 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             strcpy(_header->book_sources[iPos].book_status_keyword, Utils::Utf16ToUtf8(buf));
             _header->book_sources[iPos].book_status_pos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_STATUS), CB_GETCURSEL, 0, NULL);
             _header->book_sources[iPos].query_method = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), CB_GETCURSEL, 0, NULL);
+            _header->book_sources[iPos].query_charset = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), CB_GETCURSEL, 0, NULL);
 
             // update list view
             memset(&lvitem, 0, sizeof(LVITEM));
@@ -642,10 +714,10 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
             lvitem.pszText = _header->book_sources[iPos].title;
             ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
             
-            MessageBox_(hDlg, IDS_SAVE_COMPLETED, IDS_SUCC, MB_ICONINFORMATION | MB_OK);
-
             extern void Save(HWND);
             Save(g_hWnd);
+
+            MessageBox_(hDlg, IDS_SAVE_COMPLETED, IDS_SUCC, MB_ICONINFORMATION | MB_OK);
             break;
         case IDC_BS_MANUAL:
             ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/booksource.md"), NULL, NULL, SW_SHOWNORMAL);
@@ -708,6 +780,11 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
                 // update ui
                 ListView_DeleteAllItems(GetDlgItem(hDlg, IDC_LIST_BOOKSRC));
                 SetBookSourceDlgData(hDlg, 0, TRUE);
+
+                // save cache
+                extern void Save(HWND);
+                Save(g_hWnd);
+
                 MessageBox_(hDlg, IDS_IMPORT_COMPLETED, IDS_SUCC, MB_ICONINFORMATION | MB_OK);
             }
             break;
@@ -756,6 +833,11 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
                 export_book_source_free(json);
 
                 MessageBox_(hDlg, IDS_EXPORT_COMPLETED, IDS_SUCC, MB_ICONINFORMATION | MB_OK);
+            }
+            break;
+        case IDC_BS_SYNC:
+            {
+                DownloadBooksrc(hDlg);
             }
             break;
         default:
@@ -825,40 +907,11 @@ static INT_PTR CALLBACK OnBookSourceDlgProc(HWND hDlg, UINT message, WPARAM wPar
     return (INT_PTR)FALSE;
 }
 
-static unsigned int writer_buffer(void* data, unsigned int size, unsigned int nmemb, void* stream)
+static unsigned int RequestQueryCompleter(request_result_t *result)
 {
-    const int SIZE = 10 * 1024; // 10KB
-    int len = 0;
-    writer_buffer_param_t* param = (writer_buffer_param_t*)stream;
-
-    len = size * nmemb;
-    len = (len + SIZE - 1) / SIZE * SIZE;
-
-    if (!param->buf)
-    {
-        param->total = len;
-        param->buf = (unsigned char*)malloc(param->total);
-    }
-    else
-    {
-        if (param->total - param->used - 1 < size * nmemb)
-        {
-            param->total += len;
-            param->buf = (unsigned char*)realloc(param->buf, param->total);
-        }
-    }
-    memcpy(param->buf + param->used, data, size * nmemb);
-    param->used += size * nmemb;
-    param->buf[param->used] = 0;
-    return size * nmemb;
-}
-
-static unsigned int RequestQueryCompleter(bool result, request_t* req, int isgzip)
-{
-    writer_buffer_param_t* writer = (writer_buffer_param_t*)req->stream;
     char* html = NULL;
     int htmllen = 0;
-    HWND hDlg = (HWND)req->param1;
+    HWND hDlg = (HWND)result->param1;
     std::vector<std::string> table_name;
     std::vector<std::string> table_url;
     std::vector<std::string> table_author;
@@ -873,52 +926,80 @@ static unsigned int RequestQueryCompleter(bool result, request_t* req, int isgzi
     TCHAR colname[256] = { 0 };
     int sel;
     char Url[1024] = { 0 };
+    int needfree = 0;
 
     g_hRequest = NULL;
 
-    if (req->cancel)
+    if (result->cancel)
     {
-        free(writer->buf);
-        free(writer);
         EnableDialog(hDlg, TRUE);
         return 1;
     }
 
-    if (!result)
+    if (result->errno_ != succ)
     {
-        free(writer->buf);
-        free(writer);
         EnableDialog(hDlg, TRUE);
         MessageBox_(hDlg, IDS_NETWORK_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
         return 1;
     }
 
-    if (isgzip)
+    sel = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+    if (sel < 0 || sel >= MAX_BOOKSRC_COUNT)
     {
-        if (!Utils::gzipInflate(writer->buf, writer->used, (unsigned char**)&html, &htmllen))
+        EnableDialog(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_SELECT_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+
+    if (result->status_code != 200)
+    {
+        // redirect
+        if (Redirect(result->req, hapi_get_location(result->header)))
         {
-            free(writer->buf);
-            free(writer);
+            return 0;
+        }
+        EnableDialog(hDlg, TRUE);
+        MessageBoxFmt_(hDlg, IDS_ERROR, MB_ICONERROR | MB_OK, IDS_REQUEST_ERROR, result->status_code);
+        return 1;
+    }
+
+    if (hapi_is_gzip(result->header))
+    {
+        needfree = 1;
+        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
+        {
             EnableDialog(hDlg, TRUE);
             MessageBox_(hDlg, IDS_DECOMPRESS_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
             return 1;
         }
-        free(writer->buf);
     }
     else
     {
-        html = (char*)writer->buf;
-        htmllen = writer->used;
+        html = result->body;
+        htmllen = result->bodylen;
     }
-    free(writer);
 
-    sel = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
-    if (sel < 0 || sel >= MAX_BOOKSRC_COUNT)
+#if 0
+    //if (hapi_get_charset(result->header) != utf_8)
+#else
+    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
+#endif
     {
-        free(html);
-        EnableDialog(hDlg, TRUE);
-        MessageBox_(hDlg, IDS_SELECT_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_OK);
-        return 1;
+        wchar_t* tempbuf = NULL;
+        int templen = 0;
+        char* utf8buf = NULL;
+        int utf8len = 0;
+        // convert 'gbk' to 'utf-8'
+        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
+        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
+        free(tempbuf);
+        if (needfree)
+        {
+            free(html);
+        }
+        html = utf8buf;
+        htmllen = utf8len;
+        needfree = 1;
     }
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &cancel);
@@ -930,24 +1011,18 @@ static unsigned int RequestQueryCompleter(bool result, request_t* req, int isgzi
         HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[sel].book_status_xpath, table_status, &cancel, true);
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
-    // redirect ... test
-    if (table_url.empty() || table_name.size() != table_url.size())
-    {
-        if (Redirect(_header->book_sources[sel].host, html, htmllen, hDlg))
-        {
-            free(html);
-            return 0;
-        }
-    }
-    free(html);
-
     // check value
     if (table_url.empty() || table_name.size() != table_url.size())
     {
+        DumpParseErrorFile(html, htmllen);
+
         EnableDialog(hDlg, TRUE);
         MessageBox_(hDlg, IDS_PARSE_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
         return 1;
     }
+
+    if (needfree)
+        free(html);
 
     hList = GetDlgItem(hDlg, IDC_LIST_QUERY);
     if (hList)
@@ -1054,16 +1129,24 @@ static unsigned int RequestQueryCompleter(bool result, request_t* req, int isgzi
     return 0;
 }
 
-static int OnRequestQuery(char* keyword, HWND hDlg)
+static int OnRequestQuery(http_charset_t charset, HWND hDlg)
 {
     char* query_format;
     char url[1024];
-    char json[1024] = { 0 };
+    char content[1024] = { 0 };
     char* encode;
     request_t req;
-    writer_buffer_param_t* writer = NULL;
     int sel;
+    char *keyword = NULL;
+    TCHAR text[256] = {0};
 
+    GetDlgItemText(hDlg, IDC_EDIT_QUERY_KEYWORD, text, 256);
+    if (_tcslen(text) == 0)
+    {
+        EnableDialog(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_EMPTY_KEYWORD, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
     sel = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
     if (sel < 0 || sel >= MAX_BOOKSRC_COUNT)
     {
@@ -1071,6 +1154,11 @@ static int OnRequestQuery(char* keyword, HWND hDlg)
         MessageBox_(hDlg, IDS_SELECT_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_OK);
         return 1;
     }
+    if (charset == utf_8)
+        keyword = Utils::Utf16ToUtf8(text);
+    else
+        keyword = Utils::Utf16ToAnsi(text);
+
     if (_header->book_sources[sel].query_method == 0) // GET
     {
         query_format = _header->book_sources[sel].query_url;
@@ -1084,24 +1172,253 @@ static int OnRequestQuery(char* keyword, HWND hDlg)
         strcpy(url, _header->book_sources[sel].query_url);
 
         Utils::UrlEncode(keyword, &encode);
-        sprintf(json, _header->book_sources[sel].query_params, encode);
+        sprintf(content, _header->book_sources[sel].query_params, encode);
         Utils::UrlFree(encode);
     }
 
-    // parser chapter
-    writer = (writer_buffer_param_t*)malloc(sizeof(writer_buffer_param_t));
-    memset(writer, 0, sizeof(writer_buffer_param_t));
-    
+    // do request    
+    memset(&req, 0, sizeof(request_t));
     req.method = _header->book_sources[sel].query_method == 0 ? GET : POST;
     req.url = url;
-    req.json = json;
-    req.writer = writer_buffer;
-    req.stream = writer;
+    req.content = content;
+    req.content_length = strlen(content);
     req.completer = RequestQueryCompleter;
     req.param1 = hDlg;
     req.param2 = NULL;
 
-    g_hRequest = HttpClient::Instance()->Request(req);
+    g_hRequest = hapi_request(&req);
+    return 0;
+}
+
+static unsigned int RequestCharsetCompleter(request_result_t *result)
+{
+    HWND hDlg = (HWND)result->param1;
+
+    g_hRequest = NULL;
+
+    if (result->cancel)
+    {
+        EnableDialog(hDlg, TRUE);
+        return 1;
+    }
+
+    if (result->errno_ != succ)
+    {
+        EnableDialog(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_NETWORK_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+
+    if (result->status_code != 200)
+    {
+        // redirect
+        if (Redirect(result->req, hapi_get_location(result->header)))
+        {
+            return 0;
+        }
+        EnableDialog(hDlg, TRUE);
+        MessageBoxFmt_(hDlg, IDS_ERROR, MB_ICONERROR | MB_OK, IDS_REQUEST_ERROR, result->status_code);
+        return 1;
+    }
+
+    OnRequestQuery(hapi_get_charset(result->header), hDlg);
+
+    return 0;
+}
+
+static int OnRequestCharset(HWND hDlg)
+{
+    request_t req;
+    char* query_format;
+    char url[1024];
+    char content[1024] = { 0 };
+    char* encode;
+    int sel;
+    char *keyword = NULL;
+    TCHAR text[256] = {0};
+    http_charset_t charset;
+
+    GetDlgItemText(hDlg, IDC_EDIT_QUERY_KEYWORD, text, 256);
+    if (_tcslen(text) == 0)
+    {
+        EnableDialog(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_EMPTY_KEYWORD, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+    sel = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+    if (sel < 0 || sel >= MAX_BOOKSRC_COUNT)
+    {
+        EnableDialog(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_SELECT_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+    if (_header->book_sources[sel].query_charset != 0) // 0: auto
+    {
+        if (_header->book_sources[sel].query_charset == 1) // utf8
+            charset = utf_8;
+        else
+            charset = gbk;
+        return OnRequestQuery(charset, hDlg);
+    }
+    keyword = Utils::Utf16ToUtf8(text);
+    if (_header->book_sources[sel].query_method == 0) // GET
+    {
+        query_format = _header->book_sources[sel].query_url;
+
+        Utils::UrlEncode(keyword, &encode);
+        sprintf(url, query_format, encode);
+        Utils::UrlFree(encode);
+    }
+    else // POST
+    {
+        strcpy(url, _header->book_sources[sel].query_url);
+
+        Utils::UrlEncode(keyword, &encode);
+        sprintf(content, _header->book_sources[sel].query_params, encode);
+        Utils::UrlFree(encode);
+    }
+
+    // do request    
+    memset(&req, 0, sizeof(request_t));
+    req.method = HEAD;
+    req.url = url;
+#if 0
+    req.content = content;
+    req.content_length = strlen(content);
+#endif
+    req.completer = RequestCharsetCompleter;
+    req.param1 = hDlg;
+    req.param2 = NULL;
+
+    g_hRequest = hapi_request(&req);
+    return 0;
+}
+
+static unsigned int DownloadBooksrcCompleter(request_result_t* result)
+{
+    HWND hDlg = (HWND)result->param1;
+    char* html = NULL;
+    int htmllen = 0;
+    int needfree = 0;
+
+    g_hRequestSync = NULL;
+
+    if (result->cancel)
+    {
+        EnableDialog_Sync(hDlg, TRUE);
+        return 1;
+    }
+
+    if (result->errno_ != succ)
+    {
+        EnableDialog_Sync(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_SYNC_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+
+    if (result->status_code != 200)
+    {
+        // redirect
+        if (Redirect(result->req, hapi_get_location(result->header)))
+        {
+            return 0;
+        }
+        EnableDialog_Sync(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_SYNC_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+
+    if (hapi_is_gzip(result->header))
+    {
+        needfree = 1;
+        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
+        {
+            EnableDialog_Sync(hDlg, TRUE);
+            MessageBox_(hDlg, IDS_SYNC_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
+            return 1;
+        }
+    }
+    else
+    {
+        html = result->body;
+        htmllen = result->bodylen;
+    }
+
+#if 0
+    //if (hapi_get_charset(result->header) != utf_8)
+#else
+    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
+#endif
+    {
+        wchar_t* tempbuf = NULL;
+        int templen = 0;
+        char* utf8buf = NULL;
+        int utf8len = 0;
+        // convert 'gbk' to 'utf-8'
+        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
+        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
+        free(tempbuf);
+        if (needfree)
+        {
+            free(html);
+        }
+        html = utf8buf;
+        htmllen = utf8len;
+        needfree = 1;
+    }
+
+    // import book src
+    if (!import_book_source(html, _header->book_sources, &_header->book_source_count))
+    {
+        EnableDialog_Sync(hDlg, TRUE);
+        MessageBox_(hDlg, IDS_IMPORT_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return 1;
+    }
+    if (needfree)
+        free(html);
+
+    // update ui
+    ListView_DeleteAllItems(GetDlgItem(hDlg, IDC_LIST_BOOKSRC));
+    SetBookSourceDlgData(hDlg, 0, TRUE);
+
+    // save cache
+    extern void Save(HWND);
+    Save(g_hWnd);
+
+    EnableDialog_Sync(hDlg, TRUE);
+    MessageBox_(hDlg, IDS_SYNC_SUCC, IDS_ERROR, MB_OK);
+
+    return 0;
+}
+
+static int DownloadBooksrc(HWND hDlg)
+{
+    request_t req;
+
+    if (!g_EnableSync)
+    {
+        if (g_hRequestSync)
+            hapi_cancel(g_hRequestSync);
+        return 0;
+    }
+
+    if (_header->book_source_count > 0)
+    {
+        if (IDYES != MessageBox_(hDlg, IDS_LOST_WARN, IDS_WARN, MB_ICONWARNING | MB_YESNO))
+            return 0;
+    }
+
+    EnableDialog_Sync(hDlg, FALSE);
+
+    // do request    
+    memset(&req, 0, sizeof(request_t));
+    req.method = GET;
+    req.url = "https://raw.githubusercontent.com/binbyu/Reader/master/bs.json";
+    req.completer = DownloadBooksrcCompleter;
+    req.param1 = hDlg;
+    req.param2 = NULL;
+
+    g_hRequestSync = hapi_request(&req);
     return 0;
 }
 
@@ -1123,70 +1440,69 @@ static void EnableDialog(HWND hDlg, BOOL enable)
         SetDlgItemText(hDlg, IDC_BUTTON_OL_QUERY, szStopQuery);
 }
 
-BOOL Redirect(const char* host, char* html, int len, HWND hWnd)
+static void EnableDialog_Sync(HWND hDlg, BOOL enable)
 {
-    const redirect_kw_t redirect_kw[] =
-    {
-        {"window.location=\"","\""},
-        {"URL: ","<"}
-    };
+    TCHAR szSync[256] = { 0 };
+    TCHAR szStopSync[256] = { 0 };
+    LoadString(g_Inst, IDS_AUTO_SYNC, szSync, 256);
+    LoadString(g_Inst, IDS_STOP_SYNC, szStopSync, 256);
+    EnableWindow(GetDlgItem(hDlg, IDC_LIST_BOOKSRC), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_TITLE), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_HOST), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BS_METHOD), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_QUERY), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_POST), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BS_CHARSET), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_NAME), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_MAINPAGE), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_AUTHOR), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_CPT_TITLE), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_CPT_URL), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_CTX), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BS_STATUS), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_STATUS), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BS_KEYWORD), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_BS_EXPORT), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_BS_IMPORT), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_BS_MANUAL), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_BS_SAVE), enable);
+    EnableWindow(GetDlgItem(hDlg, IDOK), enable);
+    g_EnableSync = enable;
+    if (enable)
+        SetDlgItemText(hDlg, IDC_BS_SYNC, szSync);
+    else
+        SetDlgItemText(hDlg, IDC_BS_SYNC, szStopSync);
+}
 
-    char url[1024] = { 0 };
+BOOL Redirect(request_t *r, const char *url)
+{
     request_t req;
-    writer_buffer_param_t* writer = NULL;
-    char* b, * e;
-    int i;
 #if TEST_MODEL
     char msg[1024] = { 0 };
 #endif
 
-    if (!html || len <= 0)
+    if (!url)
         return FALSE;
 
-    for (i = 0; i < sizeof(redirect_kw) / sizeof(redirect_kw_t); i++)
-    {
-        b = strstr(html, redirect_kw[i].begin);
-        if (b)
-        {
-            b += strlen(redirect_kw[i].begin);
-            e = strstr(b, redirect_kw[i].end);
-            if (e)
-            {
-                *e = 0;
-
-                if (strncmp(b, "http", 4) == 0)
-                {
-                    strcpy(url, b);
-                }
-                else if (strncmp(b, "www.", 4) == 0)
-                {
-                    strcpy(url, "http://");
-                    strcat(url, b);
-                }
-                else
-                {
-                    strcpy(url, host);
-                    strcat(url, b);
-                }
-
-                writer = (writer_buffer_param_t*)malloc(sizeof(writer_buffer_param_t));
-                memset(writer, 0, sizeof(writer_buffer_param_t));
 #if TEST_MODEL
-                sprintf(msg, "Redirect request to: %s\n", url);
-                OutputDebugStringA(msg);
+    if (r->content)
+        sprintf(msg, "Redirect request to: %s -> %s\n", url, r->content);
+    else
+        sprintf(msg, "Redirect request to: %s\n", url);
+    OutputDebugStringA(msg);
 #endif
-                req.method = GET;
-                req.url = url;
-                req.writer = writer_buffer;
-                req.stream = writer;
-                req.completer = RequestQueryCompleter;
-                req.param1 = hWnd;
-                req.param2 = NULL;
 
-                g_hRequest = HttpClient::Instance()->Request(req);
-                return TRUE;
-            }
-        }
-    }
-    return FALSE;
+    memset(&req, 0, sizeof(request_t));
+    req.method = r->method;
+    req.url = (char *)url;
+    req.content = r->content;
+    req.content_length = r->content_length;
+    req.completer = r->completer;
+    req.param1 = r->param1;
+    req.param2 = r->param2;
+
+    g_hRequest = hapi_request(&req);
+    return TRUE;
 }
+
+#endif

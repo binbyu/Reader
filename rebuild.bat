@@ -6,9 +6,23 @@ set "sln_name=Reader"
 set "vsdevcmd=%drive_letter%:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat"
 set "config=Release"
 
-:: rebuild solution
+:: open vsdev
 if exist "%work_dir%\%config%\%sln_name%.exe" del "%work_dir%\%config%\%sln_name%.exe"
 call "%vsdevcmd%"
+
+:: build no network version
+:: -------------------------------
+copy "%sln_name%\%sln_name%.vcxproj" "%sln_name%\%sln_name%_bak.vcxproj"
+tool\repstr "ENABLE_NETWORK;" "" "%sln_name%\%sln_name%.vcxproj"
+devenv %sln_name%.sln /rebuild %config%
+del "%sln_name%\%sln_name%.vcxproj"
+ren "%sln_name%\%sln_name%_bak.vcxproj" "%sln_name%.vcxproj"
+if not exist "%work_dir%\%config%\%sln_name%.exe" goto _err
+if exist "%work_dir%\%config%\%sln_name%_no_network.exe" del "%work_dir%\%config%\%sln_name%_no_network.exe"
+ren "%work_dir%\%config%\%sln_name%.exe" "%sln_name%_no_network.exe"
+:: -------------------------------
+
+:: rebuild solution
 devenv %sln_name%.sln /rebuild %config%
 
 :: check target file
@@ -31,10 +45,12 @@ if exist "%work_dir%\%config%\%target%" rd "%work_dir%\%config%\%target%" /q /s
 mkdir "%work_dir%\%config%\%target%"
 xcopy /y "%work_dir%\readme.txt" "%work_dir%\%config%\%target%\"
 xcopy /y "%work_dir%\%config%\%sln_name%.exe" "%work_dir%\%config%\%target%\"
+xcopy /y "%work_dir%\%config%\%sln_name%_no_network.exe" "%work_dir%\%config%\%target%\"
 cd "%work_dir%\%config%\%target%\"
-..\..\tool\7z a %target%.zip %sln_name%.exe readme.txt
-..\..\tool\7z a %target%.7z %sln_name%.exe readme.txt
+..\..\tool\7z a %target%.zip %sln_name%.exe %sln_name%_no_network.exe readme.txt
+..\..\tool\7z a %target%.7z %sln_name%.exe %sln_name%_no_network.exe readme.txt
 del %sln_name%.exe readme.txt
+del %sln_name%_no_network.exe readme.txt
 cd "%work_dir%\"
 endlocal
 

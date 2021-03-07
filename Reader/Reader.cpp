@@ -47,7 +47,7 @@ INT_PTR CALLBACK    Setting(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Proxy(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    BgImage(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 INT_PTR CALLBACK    UpgradeProc(HWND, UINT, WPARAM, LPARAM);
 #endif
 
@@ -311,7 +311,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
         case IDM_VERSION:
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
             ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader/blob/master/README.md"), NULL, NULL, SW_SHOWNORMAL);
 #endif
             break;
@@ -342,9 +342,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_ADVSET:
             ADV_OpenDlg(hInst, hWnd, &(_header->chapter_rule), _Book);
             break;
+#ifdef ENABLE_NETWORK
         case IDM_ONLINE:
             OpenOnlineDlg(hInst, hWnd);
             break;
+#endif
 #if ENABLE_TAG
         case IDM_TAGSET:
             TS_OpenDlg(hInst, hWnd, _header->tags);
@@ -951,7 +953,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             else
                 ResetAutoPage(hWnd);
             break;
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
         case IDT_TIMER_UPGRADE:
             _Upgrade.Check(UpgradeCallback, hWnd);
             break;
@@ -979,7 +981,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnUpdateChapters(hWnd);
         OnUpdateBookMark(hWnd);
         break;
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
     case WM_NEW_VERSION:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_UPGRADE), hWnd, UpgradeProc);
         break;
@@ -992,7 +994,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             book_event_data_t* be = (book_event_data_t*)lParam;
             if (_Book && (!be || _Book == be->_this))
                 _Book->OnBookEvent(hWnd, message, wParam, lParam);
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
             else
             {
                 chkbook_arg_t* arg = GetCheckBookArguments();
@@ -1256,7 +1258,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         GetWindowRect(hWnd, &rc);
         if (PtInRect(&rc, pt))
         {
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
             ShellExecute(NULL, _T("open"), _T("https://github.com/binbyu/Reader"), NULL, NULL, SW_SHOWNORMAL);
 #endif
         }
@@ -1485,6 +1487,26 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     return (INT_PTR)FALSE;
 }
 
+#ifdef ENABLE_NETWORK
+int hapi_set_proxy_ex(proxy_t *proxy)
+{
+    http_proxy_t p = {0};
+    char addr[64];
+    char user[64];
+    char pass[64];
+
+    strcpy(addr, Utils::Utf16ToUtf8(_header->proxy.addr));
+    strcpy(user, Utils::Utf16ToUtf8(_header->proxy.user));
+    strcpy(pass, Utils::Utf16ToUtf8(_header->proxy.pass));
+    p.enable = proxy->enable;
+    p.port = proxy->port;
+    p.addr = addr;
+    p.user = user;
+    p.pass = pass;
+    return hapi_set_proxy(&p);
+}
+#endif
+
 INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT res;
@@ -1558,6 +1580,10 @@ INT_PTR CALLBACK Proxy(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             GetWindowText(GetDlgItem(hDlg, IDC_EDIT_PROXY_PASS), buf, 64-1);
             wcscpy(_header->proxy.pass, buf);
             Save(GetParent(hDlg));
+#ifdef ENABLE_NETWORK
+                // update proxy to libhttps
+            hapi_set_proxy_ex(&_header->proxy);
+#endif
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -1788,7 +1814,7 @@ INT_PTR CALLBACK JumpProgress(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return (INT_PTR)FALSE;
 }
 
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     json_item_data_t *vinfo;
@@ -1857,7 +1883,7 @@ LRESULT OnCreate(HWND hWnd)
     }
 
     // check upgrade
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
     CheckUpgrade(hWnd);
     StartCheckBookUpdate(hWnd);
 #endif
@@ -1905,10 +1931,12 @@ LRESULT OnUpdateMenu(HWND hWnd)
     {
         item_t* item = _Cache.get_item(i);
         AppendMenu(hFile, MF_STRING, (UINT_PTR)menu_begin_id, item->file_name);
+#ifdef ENABLE_NETWORK
         if (0 == _tcscmp(PathFindExtension(item->file_name), _T(".ol")) && item->is_new)
         {
             SetMenuItemBitmaps(hFile, menu_begin_id, MF_BITMAP, hBitmap, hBitmap);
         }
+#endif
         menu_begin_id++;
     }
     if (_header->item_count > 0)
@@ -2900,7 +2928,11 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         // check is txt file
         ext = PathFindExtension(szFileName);
+#ifdef ENABLE_NETWORK
         if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
+#else
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+#endif
         {
             continue;
         }
@@ -3099,11 +3131,14 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
 #endif
     _Book->SetRect(&rect);
     _Book->SetChapterRule(&(_header->chapter_rule));
+
+#ifdef ENABLE_NETWORK
     if (_Book->GetBookType() == book_online)
     {
         _item->is_new = FALSE;
         ((OnlineBook*)_Book)->UpdateBookSource();
     }
+#endif
 
     // update menu
     OnUpdateMenu(hWnd);
@@ -3179,11 +3214,14 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 #endif
     int size = 0;
     TCHAR szFileName[MAX_PATH] = {0};
+#ifdef ENABLE_NETWORK
     chkbook_arg_t* arg = NULL;
+#endif
 
     _tcscpy(szFileName, filename);
     ext = PathFindExtension(szFileName);
 
+#ifdef ENABLE_NETWORK
     if (!_header || _header->book_source_count == 0)
     {
         if (0 == _tcscmp(ext, _T(".ol")))
@@ -3192,8 +3230,10 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
             return;
         }
     }
-
     if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
+#else
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+#endif
     {
         MessageBox_(hWnd, IDS_UNKNOWN_FORMAT, IDS_ERROR, MB_OK | MB_ICONERROR);
         return;
@@ -3279,10 +3319,10 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
 #endif
         _Book->SetFileName(szFileName);
         _Book->OpenBook(hWnd);
-}
+    }
+#ifdef ENABLE_NETWORK
     else if (_tcscmp(ext, _T(".ol")) == 0)
     {
-#if ENABLE_NETWORK
         arg = GetCheckBookArguments();
         if (arg && arg->book && arg->book->GetBookType() == book_online
             && 0 == _tcscmp(arg->book->GetFileName(), szFileName))
@@ -3290,16 +3330,16 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
             delete arg->book;
             arg->book = NULL;
         }
-#endif
         _Book = new OnlineBook;
         _Book->SetFileName(szFileName);
         _Book->OpenBook(NULL, size, hWnd);
     }
-    
+#endif
     //EnableWindow(hWnd, FALSE);
     PlayLoadingImage(hWnd);
 }
 
+#ifdef ENABLE_NETWORK
 void OnOpenOlBook(HWND hWnd, void* olparam)
 {
     static TCHAR oldir[MAX_PATH] = { 0 };
@@ -3368,6 +3408,7 @@ void OnOpenOlBook(HWND hWnd, void* olparam)
 
     OnOpenBook(hWnd, savepath, FALSE);
 }
+#endif
 
 VOID GetCacheVersion(TCHAR *ver)
 {
@@ -3375,6 +3416,20 @@ VOID GetCacheVersion(TCHAR *ver)
     Utils::GetApplicationVersion(version);
     wcscpy(ver, version);
 }
+
+#if TEST_MODEL
+void __stdcall hapi_logger_print(const char* format,...)
+{
+    char buffer[4096] = { 0 };
+    va_list args;
+
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer) - 1, format, args);
+    va_end(args);
+
+    OutputDebugStringA(buffer);
+}
+#endif
 
 BOOL Init(void)
 {
@@ -3397,9 +3452,20 @@ BOOL Init(void)
         }
     }
 
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
+    hapi_init();
     // set proxy for http client
-    HttpClient::Instance()->SetProxy(&_header->proxy);
+    hapi_set_proxy_ex(&_header->proxy);
+    hapi_enable_cache_cookie(1);
+#if TEST_MODEL
+    hapi_set_logger(hapi_logger_print);
+#endif
+#endif
+
+    // just for debug
+#if 0
+    extern void TestXpathFromDump(void);
+    TestXpathFromDump();
 #endif
 
     return TRUE;
@@ -3417,9 +3483,9 @@ void Exit(void)
     {
         MessageBox_(NULL, IDS_SAVE_CACHE_FAIL, IDS_ERROR, MB_OK);
     }
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
     HtmlParser::ReleaseInstance();
-    HttpClient::ReleaseInstance();
+    hapi_uninit();
 #endif
 }
 
@@ -3582,7 +3648,7 @@ void RemoveMenus(HWND hWnd, BOOL redraw)
 
     hMenu = GetMenu(hWnd);
 
-#if !ENABLE_NETWORK
+#ifndef ENABLE_NETWORK
     RemoveMenuById(hMenu, TRUE, IDM_PROXY);
     RemoveMenuById(hMenu, TRUE, IDM_ONLINE);
     RemoveMenuById(hMenu, TRUE, IDM_VERSION);
@@ -3795,12 +3861,12 @@ void ResetAutoPage(HWND hWnd)
     }
 }
 
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 void CheckUpgrade(HWND hWnd)
 {
     // set proxy & check upgrade
-    _Upgrade.SetProxy(&_header->proxy);
     _Upgrade.SetIngoreVersion(_header->ingore_version);
+    _Upgrade.SetCheckVerTime(&_header->checkver_time);
     _Upgrade.Check(UpgradeCallback, hWnd);
     SetTimer(hWnd, IDT_TIMER_UPGRADE, 24 * 60 * 60 * 1000 /*one day*/, NULL);
 }
@@ -3836,7 +3902,6 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
 #if TEST_MODEL
     char msg[1024] = { 0 };
     char* ansi = NULL;
-    int len;
 #endif
 
     if (!arg)
@@ -3846,10 +3911,9 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
         return;
 
 #if TEST_MODEL
-    ansi = Utils::utf16_to_ansi(arg->book->GetFileName(), &len);
+    ansi = Utils::Utf16ToAnsi(arg->book->GetFileName());
     sprintf(msg, "{%s:%d} file=%s\n", __FUNCTION__, __LINE__, ansi);
     OutputDebugStringA(msg);
-    free(ansi);
 #endif
 
     if (is_update)

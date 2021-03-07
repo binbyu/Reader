@@ -16,15 +16,19 @@ public:
 #endif
 
     // convert
-    static wchar_t* ansi_to_utf16(const char* str, int* len);
+    //static wchar_t* ansi_to_utf16(const char* str, int* len);
     static wchar_t* ansi_to_utf16_ex(const char* str, int size, int* len);
-    static char* utf16_to_ansi(const wchar_t* str, int* len);
-    static wchar_t* utf8_to_utf16(const char* str, int* len);
+    //static char* utf16_to_ansi(const wchar_t* str, int* len);
+    static char* utf16_to_ansi_ex(const wchar_t* str, int size, int* len);
+    //static wchar_t* utf8_to_utf16(const char* str, int* len);
     static wchar_t* utf8_to_utf16_ex(const char* str, int size, int* len);
-    static char* utf16_to_utf8(const wchar_t* str, int* len);
+    //static char* utf16_to_utf8(const wchar_t* str, int* len);
+    static char* utf16_to_utf8_ex(const wchar_t* str, int size, int* len);
+    static char* utf16_to_utf8_bom(const wchar_t* str, int size, int* len);
     static void free_buffer(void* buffer);
 
     static char* Utf16ToUtf8(const wchar_t* str); // not free
+    static char* Utf16ToAnsi(const wchar_t* str); // not free
     static wchar_t* Utf8ToUtf16(const char* str); // not free
     static void FreeConvertBuffer();
 

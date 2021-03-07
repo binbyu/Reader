@@ -243,7 +243,7 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
         {
             src += 3;
             srcsize -= 3;
-            *dst = Utils::utf8_to_utf16(src, dstsize);
+            *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize);
             (*dstsize)--;
         }
         else if (utf16_le == bom)
@@ -328,7 +328,7 @@ bool Book::FormatText(wchar_t *text, int *len, bool flag)
             continue;
 
         // Remove extra spaces
-        if (0x20 == text[i]) // Keep up to 4 consecutive spaces
+        if (0x20 == text[i] || 0xA0) // Keep up to 4 consecutive spaces
         {
             if (index > 3 && buf[index - 1] == text[i] && buf[index - 2] == text[i] && buf[index - 3] == text[i] && buf[index - 4] == text[i])
                 continue;
@@ -350,7 +350,7 @@ bool Book::FormatText(wchar_t *text, int *len, bool flag)
 
 bool Book::IsBlanks(wchar_t c)
 {
-    if (c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0B || c == 0x0C || c == 0x0D || c == 0x3000)
+    if (c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0B || c == 0x0C || c == 0x0D || c == 0x3000 || c == 0xA0)
     {
         return true;
     }

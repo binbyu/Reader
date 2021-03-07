@@ -32,6 +32,7 @@ using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+
 #include <Winsock2.h>
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -40,15 +41,21 @@ using namespace Gdiplus;
 
 #include <Shobjidl.h>
 
-
 #pragma comment(lib, "Msimg32.lib")
+#pragma comment(lib, "Version.lib")
 
 #ifdef _DEBUG
 #pragma comment(lib, "zlibstatd.lib")
 #pragma comment(lib, "libxml2_ad.lib")
+#ifdef ENABLE_NETWORK
+#pragma comment(lib, "libhttpsd.lib")
+#endif
 #else
 #pragma comment(lib, "zlibstat.lib")
 #pragma comment(lib, "libxml2_a.lib")
+#ifdef ENABLE_NETWORK
+#pragma comment(lib, "libhttps.lib")
+#endif
 #endif
 
 

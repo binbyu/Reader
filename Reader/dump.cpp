@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "dump.h"
-
 #ifdef _DEBUG
 #include <DbgHelp.h>
 
@@ -52,4 +51,5 @@ LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException)
 
     return EXCEPTION_EXECUTE_HANDLER;  
 }
+
 #endif

@@ -291,6 +291,7 @@ class json_book_source_t
     cJSON* query_url;
     cJSON* query_method;
     cJSON* query_params;
+    cJSON* query_charset;
     cJSON* book_name_xpath;
     cJSON* book_mainpage_xpath;
     cJSON* book_author_xpath;
@@ -308,6 +309,7 @@ public:
         query_url = cJSON_AddStringToObject(parent, "query_url", data->query_url);
         query_method = cJSON_AddNumberToObject(parent, "query_method", data->query_method);
         query_params = cJSON_AddStringToObject(parent, "query_params", data->query_params);
+        query_charset = cJSON_AddNumberToObject(parent, "query_charset", data->query_charset);
         book_name_xpath = cJSON_AddStringToObject(parent, "book_name_xpath", data->book_name_xpath);
         book_mainpage_xpath = cJSON_AddStringToObject(parent, "book_mainpage_xpath", data->book_mainpage_xpath);
         book_author_xpath = cJSON_AddStringToObject(parent, "book_author_xpath", data->book_author_xpath);
@@ -325,6 +327,7 @@ public:
         query_url = cJSON_GetObjectItem(parent, "query_url");
         query_method = cJSON_GetObjectItem(parent, "query_method");
         query_params = cJSON_GetObjectItem(parent, "query_params");
+        query_charset = cJSON_GetObjectItem(parent, "query_charset");
         book_name_xpath = cJSON_GetObjectItem(parent, "book_name_xpath");
         book_mainpage_xpath = cJSON_GetObjectItem(parent, "book_mainpage_xpath");
         book_author_xpath = cJSON_GetObjectItem(parent, "book_author_xpath");
@@ -347,6 +350,8 @@ public:
             data->query_method = query_method->valueint;
         if (query_params)
             strcpy(data->query_params, query_params->valuestring);
+        if (query_charset)
+            data->query_charset = query_charset->valueint;
         if (book_name_xpath)
             strcpy(data->book_name_xpath, book_name_xpath->valuestring);
         if (book_mainpage_xpath)
@@ -390,6 +395,7 @@ class json_header_t
     cJSON* word_wrap;
     cJSON* line_indent;
     cJSON* ingore_version;
+    cJSON* checkver_time;
     cJSON* keyset;
     json_rect_t* rect;
     json_rect_t* internal_border;
@@ -429,6 +435,7 @@ public:
         word_wrap = cJSON_AddNumberToObject(parent, "word_wrap", data->word_wrap);
         line_indent = cJSON_AddNumberToObject(parent, "line_indent", data->line_indent);
         ingore_version = cJSON_AddStringToObject(parent, "ingore_version", Utils::Utf16ToUtf8(data->ingore_version));
+        checkver_time = cJSON_AddULongToObject(parent, "checkver_time", data->checkver_time);
 
         keyset = cJSON_AddArrayToObject(parent, "keyset");
         for (i = KI_HIDE; i < KI_MAXCOUNT; i++)
@@ -514,6 +521,7 @@ public:
         word_wrap = cJSON_GetObjectItem(parent, "word_wrap");
         line_indent = cJSON_GetObjectItem(parent, "line_indent");
         ingore_version = cJSON_GetObjectItem(parent, "ingore_version");
+        checkver_time = cJSON_GetObjectItem(parent, "checkver_time");
 
         keyset = cJSON_GetObjectItem(parent, "keyset");
 
@@ -643,6 +651,8 @@ public:
             data->line_indent = line_indent->valueint;
         if (ingore_version)
             wcscpy(data->ingore_version, Utils::Utf8ToUtf16(ingore_version->valuestring));
+        if (checkver_time)
+            data->checkver_time = *((u32*)&checkver_time->valueint);
 
         if (keyset)
         {

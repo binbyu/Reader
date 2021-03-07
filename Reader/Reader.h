@@ -5,7 +5,7 @@
 #include "resource.h"
 #include "Cache.h"
 #include "Utils.h"
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 #include "Upgrade.h"
 #endif
 #include "Book.h"
@@ -25,6 +25,7 @@ typedef struct loading_data_t
     HGLOBAL hMemory;
 } loading_data_t;
 
+#ifdef ENABLE_NETWORK
 struct chkbook_arg_t
 {
     HWND hWnd;
@@ -37,6 +38,7 @@ struct chkbook_arg_t
         book = NULL;
     }
 };
+#endif
 
 
 Cache               _Cache(CACHE_FILE_NAME);
@@ -48,7 +50,7 @@ HWND                _hTreeMark              = NULL;
 UINT                _uFindReplaceMsg        = 0;
 window_info_t       _WndInfo                = { 0 };
 BOOL                _IsAutoPage             = FALSE;
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 Upgrade             _Upgrade;
 #endif
 Book *              _Book                   = NULL;
@@ -101,7 +103,6 @@ LRESULT             OnOpenBookResult(HWND, BOOL);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
 void                ShowHideWindow(HWND);
 void                OnOpenBook(HWND, TCHAR *, BOOL);
-void                OnOpenOlBook(HWND, void*);
 VOID                GetCacheVersion(TCHAR *);
 BOOL                Init(void);
 void                Exit(void);
@@ -119,13 +120,14 @@ void                StopAutoPage(HWND);
 void                PauseAutoPage(HWND);
 void                ResumeAutoPage(HWND);
 void                ResetAutoPage(HWND hWnd);
-#if ENABLE_NETWORK
+#ifdef ENABLE_NETWORK
 void                CheckUpgrade(HWND);
 bool                UpgradeCallback(void *, json_item_data_t *);
 chkbook_arg_t*      GetCheckBookArguments();
 void                StartCheckBookUpdate(HWND hWnd);
 void                OnCheckBookUpdateCallback(int is_update, int err, void* param);
 void                OnCheckBookUpdate(HWND hWnd);
+void                OnOpenOlBook(HWND, void*);
 #endif
 bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);
