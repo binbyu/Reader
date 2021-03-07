@@ -2,7 +2,7 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.9.1.0`<br/>
+最新release版本：`v1.9.2.0`<br/>
 (百度网盘)<br/>
 链接: [https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA](https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA)<br/>
 提取码: `hm3d`
