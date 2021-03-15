@@ -111,5 +111,21 @@
 			"book_status_pos":	0,
 			"book_status_xpath":	"",
 			"book_status_keyword":	""
+		}, {
+			"title":	"顶点小说",
+			"host":	"https://www.ddxstxt8.com",
+			"query_url":	"https://so.biqusoso.com/s1.php?ie=gbk&siteid=booktxt.net&q=%s",
+			"query_method":	0,
+			"query_params":	"",
+			"query_charset":	2,
+			"book_name_xpath":	"//div[@class='search-list']/ul/li[position()>1]/span[@class='s2']/a",
+			"book_mainpage_xpath":	"//div[@class='search-list']/ul/li[position()>1]/span[@class='s2']/a/@href",
+			"book_author_xpath":	"//div[@class='search-list']/ul/li[position()>1]/span[@class='s4']",
+			"chapter_title_xpath":	"//div[@id='list']/dl/dd[position()>6]/a",
+			"chapter_url_xpath":	"//div[@id='list']/dl/dd[position()>6]/a/@href",
+			"content_xpath":	"//div[@id='content']",
+			"book_status_pos":	0,
+			"book_status_xpath":	"",
+			"book_status_keyword":	""
 		}]
 }
