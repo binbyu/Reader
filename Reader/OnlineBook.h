@@ -48,11 +48,12 @@ protected:
     bool DownloadPrevNext(HWND hWnd);
     virtual bool OnDrawPageEvent(HWND hWnd);
     virtual bool OnLineUpDownEvent(HWND hWnd, BOOL up, int n);
-    void TidyHtml(char *html, int *len);
+    void FormatHtml(char **html, int *len, int *needfree);
+    void TidyHtml(char* html, int* len);
     void TidyUrl(char* html, int* len);
     void PlayLoading(HWND hWnd);
     void StopLoading(HWND hWnd, int idx);
-    BOOL Redirect(request_t *r, const char *url, req_handler_t hOld);
+    BOOL Redirect(OnlineBook* _this, request_t *r, const char *url, req_handler_t hOld);
 
 public:
     void UpdateBookSource(void);

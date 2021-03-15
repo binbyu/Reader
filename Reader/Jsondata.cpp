@@ -954,7 +954,8 @@ bool export_book_source(const book_source_t* bs, int count, char** json)
         delete json_bs;
     }
 
-    *json = cJSON_PrintUnformatted(root);
+    //*json = cJSON_PrintUnformatted(root);
+    *json = cJSON_Print(root);
     cJSON_Delete(root);
     return true;
 }

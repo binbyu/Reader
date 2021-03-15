@@ -46,12 +46,14 @@ void OpenOnlineDlg(HINSTANCE hInst, HWND hWnd)
 void DumpParseErrorFile(const char *html, int htmllen)
 {
 #if TEST_MODEL
+    const char* UTF_8_BOM = "\xEF\xBB\xBF";
     FILE *fp;
     if (html && htmllen > 0)
     {
         fp = fopen("dump.html", "wb");
         if (fp)
         {
+            fwrite(UTF_8_BOM, 1, 3, fp);
             fwrite(html, 1, htmllen, fp);
             fclose(fp);
         }
@@ -93,7 +95,7 @@ void TestXpathFromDump(void)
 }
 #endif
 
-BOOL Redirect(request_t *req, const char *url);
+BOOL Redirect(HWND hDlg, request_t *req, const char *url);
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -954,7 +956,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     if (result->status_code != 200)
     {
         // redirect
-        if (Redirect(result->req, hapi_get_location(result->header)))
+        if (Redirect(hDlg, result->req, hapi_get_location(result->header)))
         {
             return 0;
         }
@@ -1212,7 +1214,7 @@ static unsigned int RequestCharsetCompleter(request_result_t *result)
     if (result->status_code != 200)
     {
         // redirect
-        if (Redirect(result->req, hapi_get_location(result->header)))
+        if (Redirect(hDlg, result->req, hapi_get_location(result->header)))
         {
             return 0;
         }
@@ -1319,7 +1321,7 @@ static unsigned int DownloadBooksrcCompleter(request_result_t* result)
     if (result->status_code != 200)
     {
         // redirect
-        if (Redirect(result->req, hapi_get_location(result->header)))
+        if (Redirect(hDlg, result->req, hapi_get_location(result->header)))
         {
             return 0;
         }
@@ -1474,15 +1476,23 @@ static void EnableDialog_Sync(HWND hDlg, BOOL enable)
         SetDlgItemText(hDlg, IDC_BS_SYNC, szStopSync);
 }
 
-BOOL Redirect(request_t *r, const char *url)
+BOOL Redirect(HWND hDlg, request_t *r, const char *url)
 {
     request_t req;
+    char url_[1024] = { 0 };
+    int sel;
 #if TEST_MODEL
     char msg[1024] = { 0 };
 #endif
 
     if (!url)
         return FALSE;
+
+    sel = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+    if (sel < 0 || sel >= MAX_BOOKSRC_COUNT)
+    {
+        return FALSE;
+    }
 
 #if TEST_MODEL
     if (r->content)
@@ -1492,9 +1502,18 @@ BOOL Redirect(request_t *r, const char *url)
     OutputDebugStringA(msg);
 #endif
 
+    if (_strnicmp("http", url, 4) != 0)
+    {
+        sprintf(url_, "%s%s", _header->book_sources[sel].host, url);
+    }
+    else
+    {
+        strcpy(url_, url);
+    }
+
     memset(&req, 0, sizeof(request_t));
     req.method = r->method;
-    req.url = (char *)url;
+    req.url = url_;
     req.content = r->content;
     req.content_length = r->content_length;
     req.completer = r->completer;

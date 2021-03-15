@@ -693,11 +693,13 @@ bool _check_olfile(const TCHAR *filename)
         goto fail;
     }
 
+#if 0 // basesize not read host info
     strcpy(host, buf + header->host_offset);
     if (!FindBookSource(host))
     {
         goto fail;
     }
+#endif
 
     return true;
 
@@ -952,22 +954,17 @@ void OnlineBook::TidyHtml(char* html, int* len)
     char* buf = NULL;
     int index = 0;
     int i;
-    
+
     buf = (char*)malloc((*len)+1);
     if (!buf)
         return;
     for (i = 0; i < *len; i++)
     {
-        // replace "<br/>"
-        if (i < (*len - 5) && html[i] == '<' && html[i+1] == 'b' && html[i+2] == 'r' && html[i+3] == '/' && html[i+4] == '>')
+        // replace "<br><br>"
+        if (i < (*len - 8) && strncmp(html+i, "<br><br>", 8) == 0)
         {
             buf[index++] = '\n';
-            i += 4;
-        }
-        else if (i < (*len - 6) && html[i] == '<' && html[i + 1] == 'b' && html[i + 2] == 'r' && html[i + 3] == ' ' && html[i + 4] == '/' && html[i + 5] == '>')
-        {
-            buf[index++] = '\n';
-            i += 5;
+            i += 7;
         }
         else
         {
@@ -981,6 +978,27 @@ void OnlineBook::TidyHtml(char* html, int* len)
         memcpy(html, buf, index + 1);
     }
     free(buf);
+}
+
+void OnlineBook::FormatHtml(char** html, int* len, int *needfree)
+{
+    char *htmlfmt = NULL;
+    int lenfmt = 0;
+
+    if (*html && (*len) > 0)
+    {
+        HtmlParser::Instance()->FormatHtml(*html, *len, &htmlfmt, &lenfmt);
+        if (htmlfmt && lenfmt > 0)
+        {
+            if ((*needfree) == 1)
+                free(*html);
+            *html = htmlfmt;
+            *len = lenfmt;
+            *needfree = 2;
+            //HtmlParser::Instance()->FreeFormat(htmlfmt);
+            TidyHtml(*html, len);
+        }
+    }
 }
 
 void OnlineBook::TidyUrl(char* html, int* len)
@@ -1053,10 +1071,11 @@ void OnlineBook::StopLoading(HWND hWnd, int idx)
     }
 }
 
-BOOL OnlineBook::Redirect(request_t *r, const char *url, req_handler_t hOld)
+BOOL OnlineBook::Redirect(OnlineBook *_this, request_t *r, const char *url, req_handler_t hOld)
 {
     request_t req;
     req_handler_t hReq;
+    char url_[1024] = {0};
 #if TEST_MODEL
     char msg[1024] = { 0 };
 #endif
@@ -1072,9 +1091,18 @@ BOOL OnlineBook::Redirect(request_t *r, const char *url, req_handler_t hOld)
     OutputDebugStringA(msg);
 #endif
 
+    if (_strnicmp("http", url, 4) != 0)
+    {
+        sprintf(url_, "%s%s", _this->m_Host, url);
+    }
+    else
+    {
+        strcpy(url_, url);
+    }
+
     memset(&req, 0, sizeof(request_t));
     req.method = r->method;
-    req.url = (char *)url;
+    req.url = url_;
     req.content = r->content;
     req.content_length = r->content_length;
     req.completer = r->completer;
@@ -1210,8 +1238,20 @@ unsigned int OnlineBook::GetChaptersCompleter(request_result_t *result)
     if (result->status_code != 200)
     {
         // redirect
-        if (_this->Redirect(result->req, hapi_get_location(result->header), result->handler))
+        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
+        {
+            // update m_MainPage
+            const char *url = hapi_get_location(result->header);
+            if (_strnicmp("http", url, 4) != 0)
+            {
+                sprintf(_this->m_MainPage, "%s%s", _this->m_Host, url);
+            }
+            else
+            {
+                strcpy(_this->m_MainPage, url);
+            }
             return 1;
+        }   
         goto end;
     }
 
@@ -1372,7 +1412,7 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
     if (result->status_code != 200)
     {
         // redirect
-        if (_this->Redirect(result->req, hapi_get_location(result->header), result->handler))
+        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
             return 1;
         goto end;
     }
@@ -1419,7 +1459,7 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
     if (_this->m_bForceKill)
         goto end;
 
-    _this->TidyHtml(html, &htmllen);
+    _this->FormatHtml(&html, &htmllen, &needfree);
 
     if (_this->m_bForceKill)
         goto end;
@@ -1470,8 +1510,11 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
     ret = 0;
 
 end:
-    if (needfree && html)
-        free(html);
+    if (html)
+        if (needfree == 1)
+            free(html);
+        else if (needfree == 2)
+            HtmlParser::Instance()->FreeFormat(html);
     if (dst)
         free(dst);
     if (!result->cancel)
@@ -1520,7 +1563,7 @@ unsigned int OnlineBook::GetBookStatusCompleter(request_result_t *result)
     if (result->status_code != 200)
     {
         // redirect
-        if (_this->Redirect(result->req, hapi_get_location(result->header), result->handler))
+        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
             return 1;
         goto end;
     }

@@ -21,6 +21,9 @@ public:
     int HtmlParseByXpath(void *doc, void *ctx, const std::string &xpath, std::vector<std::string> &value, bool* stop, bool clear = false);
     int HtmlParseEnd(void *doc, void *ctx);
 
+    int FormatHtml(char *html, int len, char **htmlfmt, int *fmtlen);
+    void FreeFormat(char *htmlfmt);
+
 private:
     char * CreateContent(const char* xml);
     void ReleaseContent(char *content);

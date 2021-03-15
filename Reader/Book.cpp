@@ -328,7 +328,7 @@ bool Book::FormatText(wchar_t *text, int *len, bool flag)
             continue;
 
         // Remove extra spaces
-        if (0x20 == text[i] || 0xA0) // Keep up to 4 consecutive spaces
+        if (0x20 == text[i] || 0xA0 == text[i]) // Keep up to 4 consecutive spaces
         {
             if (index > 3 && buf[index - 1] == text[i] && buf[index - 2] == text[i] && buf[index - 3] == text[i] && buf[index - 4] == text[i])
                 continue;

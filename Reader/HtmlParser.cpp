@@ -2,6 +2,7 @@
 #include "HtmlParser.h"
 #include "libxml/HTMLparser.h"
 #include "libxml/xpath.h"
+#include "libxml/HTMLtree.h"
 
 
 HtmlParser::HtmlParser()
@@ -259,4 +260,38 @@ int HtmlParser::HtmlParseEnd(void* doc_, void* ctx_)
     if (doc)
         xmlFreeDoc(doc);
     return 0;
+}
+
+int HtmlParser::FormatHtml(char *html, int len, char **htmlfmt, int *fmtlen)
+{
+    xmlDocPtr doc = NULL;
+    xmlChar *format_str = NULL;
+    int size = 0;
+
+    xmlKeepBlanksDefault(0);
+    xmlIndentTreeOutput = 0;
+    doc = htmlReadMemory(html, len, NULL, NULL, HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS);
+
+    if (doc)
+    {
+        htmlDocDumpMemoryFormat(doc, &format_str, &size, 1);
+        xmlFreeDoc(doc);
+        if (!format_str || size <= 0)
+        {
+            if (format_str)
+                xmlFree(format_str);
+        }
+    }
+
+    xmlKeepBlanksDefault(1);
+    xmlIndentTreeOutput = 0;
+
+    *htmlfmt = (char *)format_str;
+    *fmtlen = size;
+    return 0;
+}
+
+void HtmlParser::FreeFormat(char *htmlfmt)
+{
+    xmlFree(htmlfmt);
 }

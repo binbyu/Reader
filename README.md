@@ -2,11 +2,22 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.9.2.0`<br/>
+最新release版本：`v1.9.2.2`<br/>
 (百度网盘)<br/>
 链接: [https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA](https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA)<br/>
 提取码: `hm3d`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.9.2.2 2021/03/15 bug修复<br/>
+1. 新增对"在线小说"文本进行自动格式化排版<br/>
+   1.1 优化后"在线小说"文本排版更优<br/>
+2. 修复"顶点小说"书源无法打开小说问题<br/>
+3. 新增微信公众号，可以及时获取版本更新，和更多使用技巧<br/>
+   3.1 有需要的书友可以关注<br/>
+   3.2 关注方式：菜单 > 帮助 > 关于<br/>
 <br/>
 <br/>
 <br/>
@@ -17,7 +28,7 @@ A win32 txt/epub file reader
    1.2 github issue里面反馈的书源，都已经配置到了bs.json内<br/>
    1.3 由于书源网站一直在变，无法保证书源配置一直可用。<br/>
        如果有书源更新时，我会尽量及时更新到<br/>
-       https://github.com/binbyu/Reader/blob/master/bs.json<br/>
+       https://github.com/binbyu/Reader/blob/main/bs.json<br/>
 2. 在线书源支持页面编码自动识别（修复gbk编码方式的问题）<br/>
 3. release包内新增Reader_no_network.exe，该版本为无网络版本<br/>
 <br/>
@@ -31,7 +42,7 @@ A win32 txt/epub file reader
    1.3 修复原在线书源已经失效的问题<br/>
    1.4 由于书源网站一直在变，无法保证书源配置一直可用。<br/>
        如果有书源更新时，我会尽量及时更新到<br/>
-       https://github.com/binbyu/Reader/blob/master/bs.json<br/>
+       https://github.com/binbyu/Reader/blob/main/bs.json<br/>
 2. 新增首行缩进功能<br/>
 3. 修复page up/down按键不能设置为快捷键的问题<br/>
 版本：`v1.9.1.0`<br/>

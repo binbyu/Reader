@@ -121,17 +121,12 @@ int Upgrade::ParserJson(const char* json)
         if (vercmp(data.version.c_str(), temp) < 0)
         {
             data.version = temp;
-            free(temp);
             temp = Utils::Utf8ToUtf16(url->valuestring);
             data.url = temp;
-            free(temp);
             temp = Utils::Utf8ToUtf16(desc->valuestring);
             data.desc = temp;
-            free(temp);
             data.force = force->valueint;
         }
-        else
-            free(temp);
     }
 
     if (vercmp(data.version.c_str(), m_IngoreVersion) == 0)
