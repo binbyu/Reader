@@ -6,7 +6,6 @@
 #include "Book.h"
 #include "EpubBook.h"
 
-
 PageCache::PageCache()
     : m_Text(NULL)
     , m_TextLength(0)
@@ -34,12 +33,13 @@ PageCache::~PageCache()
 }
 
 #if ENABLE_TAG
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags)
+void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags)
 #else
-void PageCache::Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib)
+void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib)
 #endif
 {
     m_CurrentPos = pos;
+    m_charGap = cg;
     m_lineGap = lg;
     m_LeftLineCount = lc;
     m_InternalBorder = ib;
@@ -212,8 +212,9 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
     int h;
     line_info_t *line;
     RECT rect;
-#if ENABLE_TAG
     int j;
+    SIZE sz = { 0 };
+#if ENABLE_TAG
 	HFONT tagfonts[MAX_TAG_COUNT] = {0};
 #endif	
 
@@ -241,9 +242,9 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
         || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_OnePageLineCount >= m_PageInfo.line_size))
     {
 #if ENABLE_TAG
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), tagfonts);
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_OnePageLineCount, tagfonts);
 #else
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right));
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_OnePageLineCount);
 #endif
     }
     if (m_PageInfo.line_size == 0) // fixed bug
@@ -272,10 +273,10 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
         else
             rect.left = m_InternalBorder->left;
 #if ENABLE_TAG
-        SIZE sz = {0};
         for (j=0; j<line->length; j++)
         {
             int tagid = IsTag(j+line->start);
+            rect.left += (*m_charGap) / 2;
             if (tagid >= 0 && tagid < MAX_TAG_COUNT)
             {
                 COLORREF oldcolor = SetBkColor(hdc, m_tags[tagid].bg_color);
@@ -283,7 +284,7 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
                 HFONT oldfont = (HFONT)SelectObject(hdc, tagfonts[tagid]);
                 int oldmode = SetBkMode(hdc, OPAQUE);
 
-                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
+                TextOut(hdc, rect.left, rect.top, m_Text + j + line->start, 1);
                 GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
                 SetBkColor(hdc, oldcolor);
                 SetTextColor(hdc, oldfontcolor);
@@ -292,13 +293,21 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
             }
             else
             {
-                DrawText(hdc, m_Text+j+line->start, 1, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
+                TextOut(hdc, rect.left, rect.top, m_Text + j + line->start, 1);
                 GetTextExtentPoint32(hdc, m_Text+j+line->start, 1, &sz);
             }
             rect.left += sz.cx;
+            rect.left += (*m_charGap) - ((*m_charGap) / 2);
         }
 #else
-        DrawText(hdc, m_Text + line->start, line->length, &rect, DT_LEFT | DT_SINGLELINE | DT_NOCLIP | DT_NOPREFIX);
+        for (j = 0; j < line->length; j++)
+        {
+            GetTextExtentPoint32(hdc, m_Text + line->start + j, 1, &sz);
+            rect.left += (*m_charGap) / 2;
+            TextOut(hdc, rect.left, rect.top, m_Text + line->start + j, 1);
+            rect.left += sz.cx;
+            rect.left += (*m_charGap) - ((*m_charGap) / 2);
+        }
 #endif
         rect.top += h;
         m_CurPageSize += line->length;
@@ -493,14 +502,15 @@ LONG PageCache::GetLineHeight(HDC hdc)
 #endif
 }
 
-INT PageCache::GetCahceUnitSize(HDC hdc)
+INT PageCache::GetCahceUnitSize(HDC hdc, INT hcnt)
 {
     SIZE sz = { 0 };
-    INT w, h;
+    INT wcnt;
     GetTextExtentPoint32(hdc, _T("."), 1, &sz);
-    w = (m_Rect.right - m_Rect.left) / sz.cx;
-    h = (m_Rect.bottom - m_Rect.top) / sz.cy;
-    return w * h;
+    if (sz.cx == 0)
+        sz.cx = 1;
+    wcnt = (m_Rect.right - m_Rect.left) / (sz.cx + (*m_charGap));
+    return wcnt * hcnt;
 }
 
 LONG PageCache::GetIndentWidth(HDC hdc)
@@ -535,12 +545,12 @@ VOID PageCache::SetIndent(HDC hdc, INT index, BOOL* indent, LONG* width)
 #define is_minus(c) (c == 0x2D /* - */)
 
 #if ENABLE_TAG
-void PageCache::LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts)
+void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt, HFONT *tagfonts)
 #else
-void PageCache::LoadPageInfo(HDC hdc, INT maxw)
+void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
 #endif
 {
-    INT MAX_FIND_SIZE = GetCahceUnitSize(hdc);
+    INT MAX_FIND_SIZE = GetCahceUnitSize(hdc, hcnt);
     INT pos1, pos2, pos3, pos4;
     INT i;
     INT start;
@@ -646,11 +656,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 }
                 else
                 {
-                    word_width += sz.cx;
+                    word_width += sz.cx + (*m_charGap);
                 }
             }
 
-            width += sz.cx;
+            width += sz.cx + (*m_charGap);
             if (width > maxw)
             {
                 if (*m_WordWrap)
@@ -674,7 +684,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                         AddLine(start, length, indent, index++);
                         start = i;
                         length = i == pos2 ? 0 : 1;
-                        width = i == pos2 ? 0 : sz.cx;
+                        width = i == pos2 ? 0 : sz.cx + (*m_charGap);
                         word_start_pos = start;
                         word_width = width;
                         SetIndent(hdc, i, &indent, &width);
@@ -689,7 +699,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                             AddLine(start, length, indent, index++);
                             start = i;
                             length = 1;
-                            width = sz.cx;
+                            width = sz.cx + (*m_charGap);
                             word_start_pos = start;
                             word_width = width;
                             SetIndent(hdc, i, &indent, &width);
@@ -715,7 +725,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                                 AddLine(start, length, indent, index++);
                                 start = i;
                                 length = 1;
-                                width = sz.cx;
+                                width = sz.cx + (*m_charGap);
                                 word_start_pos = start;
                                 word_width = width;
                                 SetIndent(hdc, i, &indent, &width);
@@ -728,7 +738,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                     AddLine(start, length, indent, index++);
                     start = i;
                     length = 1;
-                    width = sz.cx;
+                    width = sz.cx + (*m_charGap);
                     SetIndent(hdc, i, &indent, &width);
                 }
                 continue;
@@ -833,11 +843,11 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                 }
                 else
                 {
-                    word_width += sz.cx;
+                    word_width += sz.cx + (*m_charGap);
                 }
             }
 
-            width += sz.cx;
+            width += sz.cx + (*m_charGap);
             if (width > maxw)
             {
                 if (*m_WordWrap)
@@ -861,7 +871,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                         AddLine(start, length, indent);
                         start = i;
                         length = i == pos4 ? 0 : 1;
-                        width = i == pos4 ? 0 : sz.cx;
+                        width = i == pos4 ? 0 : sz.cx + (*m_charGap);
                         word_start_pos = start;
                         word_width = width;
                         SetIndent(hdc, i, &indent, &width);
@@ -876,7 +886,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                             AddLine(start, length, indent);
                             start = i;
                             length = 1;
-                            width = sz.cx;
+                            width = sz.cx + (*m_charGap);
                             word_start_pos = start;
                             word_width = width;
                             SetIndent(hdc, i, &indent, &width);
@@ -902,7 +912,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                                 AddLine(start, length, indent);
                                 start = i;
                                 length = 1;
-                                width = sz.cx;
+                                width = sz.cx + (*m_charGap);
                                 word_start_pos = start;
                                 word_width = width;
                                 SetIndent(hdc, i, &indent, &width);
@@ -915,7 +925,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw)
                     AddLine(start, length, indent);
                     start = i;
                     length = 1;
-                    width = sz.cx;
+                    width = sz.cx + (*m_charGap);
                     SetIndent(hdc, i, &indent, &width);
                 }
 

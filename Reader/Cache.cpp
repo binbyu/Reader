@@ -316,13 +316,17 @@ void Cache::default_header(header_t* header)
     // default font
     static HFONT hFont = NULL;
     static LOGFONT lf;
+    int i;
+    const int PointSize = 14;
+    int nHeight;
     if (!hFont)
     {
-        hFont = CreateFont(20, 0, 0, 0,
-            FW_THIN, false, false, false,
-            ANSI_CHARSET, OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
-            DEFAULT_PITCH | FF_SWISS, _T("Consolas"));
+        nHeight = -MulDiv(PointSize, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72);
+        hFont = CreateFont(nHeight, 0, 0, 0,
+            FW_LIGHT, false, false, false,
+            ANSI_CHARSET, OUT_STROKE_PRECIS,
+            CLIP_STROKE_PRECIS, PROOF_QUALITY,
+            VARIABLE_PITCH | FF_SWISS, _T("Segoe UI Light"));
         GetObject(hFont, sizeof(lf), &lf);
     }
     memcpy(&header->font, &lf, sizeof(lf));
@@ -338,6 +342,7 @@ void Cache::default_header(header_t* header)
     header->bg_color = 0x00ffffff;  // White
     header->alpha = 0xff;
 
+    header->char_gap = 0;
     header->line_gap = 5;
     header->paragraph_gap = 0;
     header->left_line_count = 0;
@@ -366,9 +371,13 @@ void Cache::default_header(header_t* header)
 
     header->meun_font_follow = 0;
 
+    for (i = 0; i<MAX_CUST_COLOR_COUNT; i++)
+    {
+        header->cust_colors[i] = 0x00FFFFFF;
+    }
     // default tags
 #if ENABLE_TAG
-    for (int i = 0; i < MAX_TAG_COUNT; i++)
+    for (i = 0; i < MAX_TAG_COUNT; i++)
     {
         if (header->tags[i].font.lfHeight == 0)
         {
@@ -378,7 +387,7 @@ void Cache::default_header(header_t* header)
         {
             header->tags[i].bg_color = 0x00FFFFFF;
         }
-        header->tags[i].enable = 0;
+        //header->tags[i].enable = 0;
     }
 #endif
 }

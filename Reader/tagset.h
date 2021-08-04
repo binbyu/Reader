@@ -5,7 +5,7 @@
 
 #if ENABLE_TAG
 
-void TS_OpenDlg(HINSTANCE hInst, HWND hWnd, tagitem_t *tags);
+void TS_OpenDlg(void);
 
 #endif
 #endif

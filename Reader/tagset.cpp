@@ -5,145 +5,579 @@
 #include "resource.h"
 #include <CommDlg.h>
 
-static tagitem_t *g_tags = NULL;
-static int checktagid_list[MAX_TAG_COUNT] = {IDC_CHECK_TAG1, IDC_CHECK_TAG2, IDC_CHECK_TAG3, IDC_CHECK_TAG4, IDC_CHECK_TAG5, IDC_CHECK_TAG6, IDC_CHECK_TAG7, IDC_CHECK_TAG8, IDC_CHECK_TAG9, IDC_CHECK_TAG10};
-static int btnbgtagid_list[MAX_TAG_COUNT] = {IDC_BUTTON_TAGBG1, IDC_BUTTON_TAGBG2, IDC_BUTTON_TAGBG3, IDC_BUTTON_TAGBG4, IDC_BUTTON_TAGBG5, IDC_BUTTON_TAGBG6, IDC_BUTTON_TAGBG7, IDC_BUTTON_TAGBG8, IDC_BUTTON_TAGBG9, IDC_BUTTON_TAGBG10};
-static int btnfonttagid_list[MAX_TAG_COUNT] = {IDC_BUTTON_TAGFONT1, IDC_BUTTON_TAGFONT2, IDC_BUTTON_TAGFONT3, IDC_BUTTON_TAGFONT4, IDC_BUTTON_TAGFONT5, IDC_BUTTON_TAGFONT6, IDC_BUTTON_TAGFONT7, IDC_BUTTON_TAGFONT8, IDC_BUTTON_TAGFONT9, IDC_BUTTON_TAGFONT10};
-static int editkwtagid_list[MAX_TAG_COUNT] = {IDC_EDIT_TAGKW1, IDC_EDIT_TAGKW2, IDC_EDIT_TAGKW3, IDC_EDIT_TAGKW4, IDC_EDIT_TAGKW5, IDC_EDIT_TAGKW6, IDC_EDIT_TAGKW7, IDC_EDIT_TAGKW8, IDC_EDIT_TAGKW9, IDC_EDIT_TAGKW10};
-static int staticpvtagid_list[MAX_TAG_COUNT] = {IDC_STATIC_PREVIEW1, IDC_STATIC_PREVIEW2, IDC_STATIC_PREVIEW3, IDC_STATIC_PREVIEW4, IDC_STATIC_PREVIEW5, IDC_STATIC_PREVIEW6, IDC_STATIC_PREVIEW7, IDC_STATIC_PREVIEW8, IDC_STATIC_PREVIEW9, IDC_STATIC_PREVIEW10};
+extern header_t *_header;
+extern HWND _hWnd;
+extern HINSTANCE hInst;
+extern void Save(HWND);
+extern UINT_PTR CALLBACK ChooseFontProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+extern int MessageBox_(HWND hWnd, UINT textId, UINT captionId, UINT uType);
+
+typedef int (*tag_item_callback_t)(tagitem_t *tag, int idx);
+static void TS_item_OpenDlg(tag_item_callback_t cb, tagitem_t *tags, int idx);
+static INT_PTR CALLBACK TS_item_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 static INT_PTR CALLBACK TS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
-void TS_OpenDlg(HINSTANCE hInst, HWND hWnd, tagitem_t *tags)
+static int _add_tag_item(tagitem_t *tag, int idx)
 {
-    g_tags = tags;
-    DialogBox(hInst, MAKEINTRESOURCE(IDD_TAGSET), hWnd, TS_DlgProc);
+    idx = _header->tag_count;
+
+    if (idx >= MAX_TAG_COUNT)
+        return 1;
+
+    _header->tag_count ++;
+    tag->enable = TRUE;
+    memcpy(&_header->tags[idx], tag, sizeof(tagitem_t));
+    Save(_hWnd);
+    return 0;
+}
+
+static int _edit_tag_item(tagitem_t *tag, int idx)
+{
+    if (idx >= MAX_TAG_COUNT || idx >= _header->tag_count)
+        return 1;
+
+    tag->enable = TRUE; // for no checkbox
+    if (memcmp(&_header->tags[idx], tag, sizeof(tagitem_t)) != 0)
+    {
+        memcpy(&_header->tags[idx], tag, sizeof(tagitem_t));
+        Save(_hWnd);
+    }
+    return 0;
+}
+
+static int _delete_tag_item(tagitem_t *tag, int idx)
+{
+    int count;
+
+    if (_header->tag_count <= 0)
+        return 1;
+
+    if (idx >= MAX_TAG_COUNT || idx >= _header->tag_count)
+        return 1;
+
+    _header->tag_count --;
+    count = _header->tag_count - idx;
+    if (count > 0)
+    {
+        memcpy(&_header->tags[idx], &_header->tags[idx+1], sizeof(tagitem_t)*count);
+    }
+    memset(&_header->tags[_header->tag_count], 0, sizeof(tagitem_t));
+    Save(_hWnd);
+    return 0;
+}
+
+static int _enable_tag_item(tagitem_t *tag, int idx)
+{
+    if (idx >= MAX_TAG_COUNT || idx >= _header->tag_count)
+        return 1;
+
+    if (!_header->tags[idx].enable)
+    {
+        _header->tags[idx].enable = TRUE;
+        Save(_hWnd);
+    }
+    return 0;
+}
+
+static int _disable_tag_item(tagitem_t *tag, int idx)
+{
+    if (idx >= MAX_TAG_COUNT || idx >= _header->tag_count)
+        return 1;
+
+    if (_header->tags[idx].enable)
+    {
+        _header->tags[idx].enable = FALSE;
+        Save(_hWnd);
+    }
+    return 0;
+}
+
+static int _exist_tag_item(tagitem_t* tag, int idx)
+{
+    int i;
+    for (i=0; i<_header->tag_count; i++)
+    {
+        if (_tcscmp(tag->keyword, _header->tags[i].keyword) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int _full_tagset(tagitem_t* tag, int idx)
+{
+    if (_header->tag_count >= MAX_TAG_COUNT)
+    {
+        return 1;
+    }
+    return 0;
+}
+
+static int _rm_all_tagset(tagitem_t* tag, int idx)
+{
+    _header->tag_count = 0;
+    memset(&_header->tags, 0, sizeof(_header->tags));
+    return 0;
+}
+
+static void _update_tagset_list(HWND hDlg, int idx)
+{
+    HWND hList = NULL;
+    HWND hHeader = NULL;
+    LV_COLUMN lvc = { 0 };
+    LVITEM lvitem = { 0 };
+    TCHAR colname[256] = { 0 };
+    int colnum = 0;
+    int i,col;
+
+    hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+    hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
+    colnum = SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
+
+    // add list header
+    if (colnum == 0)
+    {
+        // ID
+        LoadString(hInst, IDS_ID, colname, 256);
+        memset(&lvc, 0, sizeof(LV_COLUMN));
+        lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+        lvc.pszText = colname;
+        lvc.cx = 60;
+        SendMessage(hList, LVM_INSERTCOLUMN, 0, (LPARAM)&lvc);
+
+        // keyword
+        LoadString(hInst, IDS_KEYWORD, colname, 256);
+        memset(&lvc, 0, sizeof(LV_COLUMN));
+        lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+        lvc.pszText = colname;
+        lvc.cx = 180;
+        SendMessage(hList, LVM_INSERTCOLUMN, 1, (LPARAM)&lvc);
+
+        // font
+        LoadString(hInst, IDS_FONT, colname, 256);
+        memset(&lvc, 0, sizeof(LV_COLUMN));
+        lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+        lvc.pszText = colname;
+        lvc.cx = 100;
+        SendMessage(hList, LVM_INSERTCOLUMN, 2, (LPARAM)&lvc);
+
+        // bg color
+        LoadString(hInst, IDS_BG_COLOR, colname, 256);
+        memset(&lvc, 0, sizeof(LV_COLUMN));
+        lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+        lvc.pszText = colname;
+        lvc.cx = 80;
+        SendMessage(hList, LVM_INSERTCOLUMN, 3, (LPARAM)&lvc);
+    }
+
+    ListView_DeleteAllItems(hList);
+    for (i=0; i<_header->tag_count; i++)
+    {
+        col = 0;
+
+        // ID
+        _stprintf(colname, _T("%d"), i+1);
+        memset(&lvitem, 0, sizeof(LVITEM));
+        lvitem.mask = LVIF_TEXT;
+        lvitem.cchTextMax = MAX_PATH;
+        lvitem.iItem = i;
+        lvitem.iSubItem = col++;
+        lvitem.pszText = colname;
+        //lvitem.stateMask = LVIS_STATEIMAGEMASK;
+        //lvitem.state = _header->tags[i].enable ? 0x2000 : 0x1000;
+        ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
+        ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
+
+        // keyword
+        memset(&lvitem, 0, sizeof(LVITEM));
+        lvitem.mask = LVIF_TEXT;
+        lvitem.cchTextMax = MAX_PATH;
+        lvitem.iItem = i;
+        lvitem.iSubItem = col++;
+        lvitem.pszText = _header->tags[i].keyword;
+        ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
+        ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
+
+        // font
+        memset(&lvitem, 0, sizeof(LVITEM));
+        lvitem.mask = LVIF_TEXT;
+        lvitem.cchTextMax = MAX_PATH;
+        lvitem.iItem = i;
+        lvitem.iSubItem = col++;
+        lvitem.pszText = _header->tags[i].font.lfFaceName;
+        ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
+        ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
+
+        // bg color
+        wsprintf(colname, _T("0x%08X"), _header->tags[i].bg_color);
+        memset(&lvitem, 0, sizeof(LVITEM));
+        lvitem.mask = LVIF_TEXT;
+        lvitem.cchTextMax = MAX_PATH;
+        lvitem.iItem = i;
+        lvitem.iSubItem = col++;
+        lvitem.pszText = colname;
+        ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
+        ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
+
+        //ListView_SetCheckState(hList, i, _header->tags[i].enable);
+    }
+
+    ListView_SetItemState(hList, idx, LVIS_FOCUSED | LVIS_SELECTED, 0x000F);
+}
+
+static void _update_tagset_preview(HWND hDlg)
+{
+    HWND hStatic = NULL;
+    HWND hList = NULL;
+    int iPos;
+    static HFONT s_font = NULL;
+
+    if (s_font)
+    {
+        DeleteObject(s_font);
+        s_font = NULL;
+    }
+
+    hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+    hStatic = GetDlgItem(hDlg, IDC_STATIC_PREVIEW);
+
+    iPos = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+    if (iPos >= 0 && iPos < _header->tag_count)
+    {
+        s_font = CreateFontIndirect(&_header->tags[iPos].font);
+        SendMessage(hStatic, WM_SETFONT, (WPARAM)s_font, NULL);
+        SetDlgItemText(hDlg, IDC_STATIC_PREVIEW, _header->tags[iPos].keyword);
+    }
+    else
+    {
+        SetDlgItemText(hDlg, IDC_STATIC_PREVIEW, _T(""));
+    }
+}
+
+void TS_OpenDlg(void)
+{
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_TAGSET), _hWnd, TS_DlgProc);
 }
 
 INT_PTR CALLBACK TS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    int i = 0;
-    int res = 0;
-    static HFONT g_fonts[MAX_TAG_COUNT] = {NULL};
+    static HFONT s_font = NULL;
+    HWND hList = NULL;
+    int iPos;
+    TCHAR str[256] = { 0 };
+    static int s_iLastPos = -1;
+    LPNMLISTVIEW pitem;
 
     switch (message)
     {
     case WM_INITDIALOG:
-        for (i=0; i<MAX_TAG_COUNT; i++)
-        {
-            if (g_fonts[i])
-            {
-                DeleteObject(g_fonts[i]);
-            }
-            g_fonts[i] = CreateFontIndirect(&g_tags[i].font);
-            SendMessage(GetDlgItem(hDlg, checktagid_list[i]), BM_SETCHECK, g_tags[i].enable ? BST_CHECKED : BST_UNCHECKED, NULL);
-            SetWindowText(GetDlgItem(hDlg, editkwtagid_list[i]), g_tags[i].keyword);
-            SetWindowText(GetDlgItem(hDlg, staticpvtagid_list[i]), g_tags[i].keyword);
-            EnableWindow(GetDlgItem(hDlg, editkwtagid_list[i]), g_tags[i].enable);
-            EnableWindow(GetDlgItem(hDlg, btnbgtagid_list[i]), g_tags[i].enable);
-            EnableWindow(GetDlgItem(hDlg, btnfonttagid_list[i]), g_tags[i].enable);
-            SendMessage(GetDlgItem(hDlg, staticpvtagid_list[i]), WM_SETFONT, (WPARAM)g_fonts[i], NULL);
-        }
+        hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+        ListView_SetExtendedListViewStyleEx(hList, LVS_REPORT|LVM_SETEXTENDEDLISTVIEWSTYLE, 
+            LVS_EX_AUTOSIZECOLUMNS|LVS_EX_GRIDLINES|LVS_EX_FULLROWSELECT/*|LVS_EX_CHECKBOXES*/);
+        SetDlgItemText(hDlg, IDC_STATIC_PREVIEW, _T(""));
+        _update_tagset_list(hDlg, 0);
+        _update_tagset_preview(hDlg);
+        s_iLastPos = 0;
         return (INT_PTR)TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDOK:
-            for (i=0; i<MAX_TAG_COUNT; i++)
+            if (s_font)
             {
-                if (g_fonts[i])
-                {
-                    DeleteObject(g_fonts[i]);
-                    g_fonts[i] = NULL;
-                }
+                DeleteObject(s_font);
+                s_font = NULL;
             }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
         case IDCANCEL:
-            for (i=0; i<MAX_TAG_COUNT; i++)
+            if (s_font)
             {
-                if (g_fonts[i])
-                {
-                    DeleteObject(g_fonts[i]);
-                    g_fonts[i] = NULL;
-                }
+                DeleteObject(s_font);
+                s_font = NULL;
             }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
-        case IDC_CHECK_TAG1:
-        case IDC_CHECK_TAG2:
-        case IDC_CHECK_TAG3:
-        case IDC_CHECK_TAG4:
-        case IDC_CHECK_TAG5:
-        case IDC_CHECK_TAG6:
-        case IDC_CHECK_TAG7:
-        case IDC_CHECK_TAG8:
-        case IDC_CHECK_TAG9:
-        case IDC_CHECK_TAG10:
-            for (i=0; i<MAX_TAG_COUNT; i++)
+        case IDC_BUTTON_ADD:
+            if (_full_tagset(NULL, -1))
             {
-                if (checktagid_list[i] == LOWORD(wParam))
-                    break;
+                MessageBox_(hDlg, IDS_TAGSET_FULL, IDS_ERROR, MB_ICONERROR | MB_OK);
+                break;
             }
-            res = SendMessage(GetDlgItem(hDlg, checktagid_list[i]), BM_GETCHECK, 0, NULL);
-            g_tags[i].enable = (res == BST_CHECKED);
-            EnableWindow(GetDlgItem(hDlg, editkwtagid_list[i]), g_tags[i].enable);
-            EnableWindow(GetDlgItem(hDlg, btnbgtagid_list[i]), g_tags[i].enable);
-            EnableWindow(GetDlgItem(hDlg, btnfonttagid_list[i]), g_tags[i].enable);
+            iPos = _header->tag_count;
+            TS_item_OpenDlg(_add_tag_item, &_header->tags[_header->tag_count], _header->tag_count);
+            if (_header->tag_count > iPos)
+            {
+                s_iLastPos = _header->tag_count - 1;
+                _update_tagset_list(hDlg, s_iLastPos);
+            }
+            _update_tagset_preview(hDlg);
             break;
-        case IDC_BUTTON_TAGFONT1:
-        case IDC_BUTTON_TAGFONT2:
-        case IDC_BUTTON_TAGFONT3:
-        case IDC_BUTTON_TAGFONT4:
-        case IDC_BUTTON_TAGFONT5:
-        case IDC_BUTTON_TAGFONT6:
-        case IDC_BUTTON_TAGFONT7:
-        case IDC_BUTTON_TAGFONT8:
-        case IDC_BUTTON_TAGFONT9:
-        case IDC_BUTTON_TAGFONT10:
+        case IDC_BUTTON_RMALL:
+            if (IDYES == MessageBox_(hDlg, IDS_RMALL_CFM, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
+            {
+                // delete from data
+                _rm_all_tagset(NULL, -1);
+                _update_tagset_list(hDlg, s_iLastPos);
+                _update_tagset_preview(hDlg);
+            }
+            break;
+        default:
+            break;
+        }
+        break;
+    case WM_NOTIFY:
+        switch (LOWORD(wParam))
+        {
+        case IDC_LIST_TAGSET:
+            switch (((LPNMHDR)lParam)->code)
+            {
+#if 1
+            case NM_CLICK:
+            case NM_DBLCLK:
+                hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+                iPos = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+                if (iPos != -1)
+                {
+                    if (iPos != s_iLastPos)
+                    {
+                        s_iLastPos = iPos;
+                        _update_tagset_preview(hDlg);
+                    }
+                }
+                else
+                {
+                    if (iPos != s_iLastPos)
+                    {
+                        s_iLastPos = iPos;
+                        _update_tagset_preview(hDlg);
+                    }
+                }
+                break;
+#endif
+            case LVN_ITEMCHANGED:
+                pitem = ((LPNMLISTVIEW)lParam);
+                iPos = pitem->iItem;
+                if (LVIS_SELECTED & pitem->uNewState)
+                {
+                    if (iPos != s_iLastPos)
+                    {
+                        s_iLastPos = iPos;
+                        _update_tagset_preview(hDlg);
+                    }
+                }
+#if 0
+                else if (0x2000 == (pitem->uNewState & LVIS_STATEIMAGEMASK)) // Item checked
+                {
+                    _enable_tag_item(&_header->tags[iPos], iPos);
+                }
+                else if (0x1000 == (pitem->uNewState & LVIS_STATEIMAGEMASK)) // Item unchecked
+                {
+                    _disable_tag_item(&_header->tags[iPos], iPos);
+                }
+#endif
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        break;
+    case WM_CONTEXTMENU:
+        hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+        if (wParam == (WPARAM)hList)
+        {
+            POINT pt;
+            pt.x = LOWORD(lParam);
+            pt.y = HIWORD(lParam);
+            iPos = ListView_GetNextItem(GetDlgItem(hDlg, IDC_LIST_TAGSET), -1, LVNI_SELECTED);
+            if (iPos >= 0 && iPos < _header->tag_count)
+            {
+                s_iLastPos = iPos;
+                if (iPos != s_iLastPos)
+                {
+                    s_iLastPos = iPos;
+                    _update_tagset_preview(hDlg);
+                }
+                HMENU hMenu = CreatePopupMenu();
+                if (hMenu)
+                {
+                    LoadString(hInst, IDS_DELETE, str, 256);
+                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_BS_DEL, str);
+                    LoadString(hInst, IDS_EDIT, str, 256);
+                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_TS_EDIT, str);
+                    int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, hList, NULL);
+                    DestroyMenu(hMenu);
+                    if (IDM_BS_DEL == ret)
+                    {
+                        if (IDYES == MessageBox_(hDlg, IDS_DELETE_CFM, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
+                        {
+                            // delete from data
+                            _delete_tag_item(NULL, iPos);
+
+                            // delete  list view
+                            ListView_DeleteItem(hList, iPos);
+
+                            _update_tagset_preview(hDlg);
+                        }
+                    }
+                    else if (IDM_TS_EDIT == ret)
+                    {
+                        // edit data
+                        TS_item_OpenDlg(_edit_tag_item, &_header->tags[iPos], iPos);
+
+                        // update ui
+                        _update_tagset_list(hDlg, iPos);
+
+                        _update_tagset_preview(hDlg);
+                    }
+                }
+            }
+            else
+            {
+                ListView_SetItemState(hList, s_iLastPos, LVIS_SELECTED, LVIS_SELECTED);
+                _update_tagset_preview(hDlg);
+                return (INT_PTR)FALSE;
+            }
+        }
+        break;
+    case WM_CTLCOLORSTATIC:
+        {
+            if (IDC_STATIC_PREVIEW == GetDlgCtrlID((HWND)lParam))
+            {
+                hList = GetDlgItem(hDlg, IDC_LIST_TAGSET);
+                iPos = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+                if (iPos >= 0 && iPos < _header->tag_count)
+                {
+                    SetBkColor((HDC)wParam, _header->tags[iPos].bg_color);
+                    SetBkMode((HDC)wParam, OPAQUE);
+                    SetTextColor((HDC)wParam, _header->tags[iPos].font_color);
+                }
+            }
+            else
+            {
+                SetBkMode((HDC)wParam, TRANSPARENT);
+            }
+            return (BOOL)CreateSolidBrush (GetSysColor(COLOR_MENU));
+        }
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+//////////////////////////////////////////////////////////////////////
+/// tag item dialog
+tag_item_callback_t g_tag_item_cb = NULL;
+static tagitem_t g_tag_item = {0};
+static int g_tag_item_idx = NULL;
+void TS_item_OpenDlg(tag_item_callback_t cb, tagitem_t *tags, int idx)
+{
+    g_tag_item_cb = cb;
+    if (tags)
+        memcpy(&g_tag_item, tags, sizeof(tagitem_t));
+    else
+        memset(&g_tag_item, 0, sizeof(tagitem_t));
+    g_tag_item_idx = idx;
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_TAGITEM), _hWnd, TS_item_DlgProc);
+}
+
+INT_PTR CALLBACK TS_item_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static HFONT s_font = NULL;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        if (s_font)
+        {
+            DeleteObject(s_font);
+        }
+        s_font = CreateFontIndirect(&g_tag_item.font);
+        SetWindowText(GetDlgItem(hDlg, IDC_EDIT_TAGKW), g_tag_item.keyword);
+        SetWindowText(GetDlgItem(hDlg, IDC_STATIC_PREVIEW), g_tag_item.keyword);
+        SendMessage(GetDlgItem(hDlg, IDC_STATIC_PREVIEW), WM_SETFONT, (WPARAM)s_font, NULL);
+        return (INT_PTR)TRUE;
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            if (_add_tag_item == g_tag_item_cb)
+            {
+                if (_exist_tag_item(&g_tag_item, g_tag_item_idx))
+                {
+                    MessageBox_(hDlg, IDS_TAGITEM_EXIST, IDS_ERROR, MB_ICONERROR | MB_OK);
+                    break;
+                }
+            }
+
+            if (g_tag_item.keyword[0] != 0)
+            {
+                if (g_tag_item_cb)
+                {
+                    g_tag_item_cb(&g_tag_item, g_tag_item_idx);
+                }
+            }
+
+            if (s_font)
+            {
+                DeleteObject(s_font);
+                s_font = NULL;
+            }
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDCANCEL:
+            if (s_font)
+            {
+                DeleteObject(s_font);
+                s_font = NULL;
+            }
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+            break;
+        case IDC_BUTTON_TAGFONT:
             {
                 CHOOSEFONT cf;            // common dialog box structure
                 LOGFONT logFont;
                 static DWORD rgbCurrent;   // current text color
                 BOOL bUpdate = FALSE;
 
-                for (i=0; i<MAX_TAG_COUNT; i++)
-                {
-                    if (btnfonttagid_list[i] == LOWORD(wParam))
-                        break;
-                }
-
                 // Initialize CHOOSEFONT
                 ZeroMemory(&cf, sizeof(cf));
-                memcpy(&logFont, &(g_tags[i].font), sizeof(LOGFONT));
+                memcpy(&logFont, &(g_tag_item.font), sizeof(LOGFONT));
                 cf.lStructSize = sizeof (cf);
                 cf.hwndOwner = hDlg;
                 cf.lpLogFont = &logFont;
-                cf.rgbColors = g_tags[i].font_color;
-                cf.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_EFFECTS;
+                cf.rgbColors = g_tag_item.font_color;
+                cf.lpfnHook = ChooseFontProc;
+                cf.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_EFFECTS | CF_NOVERTFONTS | CF_ENABLEHOOK;
 
                 if (ChooseFont(&cf))
                 {
-                    if (g_tags[i].font_color != cf.rgbColors)
+                    if (g_tag_item.font_color != cf.rgbColors)
                     {
-                        g_tags[i].font_color = cf.rgbColors;
+                        g_tag_item.font_color = cf.rgbColors;
                         bUpdate = TRUE;
                     }
-                    g_tags[i].font.lfQuality = PROOF_QUALITY;
+                    g_tag_item.font.lfQuality = PROOF_QUALITY;
 
-                    if (0 != memcmp(&logFont, &g_tags[i].font, sizeof(LOGFONT)))
+                    if (0 != memcmp(&logFont, &g_tag_item.font, sizeof(LOGFONT)))
                     {
-                        memcpy(&g_tags[i].font, &logFont, sizeof(LOGFONT));
+                        memcpy(&g_tag_item.font, &logFont, sizeof(LOGFONT));
                         bUpdate = TRUE;
 
-                        if (g_fonts[i])
+                        if (s_font)
                         {
-                            DeleteObject(g_fonts[i]);
+                            DeleteObject(s_font);
                         }
-                        g_fonts[i] = CreateFontIndirect(&g_tags[i].font);
-                        SendMessage(GetDlgItem(hDlg, staticpvtagid_list[i]), WM_SETFONT, (WPARAM)g_fonts[i], NULL);
+                        s_font = CreateFontIndirect(&g_tag_item.font);
+                        SendMessage(GetDlgItem(hDlg, IDC_STATIC_PREVIEW), WM_SETFONT, (WPARAM)s_font, NULL);
                     }
                     if (bUpdate)
                     {
@@ -152,65 +586,30 @@ INT_PTR CALLBACK TS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 }
             }
             break;
-        case IDC_BUTTON_TAGBG1:
-        case IDC_BUTTON_TAGBG2:
-        case IDC_BUTTON_TAGBG3:
-        case IDC_BUTTON_TAGBG4:
-        case IDC_BUTTON_TAGBG5:
-        case IDC_BUTTON_TAGBG6:
-        case IDC_BUTTON_TAGBG7:
-        case IDC_BUTTON_TAGBG8:
-        case IDC_BUTTON_TAGBG9:
-        case IDC_BUTTON_TAGBG10:
+        case IDC_BUTTON_TAGBG:
             {
                 CHOOSECOLOR cc;                 // common dialog box structure 
-                static COLORREF acrCustClr[16]; // array of custom colors 
-
-                for (i=0; i<MAX_TAG_COUNT; i++)
-                {
-                    if (btnbgtagid_list[i] == LOWORD(wParam))
-                        break;
-                }
 
                 ZeroMemory(&cc, sizeof(cc));
                 cc.lStructSize = sizeof(cc);
                 cc.hwndOwner = hDlg;
-                cc.lpCustColors = (LPDWORD) acrCustClr;
-                cc.rgbResult = g_tags[i].bg_color;
+                cc.lpCustColors = (LPDWORD)_header->cust_colors;
+                cc.rgbResult = g_tag_item.bg_color;
                 cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
                 if (ChooseColor(&cc))
                 {
-                    if (g_tags[i].bg_color != cc.rgbResult)
+                    if (g_tag_item.bg_color != cc.rgbResult)
                     {
-                        g_tags[i].bg_color = cc.rgbResult;
+                        g_tag_item.bg_color = cc.rgbResult;
                         InvalidateRect(hDlg, NULL, TRUE);
                     }
                 }
             }
             break;
-        case IDC_EDIT_TAGKW1:
-        case IDC_EDIT_TAGKW2:
-        case IDC_EDIT_TAGKW3:
-        case IDC_EDIT_TAGKW4:
-        case IDC_EDIT_TAGKW5:
-        case IDC_EDIT_TAGKW6:
-        case IDC_EDIT_TAGKW7:
-        case IDC_EDIT_TAGKW8:
-        case IDC_EDIT_TAGKW9:
-        case IDC_EDIT_TAGKW10:
-            {
-                for (i=0; i<MAX_TAG_COUNT; i++)
-                {
-                    if (editkwtagid_list[i] == LOWORD(wParam))
-                        break;
-                }
-                if (i<MAX_TAG_COUNT)
-                {
-                    GetWindowText(GetDlgItem(hDlg, editkwtagid_list[i]), g_tags[i].keyword, 63);
-                    SetWindowText(GetDlgItem(hDlg, staticpvtagid_list[i]), g_tags[i].keyword);
-                }
-            }
+        case IDC_EDIT_TAGKW:
+            GetDlgItemText(hDlg, IDC_EDIT_TAGKW, g_tag_item.keyword, 63);
+            SetDlgItemText(hDlg, IDC_STATIC_PREVIEW, g_tag_item.keyword);
             break;
         default:
             break;
@@ -218,17 +617,16 @@ INT_PTR CALLBACK TS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
         break;
     case WM_CTLCOLORSTATIC:
         {
-            for (i=0; i<MAX_TAG_COUNT; i++)
+            
+            if (IDC_STATIC_PREVIEW == GetDlgCtrlID((HWND)lParam))
             {
-                if (staticpvtagid_list[i] == GetDlgCtrlID((HWND)lParam))
-                    break;
-            }
-            SetBkMode((HDC)wParam, TRANSPARENT);
-            if (i < MAX_TAG_COUNT)
-            {
-                SetBkColor((HDC)wParam, g_tags[i].bg_color);
+                SetBkColor((HDC)wParam, g_tag_item.bg_color);
                 SetBkMode((HDC)wParam, OPAQUE);
-                SetTextColor((HDC)wParam, g_tags[i].font_color);
+                SetTextColor((HDC)wParam, g_tag_item.font_color);
+            }
+            else
+            {
+                SetBkMode((HDC)wParam, TRANSPARENT);
             }
             return (BOOL)CreateSolidBrush (GetSysColor(COLOR_MENU));
         }

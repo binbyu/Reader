@@ -295,9 +295,15 @@ class json_book_source_t
     cJSON* book_name_xpath;
     cJSON* book_mainpage_xpath;
     cJSON* book_author_xpath;
+    cJSON* enable_chapter_page;
+    cJSON* chapter_page_xpath;
     cJSON* chapter_title_xpath;
     cJSON* chapter_url_xpath;
     cJSON* content_xpath;
+    cJSON* enable_content_next;
+    cJSON* content_next_url_xpath;
+    cJSON* content_next_keyword_xpath;
+    cJSON* content_next_keyword;
     cJSON* book_status_pos;
     cJSON* book_status_xpath;
     cJSON* book_status_keyword;
@@ -313,9 +319,15 @@ public:
         book_name_xpath = cJSON_AddStringToObject(parent, "book_name_xpath", data->book_name_xpath);
         book_mainpage_xpath = cJSON_AddStringToObject(parent, "book_mainpage_xpath", data->book_mainpage_xpath);
         book_author_xpath = cJSON_AddStringToObject(parent, "book_author_xpath", data->book_author_xpath);
+        enable_chapter_page = cJSON_AddNumberToObject(parent, "enable_chapter_page", data->enable_chapter_page);
+        chapter_page_xpath = cJSON_AddStringToObject(parent, "chapter_page_xpath", data->chapter_page_xpath);
         chapter_title_xpath = cJSON_AddStringToObject(parent, "chapter_title_xpath", data->chapter_title_xpath);
         chapter_url_xpath = cJSON_AddStringToObject(parent, "chapter_url_xpath", data->chapter_url_xpath);
         content_xpath = cJSON_AddStringToObject(parent, "content_xpath", data->content_xpath);
+        enable_content_next = cJSON_AddNumberToObject(parent, "enable_content_next", data->enable_content_next);
+        content_next_url_xpath = cJSON_AddStringToObject(parent, "content_next_url_xpath", data->content_next_url_xpath);
+        content_next_keyword_xpath = cJSON_AddStringToObject(parent, "content_next_keyword_xpath", data->content_next_keyword_xpath);
+        content_next_keyword = cJSON_AddStringToObject(parent, "content_next_keyword", data->content_next_keyword);
         book_status_pos = cJSON_AddNumberToObject(parent, "book_status_pos", data->book_status_pos);
         book_status_xpath = cJSON_AddStringToObject(parent, "book_status_xpath", data->book_status_xpath);
         book_status_keyword = cJSON_AddStringToObject(parent, "book_status_keyword", data->book_status_keyword);
@@ -331,9 +343,15 @@ public:
         book_name_xpath = cJSON_GetObjectItem(parent, "book_name_xpath");
         book_mainpage_xpath = cJSON_GetObjectItem(parent, "book_mainpage_xpath");
         book_author_xpath = cJSON_GetObjectItem(parent, "book_author_xpath");
+        enable_chapter_page = cJSON_GetObjectItem(parent, "enable_chapter_page");
+        chapter_page_xpath = cJSON_GetObjectItem(parent, "chapter_page_xpath");
         chapter_title_xpath = cJSON_GetObjectItem(parent, "chapter_title_xpath");
         chapter_url_xpath = cJSON_GetObjectItem(parent, "chapter_url_xpath");
         content_xpath = cJSON_GetObjectItem(parent, "content_xpath");
+        enable_content_next = cJSON_GetObjectItem(parent, "enable_content_next");
+        content_next_url_xpath = cJSON_GetObjectItem(parent, "content_next_url_xpath");
+        content_next_keyword_xpath = cJSON_GetObjectItem(parent, "content_next_keyword_xpath");
+        content_next_keyword = cJSON_GetObjectItem(parent, "content_next_keyword");
         book_status_pos = cJSON_GetObjectItem(parent, "book_status_pos");
         book_status_xpath = cJSON_GetObjectItem(parent, "book_status_xpath");
         book_status_keyword = cJSON_GetObjectItem(parent, "book_status_keyword");
@@ -358,12 +376,24 @@ public:
             strcpy(data->book_mainpage_xpath, book_mainpage_xpath->valuestring);
         if (book_author_xpath)
             strcpy(data->book_author_xpath, book_author_xpath->valuestring);
+        if (enable_chapter_page)
+            data->enable_chapter_page = enable_chapter_page->valueint;
+        if (chapter_page_xpath)
+            strcpy(data->chapter_page_xpath, chapter_page_xpath->valuestring);
         if (chapter_title_xpath)
             strcpy(data->chapter_title_xpath, chapter_title_xpath->valuestring);
         if (chapter_url_xpath)
             strcpy(data->chapter_url_xpath, chapter_url_xpath->valuestring);
         if (content_xpath)
             strcpy(data->content_xpath, content_xpath->valuestring);
+        if (enable_content_next)
+            data->enable_content_next = enable_content_next->valueint;
+        if (content_next_url_xpath)
+            strcpy(data->content_next_url_xpath, content_next_url_xpath->valuestring);
+        if (content_next_keyword_xpath)
+            strcpy(data->content_next_keyword_xpath, content_next_keyword_xpath->valuestring);
+        if (content_next_keyword)
+            strcpy(data->content_next_keyword, content_next_keyword->valuestring);
         if (book_status_pos)
             data->book_status_pos = book_status_pos->valueint;
         if (book_status_xpath)
@@ -378,6 +408,7 @@ class json_header_t
     cJSON* version;
     cJSON* item_count; 
     cJSON* item_id;
+    cJSON* char_gap;
     cJSON* line_gap;
     cJSON* paragraph_gap;
     cJSON* left_line_count;
@@ -397,6 +428,7 @@ class json_header_t
     cJSON* ingore_version;
     cJSON* checkver_time;
     cJSON* keyset;
+    cJSON* cust_colors;
     json_rect_t* rect;
     json_rect_t* internal_border;
     json_font_t* font;
@@ -404,6 +436,7 @@ class json_header_t
     json_proxy_t* proxy;
     json_chapter_rule_t* chapter_rule;
 #if ENABLE_TAG
+    cJSON* tag_count;
     json_tagitem_t* tags[MAX_TAG_COUNT];
 #endif
     cJSON* book_source_count;
@@ -418,6 +451,7 @@ public:
         version = cJSON_AddStringToObject(parent, "version", Utils::Utf16ToUtf8(data->version));
         item_count = cJSON_AddNumberToObject(parent, "item_count", data->item_count);
         item_id = cJSON_AddNumberToObject(parent, "item_id", data->item_id);
+        char_gap = cJSON_AddNumberToObject(parent, "char_gap", data->char_gap);
         line_gap = cJSON_AddNumberToObject(parent, "line_gap", data->line_gap);
         paragraph_gap = cJSON_AddNumberToObject(parent, "paragraph_gap", data->paragraph_gap);
         left_line_count = cJSON_AddNumberToObject(parent, "left_line_count", data->left_line_count);
@@ -443,6 +477,14 @@ public:
             n = *((int*)&data->keyset[i]);
             item = cJSON_CreateNumber(n);
             cJSON_AddItemToArray(keyset, item);
+        }
+
+        cust_colors = cJSON_AddArrayToObject(parent, "cust_colors");
+        for (i = 0; i < MAX_CUST_COLOR_COUNT; i++)
+        {
+            n = *((int*)&data->cust_colors[i]);
+            item = cJSON_CreateNumber(n);
+            cJSON_AddItemToArray(cust_colors, item);
         }
 
         item = cJSON_CreateObject();
@@ -471,8 +513,9 @@ public:
 
 #if ENABLE_TAG
         memset(tags, 0, sizeof(json_tagitem_t*) * MAX_TAG_COUNT);
+        tag_count = cJSON_AddNumberToObject(parent, "tag_count", data->tag_count);
         array = cJSON_AddArrayToObject(parent, "tags");
-        for (i = 0; i < MAX_TAG_COUNT; i++)
+        for (i = 0; i < data->tag_count; i++)
         {
             item = cJSON_CreateObject();
             tags[i] = new json_tagitem_t(item, &(data->tags[i]));
@@ -504,6 +547,7 @@ public:
         version = cJSON_GetObjectItem(parent, "version");
         item_count = cJSON_GetObjectItem(parent, "item_count");
         item_id = cJSON_GetObjectItem(parent, "item_id");
+        char_gap = cJSON_GetObjectItem(parent, "char_gap");
         line_gap = cJSON_GetObjectItem(parent, "line_gap");
         paragraph_gap = cJSON_GetObjectItem(parent, "paragraph_gap");
         left_line_count = cJSON_GetObjectItem(parent, "left_line_count");
@@ -524,6 +568,7 @@ public:
         checkver_time = cJSON_GetObjectItem(parent, "checkver_time");
 
         keyset = cJSON_GetObjectItem(parent, "keyset");
+        cust_colors = cJSON_GetObjectItem(parent, "cust_colors");
 
         item = cJSON_GetObjectItem(parent, "rect");
         if (item)
@@ -550,6 +595,7 @@ public:
             chapter_rule = new json_chapter_rule_t(item);
 
 #if ENABLE_TAG
+        tag_count = cJSON_GetObjectItem(parent, "tag_count");
         memset(tags, 0, sizeof(json_tagitem_t*) * MAX_TAG_COUNT);
         array = cJSON_GetObjectItem(parent, "tags");
         if (array)
@@ -600,7 +646,7 @@ public:
                 delete tags[i];
         }
 #endif
-        for (i = 0; i < MAX_TAG_COUNT; i++)
+        for (i = 0; i < MAX_BOOKSRC_COUNT; i++)
         {
             if (book_sources[i])
                 delete book_sources[i];
@@ -617,6 +663,8 @@ public:
             data->item_count = item_count->valueint;
         if (item_id)
             data->item_id = item_id->valueint;
+        if (char_gap)
+            data->char_gap = char_gap->valueint;
         if (line_gap)
             data->line_gap = line_gap->valueint;
         if (paragraph_gap)
@@ -667,6 +715,19 @@ public:
             }
         }
         
+        if (cust_colors)
+        {
+            size = cJSON_GetArraySize(cust_colors);
+            if (size > MAX_CUST_COLOR_COUNT)
+                size = MAX_CUST_COLOR_COUNT;
+            for (i = 0; i < size; i++)
+            {
+                item = cJSON_GetArrayItem(cust_colors, i);
+                if (item)
+                    data->cust_colors[i] = *((u32*)&item->valueint);
+            }
+        }
+
         if (rect)
             rect->GetData(&(data->rect));
         if (internal_border)
@@ -681,7 +742,9 @@ public:
             chapter_rule->GetData(&(data->chapter_rule));
 
 #if ENABLE_TAG
-        for (i = 0; i < MAX_TAG_COUNT; i++)
+        if (tag_count)
+            data->tag_count = tag_count->valueint;
+        for (i = 0; i < data->tag_count; i++)
         {
             if (tags[i])
                 tags[i]->GetData(&(data->tags[i]));

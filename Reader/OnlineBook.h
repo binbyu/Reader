@@ -38,6 +38,7 @@ public:
 
 protected:
     virtual bool ParserBook(HWND hWnd);
+    bool ParserChapterPage(HWND hWnd, int idx); // chapter index
     bool ParserChapters(HWND hWnd, int idx); // chapter index
     bool ParserContent(HWND hWnd, int idx, u32 todo = todo_nothing); // chapter index
     bool ParserBookStatus(HWND hWnd);
@@ -60,6 +61,7 @@ public:
     int CheckUpdate(HWND hWnd, olbook_checkupdate_callback cb, void* arg);
 
 private:
+    static unsigned int GetChapterPageCompleter(request_result_t *result);
     static unsigned int GetChaptersCompleter(request_result_t *result);
     static unsigned int GetContentCompleter(request_result_t *result);
     static unsigned int GetBookStatusCompleter(request_result_t *result);
@@ -70,6 +72,7 @@ protected:
     std::set<req_handler_t> m_hRequestList;
     bool m_result;
     char m_MainPage[1024];
+    char m_ChapterPage[1024];
     TCHAR m_BookName[256];
     char m_Host[1024];
     u64 m_UpdateTime;

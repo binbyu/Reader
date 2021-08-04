@@ -22,8 +22,9 @@
 
 #define MAX_CHAPTER_LENGTH          256
 #define MAX_MARK_COUNT              256
-#define MAX_TAG_COUNT               10
-#define MAX_BOOKSRC_COUNT           16
+#define MAX_TAG_COUNT               256
+#define MAX_BOOKSRC_COUNT           64
+#define MAX_CUST_COLOR_COUNT        16
 
 #define IDM_CUSTOM_BEGIN            (50000)
 
@@ -35,6 +36,11 @@
 #define IDM_ST_EXIT                 (IDM_OPEN_END + 3)
 #define IDM_MK_DEL                  (IDM_OPEN_END + 4)
 #define IDM_BS_DEL                  (IDM_OPEN_END + 5)
+#define IDM_BS_MOVE_UP              (IDM_OPEN_END + 6)
+#define IDM_BS_MOVE_DOWN            (IDM_OPEN_END + 7)
+#define IDM_TS_EDIT                 (IDM_OPEN_END + 8)
+#define IDM_TS_ENABLE               (IDM_OPEN_END + 9)
+#define IDM_TS_DISABLE              (IDM_OPEN_END + 10)
 
 #ifdef ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
@@ -145,13 +151,27 @@ typedef struct book_source_t
     int query_method; // 0: GET, 1: POST
     char query_params[1024]; // POST params
     int query_charset; // 0: auto, 1: utf8, 2: gbk
+    // query page
     char book_name_xpath[1024];
     char book_mainpage_xpath[1024];
     char book_author_xpath[1024];
+
+    // main page
+    int enable_chapter_page;
+    char chapter_page_xpath[1024];
+
+    // chapter page
     char chapter_title_xpath[1024];
     char chapter_url_xpath[1024];
+
+    // content page
     char content_xpath[1024];
-    int book_status_pos; // 0:null, 1:query_page, 2:main_page
+    int enable_content_next;
+    char content_next_url_xpath[1024];
+    char content_next_keyword_xpath[1024];
+    char content_next_keyword[256];
+
+    int book_status_pos; // 0:null, 1:query_page, 2:main_page, 3: chapter list page
     char book_status_xpath[1024];
     char book_status_keyword[256];
 } book_sourc_t;
@@ -166,6 +186,7 @@ typedef struct header_t
     u32 font_color;
     u32 bg_color;
     BYTE alpha;
+    int char_gap;
     int line_gap;
     int paragraph_gap;
     int left_line_count;
@@ -185,7 +206,9 @@ typedef struct header_t
     int line_indent;
     u32 keyset[64];
     chapter_rule_t chapter_rule;
+    u32 cust_colors[MAX_CUST_COLOR_COUNT];
 #if ENABLE_TAG
+    int tag_count;
     tagitem_t tags[MAX_TAG_COUNT];
 #endif
     BYTE meun_font_follow;

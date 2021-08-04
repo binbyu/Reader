@@ -12,7 +12,7 @@ typedef struct ol_book_param_t
     u32 is_finished;
 } ol_book_param_t;
 
-void OpenOnlineDlg(HINSTANCE hInst, HWND hWnd);
+void OpenOnlineDlg(void);
 
 #endif
 #endif // !__ONLINE_DLG_H__

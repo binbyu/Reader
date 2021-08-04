@@ -128,6 +128,7 @@ void                StartCheckBookUpdate(HWND hWnd);
 void                OnCheckBookUpdateCallback(int is_update, int err, void* param);
 void                OnCheckBookUpdate(HWND hWnd);
 void                OnOpenOlBook(HWND, void*);
+void                UpdateBookMark(HWND, int, int);
 #endif
 bool                PlayLoadingImage(HWND);
 bool                StopLoadingImage(HWND);

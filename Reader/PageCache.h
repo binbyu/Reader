@@ -26,9 +26,9 @@ public:
 
 public:
 #if ENABLE_TAG
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
+    void Setting(HWND hWnd, INT *pos, INT *cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
 #else
-    void Setting(HWND hWnd, INT *pos, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib);
+    void Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib);
 #endif
     void SetRect(RECT *rect);
     void Reset(HWND hWnd, BOOL redraw = TRUE);
@@ -53,13 +53,13 @@ protected:
 #else
     LONG GetLineHeight(HDC hdc);
 #endif
-    INT GetCahceUnitSize(HDC hdc);
+    INT GetCahceUnitSize(HDC hdc, INT hcnt);
     LONG GetIndentWidth(HDC hdc);
     VOID SetIndent(HDC hdc, INT index, BOOL *indent, LONG* width);
 #if ENABLE_TAG
-    void LoadPageInfo(HDC hdc, INT maxw, HFONT *tagfonts);
+    void LoadPageInfo(HDC hdc, INT maxw, INT hcnt, HFONT *tagfonts);
 #else
-    void LoadPageInfo(HDC hdc, INT maxw);
+    void LoadPageInfo(HDC hdc, INT maxw, INT hcnt);
 #endif
     void AddLine(INT start, INT length, BOOL indent, INT pos = -1);
     void RemoveAllLine(BOOL freemem = FALSE);
@@ -84,6 +84,7 @@ protected:
     INT m_CurPageSize;
     INT m_CurrentLine;
     INT *m_CurrentPos;
+    INT* m_charGap;
     INT *m_lineGap;
     RECT *m_InternalBorder;
     INT *m_LeftLineCount;

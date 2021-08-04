@@ -102,6 +102,9 @@
     <ClInclude Include="OnlineDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BooksourceDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -162,6 +165,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="OnlineDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BooksourceDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
