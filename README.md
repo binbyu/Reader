@@ -2,11 +2,26 @@
 A win32 txt/epub file reader
 
 ****
-最新release版本：`v1.9.2.2`<br/>
+最新release版本：`v1.9.3.0`<br/>
 (百度网盘)<br/>
-链接: [https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA](https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA)<br/>
-提取码: `hm3d`
+链接: [https://pan.baidu.com/s/1gPdehi9i4EHWJfDqzDz5qg](https://pan.baidu.com/s/1gPdehi9i4EHWJfDqzDz5qg)<br/>
+提取码: `ay5b`
 ****
+<br/>
+<br/>
+<br/>
+<br/>
+# v1.9.3.0 2021/08/04 功能更新<br/>
+1. 新增部分书源配置规则，可以支持更多的书源网站<br/>
+   1.1 请下载新书源bs.json进行导入更新<br/>
+2. 修改软件默认字体为Segoe UI<br/>
+3. 新增“字符间距”配置<br/>
+   3.1 在“基本设置”内<br/>
+4. 新增删除阅读列表内单本书籍功能<br/>
+   4.1 在菜单“文件”，鼠标右键单击需要删除的书籍<br/>
+5. 修复自定义颜色无法保存的问题<br/>
+6. 修复在线小说无法添加书签的问题<br/>
+7. 修复一些bug<br/>
 <br/>
 <br/>
 <br/>
@@ -18,6 +33,9 @@ A win32 txt/epub file reader
 3. 新增微信公众号，可以及时获取版本更新，和更多使用技巧<br/>
    3.1 有需要的书友可以关注<br/>
    3.2 关注方式：菜单 > 帮助 > 关于<br/>
+版本：`v1.9.2.2`<br/>
+链接: https://pan.baidu.com/s/1j6a57LefHWe_b1w04HacnA<br/>
+提取码: hm3d<br/>
 <br/>
 <br/>
 <br/>
