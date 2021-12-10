@@ -16,15 +16,138 @@ extern int MessageBox_(HWND hWnd, UINT textId, UINT captionId, UINT uType);
 extern book_source_t* FindBookSource(const char* host);
 extern void DumpParseErrorFile(const char *html, int htmllen);
 extern void UpdateBookMark(HWND hWnd, int index, int size);
-extern BOOL Redirect(request_t *r, const char *url, req_handler_t *hReq);
-extern BOOL ParserHost(const char* url, char* host);
-extern void CombineUrl(const char *path, const char *url, char *dsturl);
+
+int parse_protocol_host(const char* url, char* host)
+{
+    const char* p = NULL;
+    const char* t = NULL;
+
+    p = url;
+    // is ssl
+    if (0 == strncmp(url, "http://", 7))
+    {
+        p += 7;
+    }
+    else if (0 == strncmp(url, "https://", 8))
+    {
+        p += 8;
+    }
+
+    // parse host
+    t = strstr(p, "/");
+    if (t)
+    {
+        strncpy(host, url, t - url);
+    }
+    else
+    {
+        strcpy(host, url);
+    }
+    return succ;
+}
+
+void combine_url(const char* path, const char* url, char* dsturl)
+{
+    char temp[1024] = { 0 };
+    char host[1024] = { 0 };
+    char* p;
+    if (_strnicmp("http", path, 4) == 0)
+    {
+        strcpy(dsturl, path);
+    }
+    else if (_strnicmp("//www.", path, 6) == 0
+        || _strnicmp("/www.", path, 5) == 0
+        || _strnicmp("//m.", path, 4) == 0
+        || _strnicmp("/m.", path, 3) == 0)
+    {
+        p = (char*)strstr(path, "www.");
+        if (0 == strncmp(url, "http://", 7))
+        {
+            sprintf(dsturl, "http://%s", p);
+        }
+        else if (0 == strncmp(url, "https://", 8))
+        {
+            sprintf(dsturl, "https://%s", p);
+        }
+        else
+        {
+            sprintf(dsturl, "http://%s", p);
+        }
+    }
+    else if (_strnicmp("//m.", path, 4) == 0
+        || _strnicmp("/m.", path, 3) == 0)
+    {
+        p = (char*)strstr(path, "m.");
+        if (0 == strncmp(url, "http://", 7))
+        {
+            sprintf(dsturl, "http://%s", p);
+        }
+        else if (0 == strncmp(url, "https://", 8))
+        {
+            sprintf(dsturl, "https://%s", p);
+        }
+        else
+        {
+            sprintf(dsturl, "http://%s", p);
+        }
+    }
+    else
+    {
+        if (path[0] == '/')
+        {
+            parse_protocol_host(url, host);
+            sprintf(dsturl, "%s%s", host, path);
+        }
+        else
+        {
+            strcpy(temp, url);
+            p = strrchr(temp, '/');
+            if (p)
+            {
+                *(p + 1) = 0;
+                sprintf(dsturl, "%s%s", temp, path);
+            }
+            else
+            {
+                parse_protocol_host(url, host);
+                sprintf(dsturl, "%s/%s", host, path);
+            }
+        }
+    }
+}
+
+#define check_request_result(r)     \
+     if ((r)->cancel)               \
+        goto end;                   \
+    if ((r)->errno_ != succ)        \
+        goto end;                   \
+    if ((r)->status_code != 200)    \
+        goto end;                   \
+    html = (r)->body;               \
+    htmllen = (r)->bodylen;         \
+    if (!is_utf8(html, htmllen)) {  \
+        wchar_t* tempbuf = NULL;    \
+        int templen = 0;            \
+        char* utf8buf = NULL;       \
+        int utf8len = 0;            \
+        tempbuf = ansi_to_utf16(html, htmllen, &templen);    \
+        utf8buf = utf16_to_utf8(tempbuf, templen, &utf8len); \
+        free(tempbuf);              \
+        if (needfree) {free(html);} \
+        html = utf8buf;             \
+        htmllen = utf8len;          \
+        needfree = 1;               \
+    }                               \
+    if (_this->m_bForceKill)        \
+        goto end;
 
 typedef struct req_chapter_param_t
 {
     HWND hWnd;
     int index;
     OnlineBook* _this;
+    std::vector<std::string> *title_list;
+    std::vector<std::string> *title_url;
 } req_chapter_param_t;
 
 typedef struct req_content_param_t
@@ -323,6 +446,10 @@ LRESULT OnlineBook::OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         }
         else // insert text
         {
+            // fixed bug, Due to the delay of WM_PAINT processing.
+            // if the BE_UPATE_CONTENT message is received before the Invalidate done refresh, the page operation will be lost
+            UpdateWindow(hWnd);
+
             m_TextLength += content->len;
             m_Text = (TCHAR*)realloc(m_Text, (m_TextLength + 1) * sizeof(TCHAR));
             m_Text[m_TextLength] = 0;
@@ -394,16 +521,10 @@ LRESULT OnlineBook::OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                 break;
             }
 
-#if TEST_MODEL
-            {
-                char msg[256] = { 0 };
-                if (m_CurrentPos)
-                    sprintf(msg, "--- BE_UPATE_CONTENT: pos=%d, index=%d, size=%d, curpos=%d ---\n", content->index, m_Chapters[content->index].index, m_Chapters[content->index].size, *m_CurrentPos);
-                else
-                    sprintf(msg, "--- BE_UPATE_CONTENT: pos=%d, index=%d, size=%d ---\n", content->index, m_Chapters[content->index].index, m_Chapters[content->index].size);
-                OutputDebugStringA(msg);
-            }
-#endif
+            if (m_CurrentPos)
+                logger_printk("--- BE_UPATE_CONTENT: pos=%d, index=%d, size=%d, curpos=%d ---", content->index, m_Chapters[content->index].index, m_Chapters[content->index].size, *m_CurrentPos);
+            else
+                logger_printk("--- BE_UPATE_CONTENT: pos=%d, index=%d, size=%d ---", content->index, m_Chapters[content->index].index, m_Chapters[content->index].size);
         }
         WriteOlFile();
         break;
@@ -480,9 +601,6 @@ bool OnlineBook::ParserChapterPage(HWND hWnd, int idx)
     req_handler_t hReq;
     std::set<req_handler_t>::iterator it;
     request_t* preq;
-#if TEST_MODEL
-    char msg[1024];
-#endif
 
     strcpy(m_ChapterPage, m_MainPage);
 
@@ -512,6 +630,8 @@ bool OnlineBook::ParserChapterPage(HWND hWnd, int idx)
     param->hWnd = hWnd;
     param->index = idx;
     param->_this = this;
+    param->title_list = NULL;
+    param->title_url = NULL;
 
     memset(&req, 0, sizeof(request_t));
     req.method = GET;
@@ -520,10 +640,7 @@ bool OnlineBook::ParserChapterPage(HWND hWnd, int idx)
     req.param1 = param;
     req.param2 = NULL;
 
-#if TEST_MODEL
-    sprintf(msg, "Request to: %s\n", req.url);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("Request to: %s", req.url);
 
     hReq = hapi_request(&req);
     if (hReq)
@@ -542,9 +659,6 @@ bool OnlineBook::ParserChapters(HWND hWnd, int idx)
     req_handler_t hReq;
     std::set<req_handler_t>::iterator it;
     request_t* preq;
-#if TEST_MODEL
-    char msg[1024];
-#endif
 
     // parse chapter list page at first
     if (m_ChapterPage[0] == 0)
@@ -572,6 +686,8 @@ bool OnlineBook::ParserChapters(HWND hWnd, int idx)
     param->hWnd = hWnd;
     param->index = idx;
     param->_this = this;
+    param->title_list = NULL;
+    param->title_url = NULL;
 
     memset(&req, 0, sizeof(request_t));
     req.method = GET;
@@ -580,10 +696,7 @@ bool OnlineBook::ParserChapters(HWND hWnd, int idx)
     req.param1 = param;
     req.param2 = NULL;
 
-#if TEST_MODEL
-    sprintf(msg, "Request to: %s\n", req.url);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("Request to: %s", req.url);
     
     hReq = hapi_request(&req);
     if (hReq)
@@ -603,9 +716,6 @@ bool OnlineBook::ParserContent(HWND hWnd, int idx, u32 todo)
     std::set<req_handler_t>::iterator it;
     request_t* preq;
     char url[1024] = { 0 };
-#if TEST_MODEL
-    char msg[1024];
-#endif
 
     if (idx == -1 || (int)m_Chapters.size() <= idx)
         return false;
@@ -637,7 +747,7 @@ bool OnlineBook::ParserContent(HWND hWnd, int idx, u32 todo)
     param->textlen = 0;
 
     // check URL
-    CombineUrl(m_Chapters[idx].url.c_str(), m_MainPage, url);
+    combine_url(m_Chapters[idx].url.c_str(), m_MainPage, url);
 
     memset(&req, 0, sizeof(request_t));
     req.method = GET;
@@ -646,10 +756,7 @@ bool OnlineBook::ParserContent(HWND hWnd, int idx, u32 todo)
     req.param1 = param;
     req.param2 = NULL;
 
-#if TEST_MODEL
-    sprintf(msg, "Request to: %s\n", req.url);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("Request to: %s", req.url);
 
     hReq = hapi_request(&req);
     if (hReq)
@@ -670,9 +777,6 @@ bool OnlineBook::ParserBookStatus(HWND hWnd)
     request_t* preq;
     char url[1024] = { 0 };
     char* encode;
-#if TEST_MODEL
-    char msg[1024];
-#endif
 
     // check it's requesting
     WaitForSingleObject(m_hMutex, INFINITE);
@@ -692,9 +796,9 @@ bool OnlineBook::ParserBookStatus(HWND hWnd)
     param->hWnd = hWnd;
     param->_this = this;
 
-    Utils::UrlEncode(Utils::Utf16ToUtf8(m_BookName), &encode);
+    hapi_url_encode(Utf16ToUtf8(m_BookName), &encode);
     sprintf(url, m_Booksrc->query_url, encode);
-    Utils::UrlFree(encode);
+    hapi_buffer_free(encode);
 
     memset(&req, 0, sizeof(request_t));
     req.method = GET;
@@ -703,10 +807,7 @@ bool OnlineBook::ParserBookStatus(HWND hWnd)
     req.param1 = param;
     req.param2 = NULL;
 
-#if TEST_MODEL
-    sprintf(msg, "Request to: %s\n", req.url);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("Request to: %s", req.url);
 
     hReq = hapi_request(&req);
     if (hReq)
@@ -725,7 +826,9 @@ bool _check_olfile(const TCHAR *filename)
     int len = 0;
     int basesize = 0;
     ol_header_t* header = NULL;
+#if 0
     char host[1024] = {0};
+#endif
 
     // read file to memory
     fp = _tfopen(filename, _T("rb"));
@@ -777,8 +880,6 @@ bool OnlineBook::ReadOlFile(BOOL fast)
     FILE* fp = NULL;
     char* buf = NULL;
     int len = 0;
-    bool result = false;
-    char mainpage[1024] = { 0 };
     ol_header_t *header = NULL;
     int basesize = 0;
 
@@ -998,12 +1099,14 @@ bool OnlineBook::OnLineUpDownEvent(HWND hWnd, BOOL up, int n)
                 PlayLoading(hWnd);
                 return false;
             }
+#if 0 // move this to PageCache::DrawPage -> current_page_line
             else if (m_CurrentPos && m_Chapters[next].index != -1 && m_Chapters[next].index == m_CurPageSize+(*m_CurrentPos)) // fixed not full page bug
             {
                 *m_CurrentPos = m_Chapters[next].index;
                 Reset(hWnd);
                 return false;
             }
+#endif
         }
     }
 
@@ -1137,21 +1240,41 @@ void OnlineBook::StopLoading(HWND hWnd, int idx)
     }
 }
 
-BOOL OnlineBook::Redirect(OnlineBook *_this, request_t *r, const char *url, req_handler_t hOld)
+BOOL OnlineBook::RequestNextPage(OnlineBook *_this, request_t *r, const char *url, req_handler_t hOld)
 {
     req_handler_t hReq = NULL;
-    BOOL ret;
+    request_t req;
+    char url_[1024] = { 0 };
 
-    ret = ::Redirect(r, url, &hReq);
+    if (!url)
+        return FALSE;
 
-    if (ret && hReq && m_hMutex)
+    combine_url(url, r->url, url_);
+
+    if (r->content)
+        logger_printk("Redirect request to: %s -> %s", url_, r->content);
+    else
+        logger_printk("Redirect request to: %s", url_);
+
+    memset(&req, 0, sizeof(request_t));
+    req.method = r->method;
+    req.url = url_;
+    req.content = r->content;
+    req.content_length = r->content_length;
+    req.completer = r->completer;
+    req.param1 = r->param1;
+    req.param2 = r->param2;
+
+    hReq = hapi_request(&req);
+
+    if (hReq && m_hMutex)
     {
         WaitForSingleObject(m_hMutex, INFINITE);
         m_hRequestList.erase(hOld);
         m_hRequestList.insert(hReq);
         ReleaseMutex(m_hMutex);
     }
-    return ret;
+    return hReq != NULL;
 }
 
 bool OnlineBook::GenerateOlHeader(ol_header_t** header)
@@ -1256,68 +1379,10 @@ unsigned int OnlineBook::GetChapterPageCompleter(request_result_t *result)
     void* ctx = NULL;
     chapter_data_t chapters;
     chapter_item_t item;
-    TCHAR* dst = NULL;
     int needfree = 0;
     int ret = 1;
 
-
-    if (result->cancel)
-        goto end;
-
-    if (result->errno_ != succ)
-        goto end;
-
-    if (result->status_code != 200)
-    {
-        // redirect
-        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
-        {
-            return 1;
-        }   
-        goto end;
-    }
-
-    if (hapi_is_gzip(result->header))
-    {
-        needfree = 1;
-        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
-        {
-            needfree = 0;
-            goto end;
-        }
-    }
-    else
-    {
-        html = result->body;
-        htmllen = result->bodylen;
-    }
-
-#if 0
-    //if (hapi_get_charset(result->header) != utf_8)
-#else
-    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
-#endif
-    {
-        // conver to gbk
-        wchar_t* tempbuf = NULL;
-        int templen = 0;
-        char* utf8buf = NULL;
-        int utf8len = 0;
-        // convert 'gbk' to 'utf-8'
-        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
-        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
-        free(tempbuf);
-        if (needfree)
-        {
-            free(html);
-        }
-        html = utf8buf;
-        htmllen = utf8len;
-        needfree = 1;
-    }
-
-    if (_this->m_bForceKill)
-        goto end;
+    check_request_result(result);
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_page_xpath, chapter_url, &_this->m_bForceKill);
@@ -1347,7 +1412,7 @@ unsigned int OnlineBook::GetChapterPageCompleter(request_result_t *result)
     }
 
     // save chapter list page url
-    CombineUrl(chapter_url[0].c_str(), _this->m_MainPage, _this->m_ChapterPage);
+    combine_url(chapter_url[0].c_str(), result->req->url, _this->m_ChapterPage);
 
     // parser chapters
     _this->ParserChapters(param->hWnd, param->index);
@@ -1388,6 +1453,8 @@ unsigned int OnlineBook::GetChaptersCompleter(request_result_t *result)
     std::vector<std::string> title_list;
     std::vector<std::string> title_url;
     std::vector<std::string> book_status;
+    std::vector<std::string> url_xpath;
+    std::vector<std::string> keyword_xpath;
     void* doc = NULL;
     void* ctx = NULL;
     int i;
@@ -1399,83 +1466,18 @@ unsigned int OnlineBook::GetChaptersCompleter(request_result_t *result)
     int ret = 1;
     char dsturl[1024];
 
-
-    if (result->cancel)
-        goto end;
-
-    if (result->errno_ != succ)
-        goto end;
-
-    if (result->status_code != 200)
-    {
-        // redirect
-        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
-        {
-            if (_this->m_Booksrc->enable_chapter_page == 0)
-            {
-                // update m_MainPage
-                const char *url = hapi_get_location(result->header);
-                if (_strnicmp("http", url, 4) != 0)
-                {
-                    sprintf(_this->m_MainPage, "%s%s", _this->m_Host, url);
-                }
-                else
-                {
-                    strcpy(_this->m_MainPage, url);
-                }
-            }
-            return 1;
-        }   
-        goto end;
-    }
-
-    if (hapi_is_gzip(result->header))
-    {
-        needfree = 1;
-        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
-        {
-            needfree = 0;
-            goto end;
-        }
-    }
-    else
-    {
-        html = result->body;
-        htmllen = result->bodylen;
-    }
-
-#if 0
-    //if (hapi_get_charset(result->header) != utf_8)
-#else
-    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
-#endif
-    {
-        // conver to gbk
-        wchar_t* tempbuf = NULL;
-        int templen = 0;
-        char* utf8buf = NULL;
-        int utf8len = 0;
-        // convert 'gbk' to 'utf-8'
-        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
-        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
-        free(tempbuf);
-        if (needfree)
-        {
-            free(html);
-        }
-        html = utf8buf;
-        htmllen = utf8len;
-        needfree = 1;
-    }
-
-    if (_this->m_bForceKill)
-        goto end;
+    check_request_result(result);
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_title_xpath, title_list, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_url_xpath, title_url, &_this->m_bForceKill);
     if (_this->m_Booksrc->book_status_pos == 2)
         HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_status_xpath, book_status, &_this->m_bForceKill, true);
+    if (_this->m_Booksrc->enable_chapter_next)
+    {
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_next_url_xpath, url_xpath, &_this->m_bForceKill, true);
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->chapter_next_keyword_xpath, keyword_xpath, &_this->m_bForceKill, true);
+    }
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
     if (_this->m_bForceKill)
@@ -1498,28 +1500,71 @@ unsigned int OnlineBook::GetChaptersCompleter(request_result_t *result)
         }
     }
 
-    // update chapter
-    chapters._this = _this;
-    for (i = 0; i < (int)title_url.size(); i++)
+    if (_this->m_Booksrc->enable_chapter_next)
     {
-        if (_this->m_bForceKill)
-            goto end;
+        // save data
+        if (param->title_url == NULL)
+        {
+            param->title_url = new std::vector<std::string>;
+            param->title_list = new std::vector<std::string>;
+        }
 
-        // format title
-        dst = Utils::Utf8ToUtf16(title_list[i].c_str());
-        dstlen = _tcslen(dst);
-        _this->FormatText(dst, &dstlen);
+        param->title_url->insert(param->title_url->end(), title_url.begin(), title_url.end());
+        param->title_list->insert(param->title_list->end(), title_list.begin(), title_list.end());
 
-        if (_this->m_ChapterPage[0])
-            CombineUrl(title_url[i].c_str(), _this->m_ChapterPage, dsturl);
-        else
-            CombineUrl(title_url[i].c_str(), _this->m_MainPage, dsturl);
+        if (!url_xpath.empty() && !keyword_xpath.empty())
+        {
+            if (strstr(_this->m_Booksrc->chapter_next_keyword, keyword_xpath[0].c_str())) // exist next content
+            {
+                // request next content
+                if (_this->RequestNextPage(_this, result->req, url_xpath[0].c_str(), result->handler))
+                    goto _next;
+            }
+        }
 
-        item.index = -1;
-        item.size = 0;
-        item.title = dst;
-        item.url = dsturl;
-        chapters.chapters.insert(std::make_pair(i, item));
+        // update chapter
+        chapters._this = _this;
+        for (i = 0; i < (int)param->title_url->size(); i++)
+        {
+            if (_this->m_bForceKill)
+                goto end;
+
+            // format title
+            dst = Utf8ToUtf16(param->title_list->at(i).c_str());
+            dstlen = _tcslen(dst);
+            _this->FormatText(dst, &dstlen);
+
+            combine_url(param->title_url->at(i).c_str(), result->req->url, dsturl);
+
+            item.index = -1;
+            item.size = 0;
+            item.title = dst;
+            item.url = dsturl;
+            chapters.chapters.insert(std::make_pair(i, item));
+        }
+    }
+    else
+    {
+        // update chapter
+        chapters._this = _this;
+        for (i = 0; i < (int)title_url.size(); i++)
+        {
+            if (_this->m_bForceKill)
+                goto end;
+
+            // format title
+            dst = Utf8ToUtf16(title_list[i].c_str());
+            dstlen = _tcslen(dst);
+            _this->FormatText(dst, &dstlen);
+
+            combine_url(title_url[i].c_str(), result->req->url, dsturl);
+
+            item.index = -1;
+            item.size = 0;
+            item.title = dst;
+            item.url = dsturl;
+            chapters.chapters.insert(std::make_pair(i, item));
+        }
     }
     _this->m_UpdateTime = time(NULL);
     SendMessage(param->hWnd, WM_BOOK_EVENT, BE_UPATE_CHAPTER, (LPARAM)&chapters);
@@ -1546,7 +1591,13 @@ unsigned int OnlineBook::GetChaptersCompleter(request_result_t *result)
 
 end:
     if (param)
+    {
+        if (param->title_url)
+            delete param->title_url;
+        if (param->title_list)
+            delete param->title_list;
         free(param);
+    }
     if (needfree && html)
         free(html);
     if (!result->cancel)
@@ -1567,6 +1618,11 @@ end:
             _this->m_cb(FALSE, ret, _this->m_arg);
     }
     return ret;
+
+_next:
+    if (needfree && html)
+        free(html);
+    return 1;   
 }
 
 unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
@@ -1586,61 +1642,7 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
     int needfree = 0;
     int ret = 1;
 
-    if (result->cancel)
-        goto end;
-
-    if (result->errno_ != succ)
-        goto end;
-
-    if (result->status_code != 200)
-    {
-        // redirect
-        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
-            return 1;
-        goto end;
-    }
-
-    if (hapi_is_gzip(result->header))
-    {
-        needfree = 1;
-        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
-        {
-            needfree = 0;
-            goto end;
-        }
-    }
-    else
-    {
-        html = result->body;
-        htmllen = result->bodylen;
-    }
-
-#if 0
-    //if (hapi_get_charset(result->header) != utf_8)
-#else
-    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
-#endif
-    {
-        // conver to gbk
-        wchar_t* tempbuf = NULL;
-        int templen = 0;
-        char* utf8buf = NULL;
-        int utf8len = 0;
-        // convert 'gbk' to 'utf-8'
-        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
-        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
-        free(tempbuf);
-        if (needfree)
-        {
-            free(html);
-        }
-        html = utf8buf;
-        htmllen = utf8len;
-        needfree = 1;
-    }
-
-    if (_this->m_bForceKill)
-        goto end;
+    check_request_result(result);
 
     _this->FormatHtml(&html, &htmllen, &needfree);
 
@@ -1674,14 +1676,14 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
         if (param->text == NULL)
         {
             content_list[0].insert(0, "\n");
-            content_list[0].insert(0, Utils::Utf16ToUtf8(_this->m_Chapters[param->index].title.c_str()));
+            content_list[0].insert(0, Utf16ToUtf8(_this->m_Chapters[param->index].title.c_str()));
             content_list[0].append("\n");
         }
     }
     else
     {
         content_list[0].insert(0, "\n");
-        content_list[0].insert(0, Utils::Utf16ToUtf8(_this->m_Chapters[param->index].title.c_str()));
+        content_list[0].insert(0, Utf16ToUtf8(_this->m_Chapters[param->index].title.c_str()));
         content_list[0].append("\n");
     }
 
@@ -1689,7 +1691,7 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
         goto end;
 
     // format content
-    dst = Utils::utf8_to_utf16_ex(content_list[0].c_str(), content_list[0].size(), &dstlen);
+    dst = utf8_to_utf16(content_list[0].c_str(), content_list[0].size(), &dstlen);
     if (!dst)
         goto end;
 
@@ -1724,7 +1726,7 @@ unsigned int OnlineBook::GetContentCompleter(request_result_t *result)
             if (strstr(_this->m_Booksrc->content_next_keyword, keyword_xpath[0].c_str())) // exist next content
             {
                 // request next content
-                if (_this->Redirect(_this, result->req, url_xpath[0].c_str(), result->handler))
+                if (_this->RequestNextPage(_this, result->req, url_xpath[0].c_str(), result->handler))
                     goto _next;
             }
         }
@@ -1786,7 +1788,7 @@ _next:
             HtmlParser::Instance()->FreeFormat(html);
     if (dst)
         free(dst);
-    return 1;    
+    return 1;
 }
 
 unsigned int OnlineBook::GetBookStatusCompleter(request_result_t *result)
@@ -1807,61 +1809,7 @@ unsigned int OnlineBook::GetBookStatusCompleter(request_result_t *result)
     int ret = 1;
     char Url[1024] = { 0 };
 
-    if (result->cancel)
-        goto end;
-
-    if (result->errno_ != succ)
-        goto end;
-
-    if (result->status_code != 200)
-    {
-        // redirect
-        if (_this->Redirect(_this, result->req, hapi_get_location(result->header), result->handler))
-            return 1;
-        goto end;
-    }
-
-    if (hapi_is_gzip(result->header))
-    {
-        needfree = 1;
-        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
-        {
-            needfree = 0;
-            goto end;
-        }
-    }
-    else
-    {
-        html = result->body;
-        htmllen = result->bodylen;
-    }
-
-#if 0
-    //if (hapi_get_charset(result->header) != utf_8)
-#else
-    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
-#endif
-    {
-        // conver to gbk
-        wchar_t* tempbuf = NULL;
-        int templen = 0;
-        char* utf8buf = NULL;
-        int utf8len = 0;
-        // convert 'gbk' to 'utf-8'
-        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
-        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
-        free(tempbuf);
-        if (needfree)
-        {
-            free(html);
-        }
-        html = utf8buf;
-        htmllen = utf8len;
-        needfree = 1;
-    }
-
-    if (_this->m_bForceKill)
-        goto end;
+    check_request_result(result);
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &_this->m_bForceKill);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _this->m_Booksrc->book_name_xpath, table_name, &_this->m_bForceKill);
@@ -1882,7 +1830,7 @@ unsigned int OnlineBook::GetBookStatusCompleter(request_result_t *result)
     {
         for (i = 0; i < (int)table_url.size(); i++)
         {
-            CombineUrl(table_url[i].c_str(), _this->m_MainPage, Url);
+            combine_url(table_url[i].c_str(), result->req->url, Url);
             if (strcmp(_this->m_MainPage, Url) == 0)
             {
                 if (strcmp(table_status[i].c_str(), _this->m_Booksrc->book_status_keyword) == 0)
@@ -1926,16 +1874,8 @@ void OnlineBook::UpdateBookSource(void)
 int OnlineBook::CheckUpdate(HWND hWnd, olbook_checkupdate_callback cb, void* arg)
 {
     u64 current_time = 0;
-#if TEST_MODEL
-    char msg[1024] = { 0 };
-    char* ansi = NULL;
-#endif
 
-#if TEST_MODEL
-    ansi = Utils::Utf16ToAnsi(m_fileName);
-    sprintf(msg, "{%s:%d} file=%s\n", __FUNCTION__, __LINE__, ansi);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("file=%s", Utf16ToAnsi(m_fileName));
 
     if (m_IsCheck)
     {

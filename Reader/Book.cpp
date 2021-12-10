@@ -237,13 +237,13 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
 {
     type_t bom = Unknown;
 
-    if (Unknown != (bom = Utils::check_bom(src, srcsize)))
+    if (Unknown != (bom = check_bom(src, srcsize)))
     {
         if (utf8 == bom)
         {
             src += 3;
             srcsize -= 3;
-            *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize);
+            *dst = utf8_to_utf16(src, srcsize, dstsize);
             (*dstsize)--;
         }
         else if (utf16_le == bom)
@@ -263,7 +263,7 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
             *dst = (wchar_t *)malloc(sizeof(wchar_t) * ((*dstsize) + 1));
             memcpy(*dst, src, srcsize);
             (*dst)[*dstsize] = 0;
-            *dst = (wchar_t *)Utils::be_to_le((char *)(*dst), srcsize);
+            *dst = (wchar_t *)be_to_le((char *)(*dst), srcsize);
         }
         else if (utf32_le == bom || utf32_be == bom)
         {
@@ -271,31 +271,33 @@ bool Book::DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize)
             return false;
         }
     }
-    else if (Utils::is_ascii(src, srcsize > 1024 ? 1024 : srcsize))
+#if 0
+    else if (is_ascii(src, srcsize > 4096 ? 4096 : srcsize))
     {
 #if 0
-        *dst = Utils::utf8_to_utf16(src, dstsize);
+        *dst = utf8_to_utf16(src, dstsize);
         (*dstsize)--;
 #else
-        *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize);
+        *dst = utf8_to_utf16_ex(src, srcsize, dstsize);
 #endif
     }
-    else if (Utils::is_utf8(src, srcsize > 1024 ? 1024 : srcsize))
+#endif
+    else if (is_utf8(src, srcsize > 4096 ? 4096 : srcsize))
     {
 #if 0
-        *dst = Utils::utf8_to_utf16(src, dstsize);
+        *dst = utf8_to_utf16(src, dstsize);
         (*dstsize)--;
 #else
-        *dst = Utils::utf8_to_utf16_ex(src, srcsize, dstsize); // fixed bug : invalid utf8 text
+        *dst = utf8_to_utf16(src, srcsize, dstsize); // fixed bug : invalid utf8 text
 #endif
     }
     else
     {
 #if 0
-        *dst = Utils::ansi_to_utf16(src, dstsize);
+        *dst = ansi_to_utf16(src, dstsize);
         (*dstsize)--;
 #else
-        *dst = Utils::ansi_to_utf16_ex(src, srcsize, dstsize);
+        *dst = ansi_to_utf16(src, srcsize, dstsize);
 #endif
     }
 
@@ -402,7 +404,7 @@ bool Book::CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size)
     _data[_size] = 0;
     fclose(fp);
 
-    if (!Utils::get_md5(_data, _size, md5))
+    if (!get_md5(_data, _size, md5))
     {
         free(_data);
         return false;

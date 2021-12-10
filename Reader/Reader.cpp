@@ -51,6 +51,8 @@ INT_PTR CALLBACK    JumpProgress(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    UpgradeProc(HWND, UINT, WPARAM, LPARAM);
 #endif
 
+static void _free_resource(HWND hWnd);
+static void _update_data(HWND hWnd, BOOL keep_header, BOOL do_save);
 
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -193,7 +195,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    InitCommonControls();
 
    // update for dpi
-   UpdateLayoutForDpi(&_header->rect);
+   UpdateRectForDpi(&_header->placement.rcNormalPosition);
    UpdateFontForDpi(&_header->font);
 #if ENABLE_TAG
    for (int i = 0; i < MAX_TAG_COUNT; i++)
@@ -203,7 +205,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 #endif
 
    // fixed rect exception bug.
-#if ENABLE_TAG
+#if 0
     int sw,sh;
     sw = GetCxScreenForDpi();
     sh = GetCyScreenForDpi();
@@ -238,25 +240,45 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         UpdateLayoutForDpi(&_header->rect);
     }
 #endif
-   // -- fixed end
    
-   hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      _header->rect.left, _header->rect.top, 
-      _header->rect.right - _header->rect.left,
-      _header->rect.bottom - _header->rect.top,
+   _header->style &= ~WS_MINIMIZE;
+   _header->style &= ~WS_DISABLED;
+   if (_header->placement.showCmd == SW_SHOWMINIMIZED || _header->placement.showCmd == SW_MINIMIZE)
+   {
+       _header->placement.showCmd = SW_SHOWNORMAL;
+   }
+
+   hWnd = CreateWindowEx(_header->exstyle, szWindowClass, szTitle, _header->style,
+       _header->placement.rcNormalPosition.left, _header->placement.rcNormalPosition.top, 
+       _header->placement.rcNormalPosition.right - _header->placement.rcNormalPosition.left,
+       _header->placement.rcNormalPosition.bottom - _header->placement.rcNormalPosition.top,
       NULL, NULL, hInstance, NULL);
+
+   SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+   SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
+
+   SetWindowPlacement(hWnd, &_header->placement);
 
    if (!hWnd)
    {
       return FALSE;
    }
    _hWnd = hWnd;
-   SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+
+   if (!_WndInfo.bLayered)
+   {
+       SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+   }
 
    ShowSysTray(hWnd, _header->show_systray);
    ShowInTaskbar(hWnd, !_header->hide_taskbar);
 
-   ShowWindow(hWnd, nCmdShow);
+   if (_WndInfo.status != ds_normal)
+   {
+       OnDraw(hWnd);
+   }
+
+   //ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
    return TRUE;
@@ -280,6 +302,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT hit;
     POINT pt;
     RECT rc;
+    int caption_h;
     static RECT s_rect;
 
     if (message == _uFindReplaceMsg)
@@ -331,7 +354,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTING), hWnd, Setting);
             break;
         case IDM_KEYSET:
-            KS_OpenDlg(hInst, hWnd);
+            KS_OpenDlg();
             break;
         case IDM_ADVSET:
             ADV_OpenDlg(hInst, hWnd, &(_header->chapter_rule), _Book);
@@ -488,7 +511,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CONTEXTMENU:
         if (wParam == (WPARAM)_hTreeMark)
         {
-            POINT pt;
             HTREEITEM Selected;
             TVITEM item;
             pt.x = LOWORD(lParam); 
@@ -499,7 +521,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 HMENU hMenu = CreatePopupMenu();
                 if (hMenu)
                 {
-                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_MK_DEL, _T("Delete"));
+                    InsertMenu(hMenu, (UINT)-1, MF_BYPOSITION, IDM_MK_DEL, _T("Delete"));
                     SetForegroundWindow(hWnd);
                     int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, _hTreeMark, NULL);
                     DestroyMenu(hMenu);
@@ -520,7 +542,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         wmId = GetMenuItemID((HMENU)lParam, wParam);
         if (wmId >= IDM_OPEN_BEGIN && wmId <= IDM_OPEN_END)
         {
-            RECT rect;
             int item_id = wmId - IDM_OPEN_BEGIN;
             if (IDYES == MessageBoxFmt_(hWnd, IDS_WARN, MB_ICONINFORMATION | MB_YESNO, IDS_DELETE_FILE_CFM, _Cache.get_item(item_id)->file_name))
             {
@@ -542,8 +563,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             _Book = NULL;
                         }
                         PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
-                        GetClientRectExceptStatusBar(hWnd, &rect);
-                        InvalidateRect(hWnd, &rect, FALSE);
+                        Invalidate(hWnd, TRUE, FALSE);
                     }
                 }
                 break;
@@ -557,21 +577,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         // TODO: Add any drawing code here...
-        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-        {
-            ResetLayerd(hWnd);
-            OnDraw(hWnd);
-        }
-        else
-        {
-            ResetLayerd(hWnd);
+        if (!_WndInfo.bLayered)
             OnPaint(hWnd, hdc);
-        }
-        if (_NeedSave)
-        {
-            _NeedSave = FALSE;
-            Save(hWnd);
-        }
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
@@ -590,60 +597,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
-        ShowSysTray(hWnd, FALSE);
-        StopAutoPage(hWnd);
-        KS_UnRegisterAllHotKey(hWnd);
-        if (_hMouseHook)
-        {
-            UnhookWindowsHookEx(_hMouseHook);
-            _hMouseHook = NULL;
-        }
-        // save rect
-        if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
-        {
-            GetClientRectExceptStatusBar(hWnd, &rc);
-            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-            ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
-            rc.left = rc.left - _WndInfo.hbRect.left;
-            rc.right = rc.right + _WndInfo.hbRect.right;
-            rc.top = rc.top - _WndInfo.hbRect.top;
-            rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-            _header->rect.left = rc.left;
-            _header->rect.top = rc.top;
-            _header->rect.right = rc.right;
-            _header->rect.bottom = rc.bottom;
-        }
-        RestoreRectForDpi(&_header->rect);
-        RestoreFontForDpi(&_header->font);
-#if ENABLE_TAG
-        for (int i=0; i<MAX_TAG_COUNT; i++)
-        {
-            RestoreFontForDpi(&_header->tags[i].font);
-        }
-#endif
-        // stop loading
-        StopLoadingImage(hWnd);
-        if (_loading)
-        {
-            if (_loading->hMemory)
-                ::GlobalFree(_loading->hMemory);
-            if (_loading->image)
-                delete _loading->image;
-            free(_loading->item);
-            free(_loading);
-            _loading = NULL;
-        }
-        // close book
-        if (_Book)
-        {
-            delete _Book;
-            _Book = NULL;
-        }
+        _free_resource(hWnd);
+        _update_data(hWnd, FALSE, FALSE);
         PostQuitMessage(0);
         break;
     case WM_NCHITTEST:
         hit = DefWindowProc(hWnd, message, wParam, lParam);
-        if (hit == HTCLIENT && _WndInfo.bHideBorder && !_WndInfo.bFullScreen)
+        if (hit == HTCLIENT && _WndInfo.status == ds_borderless)
         {
             if (_header->page_mode == 2)
             {
@@ -657,10 +617,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else
             {
+                caption_h = GetWidthForDpi(60);
                 GetCursorPos(&pt);
                 ScreenToClient(hWnd, &pt);
                 GetClientRectExceptStatusBar(hWnd, &rc);
-                rc.bottom = rc.bottom/2 > 80 ? 80 : rc.bottom/2;
+                rc.bottom = rc.bottom/2 > caption_h ? caption_h : rc.bottom/2;
                 if (PtInRect(&rc, pt))
                     hit = HTCAPTION;
             }
@@ -679,20 +640,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_SIZE:
-        OnSize(hWnd, message, wParam, lParam);
-        if (!IsZoomed(hWnd) && !IsIconic(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
-            GetWindowRect(hWnd, &_header->rect);
+        if (!IsIconic(hWnd))
+            OnSize(hWnd, message, wParam, lParam);
         GetWindowRect(hWnd, &s_rect);
         ResetAutoPage(hWnd);
         break;
-    case WM_MOVE:
-        OnMove(hWnd);
-        if (!IsZoomed(hWnd) && !IsIconic(hWnd) && !_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
-            GetWindowRect(hWnd, &_header->rect);
-        break;
-    case WM_WINDOWPOSCHANGED:
-        return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_KEYDOWN:
+#if ENABLE_GLOBAL_KEY
+        if (_hKeyboardHook)
+            break;
+#endif
+
         if (_Book && _Book->IsLoading())
             break;
 
@@ -701,7 +659,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         if (VK_ESCAPE == wParam)
         {
-            if (_WndInfo.bFullScreen)
+            if (_WndInfo.status == ds_fullscreen)
             {
                 OnFullScreen(hWnd, message, wParam, lParam);
             }
@@ -768,6 +726,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_NCLBUTTONDOWN:
+        if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) && _header->disable_lrhide == 0)
+        {
+            ShowHideWindow(hWnd);
+            break;
+        }
         if (_hMouseHook)
         {
             switch (wParam)
@@ -808,6 +771,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     case WM_NCRBUTTONDOWN:
+        if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) && _header->disable_lrhide == 0) //not work
+        {
+            ShowHideWindow(hWnd);
+            break;
+        }
         if (IsWindowVisible(_hTreeView))
         {
             ShowWindow(_hTreeView, SW_HIDE);
@@ -851,16 +819,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (GetAsyncKeyState(VK_SHIFT) & 0x8000)
                     {
                         _header->alpha = MAX_ALPHA;
-                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                        {
-                            ResetLayerd(hWnd);
-                            OnDraw(hWnd);
-                        }
-                        else
-                        {
-                            ResetLayerd(hWnd);
-                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                        }
                     }
                     else
                     {
@@ -868,17 +826,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             _header->alpha += UNIT_STEP;
                         else
                             _header->alpha = MAX_ALPHA;
-                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                        {
-                            ResetLayerd(hWnd);
-                            OnDraw(hWnd);
-                        }
-                        else
-                        {
-                            ResetLayerd(hWnd);
-                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                        }
                     }
+                    if (_WndInfo.bLayered)
+                        OnDraw(hWnd);
+                    else
+                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
                 }
                 else if (GetAsyncKeyState(18) & 0x8000) // alt
                 {
@@ -886,16 +838,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         _textAlpha += UNIT_STEP;
                     else
                         _textAlpha = MAX_ALPHA;
-                    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                    {
-                        ResetLayerd(hWnd);
+                    if (_WndInfo.bLayered)
                         OnDraw(hWnd);
-                    }
-                    else
-                    {
-                        ResetLayerd(hWnd);
-                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                    }
                 }
                 else
                 {
@@ -909,16 +853,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (GetAsyncKeyState(VK_SHIFT) & 0x8000)
                     {
                         _header->alpha = MIN_ALPHA;
-                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                        {
-                            ResetLayerd(hWnd);
-                            OnDraw(hWnd);
-                        }
-                        else
-                        {
-                            ResetLayerd(hWnd);
-                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                        }
                     }
                     else
                     {
@@ -926,17 +860,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             _header->alpha -= UNIT_STEP;
                         else
                             _header->alpha = MIN_ALPHA;
-                        if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                        {
-                            ResetLayerd(hWnd);
-                            OnDraw(hWnd);
-                        }
-                        else
-                        {
-                            ResetLayerd(hWnd);
-                            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                        }
                     }
+                    if (_WndInfo.bLayered)
+                        OnDraw(hWnd);
+                    else
+                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
                 }
                 else if (GetAsyncKeyState(18) & 0x8000) // alt
                 {
@@ -944,16 +872,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         _textAlpha -= UNIT_STEP;
                     else
                         _textAlpha = 0x0f;
-                    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-                    {
-                        ResetLayerd(hWnd);
+                    if (_WndInfo.bLayered)
                         OnDraw(hWnd);
-                    }
-                    else
-                    {
-                        ResetLayerd(hWnd);
-                        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-                    }
                 }
                 else
                 {
@@ -963,9 +883,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_ERASEBKGND:
-        if (!_Book)
-            DefWindowProc(hWnd, message, wParam, lParam);
-        break;
+        return TRUE;
     case WM_DROPFILES:
         OnDropFiles(hWnd, message, wParam, lParam);
         break;
@@ -998,8 +916,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 _loading->image->SelectActiveFrame(&Guid, _loading->frameIndex);
                 SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item->value)[_loading->frameIndex] * 10, NULL);
                 _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
-                GetClientRectExceptStatusBar(hWnd, &rc);
-                InvalidateRect(hWnd, &rc, FALSE);
+                Invalidate(hWnd, TRUE, FALSE);
             }
             break;
         default:
@@ -1027,7 +944,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             else
             {
                 chkbook_arg_t* arg = GetCheckBookArguments();
-                book_event_data_t* be = (book_event_data_t*)lParam;
+                be = (book_event_data_t*)lParam;
                 if (arg && arg->book && be && arg->book == be->_this)
                     arg->book->OnBookEvent(hWnd, message, wParam, lParam);
             }
@@ -1051,13 +968,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_CONTEXTMENU:
             {
                 int ret;
-                POINT pt;
                 GetCursorPos(&pt);
                 HMENU hMenu = CreatePopupMenu();
                 if(hMenu)
                 {
-                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_ST_OPEN, _T("Open"));
-                    InsertMenu(hMenu, -1, MF_BYPOSITION, IDM_ST_EXIT, _T("Exit"));
+                    InsertMenu(hMenu, (UINT)-1, MF_BYPOSITION, IDM_ST_OPEN, _T("Open"));
+                    InsertMenu(hMenu, (UINT)-1, MF_BYPOSITION, IDM_ST_EXIT, _T("Exit"));
                     SetForegroundWindow(hWnd);
                     ret = TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_RETURNCMD, pt.x, pt.y, 0, hWnd, NULL);
                     DestroyMenu(hMenu);
@@ -1092,33 +1008,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         //Exit(); // save data when poweroff ?
         return TRUE;
     case WM_ENDSESSION:
-        {
-            // save rect
-            if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
-            {
-                GetClientRectExceptStatusBar(hWnd, &rc);
-                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-                ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
-                rc.left = rc.left - _WndInfo.hbRect.left;
-                rc.right = rc.right + _WndInfo.hbRect.right;
-                rc.top = rc.top - _WndInfo.hbRect.top;
-                rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-                _header->rect.left = rc.left;
-                _header->rect.top = rc.top;
-                _header->rect.right = rc.right;
-                _header->rect.bottom = rc.bottom;
-            }
-            RestoreRectForDpi(&_header->rect);
-            RestoreFontForDpi(&_header->font);
-#if ENABLE_TAG
-            for (int i=0; i<MAX_TAG_COUNT; i++)
-            {
-                RestoreFontForDpi(&_header->tags[i].font);
-            }
-#endif
-            Exit();
-            return DefWindowProc(hWnd, message, wParam, lParam);
-        }
+        _free_resource(hWnd);
+        _update_data(hWnd, FALSE, FALSE);
+        Exit();
+        return 0;
         break;
     case 0x02E0: //WM_DPICHANGED
         {            
@@ -1130,7 +1023,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(_hTreeView, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
             SendMessage(_hTreeMark, WM_SETFONT, (WPARAM)hFont, NULL);
             SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
-            DpiChanged(hWnd, &_header->font, &_header->rect, wParam, (RECT*)lParam);
+            DpiChanged(hWnd, &_header->font, &_header->placement.rcNormalPosition, wParam, (RECT*)lParam);
+            DpiChanged(hWnd, &_header->font, &_header->fs_placement.rcNormalPosition, wParam, (RECT*)lParam);
         }
         break;
     default:
@@ -1378,12 +1272,17 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     RECT rc;
     Gdiplus::Bitmap *image_mp = NULL;
     static double dpiscaled = 0.0;
+    TCHAR version[256];
+    TCHAR info[256];
 
     switch (message)
     {
     case WM_INITDIALOG:
         image_mp = LoadBarCodeMP();
         dpiscaled = GetDpiScaled();
+        GetApplicationVersion(version);
+        _sntprintf(info, 256, _T("Reader, Version %s"), version);
+        SetDlgItemText(hDlg, IDC_STATIC_VERSION, info);
         return (INT_PTR)TRUE;
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
@@ -1405,7 +1304,6 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps;
             Gdiplus::Graphics *graphics = NULL;
             Rect rect;
-            RECT rc;
 
             GetClientRect(hDlg, &rc);
 
@@ -1598,7 +1496,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 bUpdated = TRUE;
             }
             value = GetDlgItemInt(hDlg, IDC_EDIT_ELAPSE, &bResult, FALSE);
-            if (value != _header->uElapse)
+            if (value != (int)_header->uElapse)
             {
                 _header->uElapse = value;
             }
@@ -1691,9 +1589,9 @@ int hapi_set_proxy_ex(proxy_t *proxy)
     char user[64];
     char pass[64];
 
-    strcpy(addr, Utils::Utf16ToUtf8(_header->proxy.addr));
-    strcpy(user, Utils::Utf16ToUtf8(_header->proxy.user));
-    strcpy(pass, Utils::Utf16ToUtf8(_header->proxy.pass));
+    strcpy(addr, Utf16ToUtf8(_header->proxy.addr));
+    strcpy(user, Utf16ToUtf8(_header->proxy.user));
+    strcpy(pass, Utf16ToUtf8(_header->proxy.pass));
     p.enable = proxy->enable;
     p.port = proxy->port;
     p.addr = addr;
@@ -1817,7 +1715,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     LRESULT res;
     TCHAR text[MAX_PATH] = {0};
     TCHAR *ext;
-    RECT rc;
+
     switch (message)
     {
     case WM_INITDIALOG:
@@ -1883,10 +1781,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 if (_Book)
                     _Book->ReDraw(GetParent(hDlg));
                 else
-                {
-                    GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
-                    InvalidateRect(GetParent(hDlg), &rc, FALSE);
-                }
+                    Invalidate(GetParent(hDlg), TRUE, FALSE);
             }
             else
             {
@@ -1894,10 +1789,7 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 if (_Book)
                     _Book->ReDraw(GetParent(hDlg));
                 else
-                {
-                    GetClientRectExceptStatusBar(GetParent(hDlg), &rc);
-                    InvalidateRect(GetParent(hDlg), &rc, FALSE);
-                }
+                    Invalidate(GetParent(hDlg), TRUE, FALSE);
             }
             Save(GetParent(hDlg));
             EndDialog(hDlg, LOWORD(wParam));
@@ -1929,7 +1821,6 @@ INT_PTR CALLBACK BgImage(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 _hFindDlg = NULL;
             }
             TCHAR szFileName[MAX_PATH] = {0};
-            TCHAR szTitle[MAX_PATH] = {0};
             OPENFILENAME ofn = {0};
             ofn.lStructSize = sizeof(ofn);  
             ofn.hwndOwner = hDlg;  
@@ -2052,6 +1943,11 @@ INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
 
 LRESULT OnCreate(HWND hWnd)
 {
+    _WndInfo.bLayered = (_header->style & WS_CAPTION) == 0;
+    _WndInfo.bLayered_bak = _WndInfo.bLayered;
+    _WndInfo.bTopMost = (_header->exstyle & WS_EX_TOPMOST) == WS_EX_TOPMOST;
+    _WndInfo.status = (_header->style & WS_MINIMIZEBOX) == 0 ? ds_fullscreen : (((_header->style & WS_CAPTION) == 0) ? ds_borderless : ds_normal);
+
     _WndInfo.hMenu = GetMenu(hWnd);
     // create status bar
     _WndInfo.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
@@ -2087,6 +1983,11 @@ LRESULT OnCreate(HWND hWnd)
     // init keyset
     KS_Init(hWnd, _header->keyset);
 
+    if (_WndInfo.status > ds_normal)
+    {
+        ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
+        SetMenu(hWnd, NULL);
+    }
     return 0;
 }
 
@@ -2192,8 +2093,6 @@ LRESULT OnOpenItem(HWND hWnd, int item_id, BOOL forced)
 
 LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT rect;
-
     if (_header->item_count <= 0)
     {
         return 0;
@@ -2212,8 +2111,7 @@ LRESULT OnClearFileList(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     _Cache.delete_all_item();
     OnUpdateMenu(hWnd);
     PostMessage(hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    InvalidateRect(hWnd, &rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
     SetWindowText(hWnd, szTitle);
     StopLoadingImage(hWnd);
     StopAutoPage(hWnd);
@@ -2225,7 +2123,7 @@ LRESULT CALLBACK ChooseFontComboProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 {
     CHOOSECOLOR cc;
     COLORREF co;
-    RECT rc;
+
     switch (message)
     {
     case WM_LBUTTONDOWN:
@@ -2239,8 +2137,7 @@ LRESULT CALLBACK ChooseFontComboProc(HWND hWnd, UINT message, WPARAM wParam, LPA
         {
             SendMessage(hWnd, CB_SETITEMDATA, 0, cc.rgbResult);
             SendMessage(hWnd, CB_SETCURSEL, 0, cc.rgbResult);
-            GetClientRect(GetParent(hWnd), &rc);
-            InvalidateRect(GetParent(hWnd), &rc, TRUE);
+            Invalidate(hWnd, TRUE, FALSE);
         }
         return 0;
         break;
@@ -2318,7 +2215,6 @@ LRESULT OnSetFont(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT rect;
     CHOOSECOLOR cc;                 // common dialog box structure 
 
     ZeroMemory(&cc, sizeof(cc));
@@ -2334,8 +2230,7 @@ LRESULT OnSetBkColor(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             _header->bg_color = cc.rgbResult;
             //_Book->ReDraw(hWnd);
-            GetClientRectExceptStatusBar(hWnd, &rect);
-            InvalidateRect(hWnd, &rect, FALSE);
+            Invalidate(hWnd, TRUE, FALSE);
             Save(hWnd);
         }
     }
@@ -2353,11 +2248,10 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    if (IsZoomed(hWnd))
-        SendMessage(hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
     KS_UnRegisterAllHotKey(hWnd);
     _Cache.default_header();
-    UpdateLayoutForDpi(&_header->rect);
+    UpdateRectForDpi(&_header->placement.rcNormalPosition);
+    UpdateRectForDpi(&_header->fs_placement.rcNormalPosition);
     UpdateFontForDpi(&_header->font);
 #if 0 // needn't
 #if ENABLE_TAG
@@ -2367,27 +2261,19 @@ LRESULT OnRestoreDefault(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 #endif
 #endif
+    SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+    SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
+
     KS_RegisterAllHotKey(hWnd);
+    SetGlobalKey(hWnd);
     ShowSysTray(hWnd, _header->show_systray);
     ShowInTaskbar(hWnd, !_header->hide_taskbar);
 
-    // change window size
-    SetWindowPos(hWnd, NULL,
-        _header->rect.left, _header->rect.top,
-        _header->rect.right - _header->rect.left,
-        _header->rect.bottom - _header->rect.top,
-        /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+    SetWindowPlacement(hWnd, &_header->placement);
 
-    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
+    if (!_WndInfo.bLayered)
     {
-        ResetLayerd(hWnd);
-        OnDraw(hWnd);
-    }
-    else
-    {
-        ResetLayerd(hWnd);
         SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-        InvalidateRect(hWnd, NULL, TRUE);
     }
 
     if (lastrule != _header->chapter_rule.rule)
@@ -2450,9 +2336,11 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     
     SetBkMode(memdc, TRANSPARENT);
 
-    if (_Book && !_Book->IsLoading() && _bShowText)
+    if (_Book && !_Book->IsLoading())
+    {
         _Book->DrawPage(hWnd, memdc);
-    if (_loading && _loading->enable && _bShowText)
+    }
+    if (_loading && _loading->enable)
     {
         g = new Graphics(memdc);
         w = (UINT)(rc.right - rc.left) > _loading->image->GetWidth() ? _loading->image->GetWidth() : (UINT)(rc.right - rc.left);
@@ -2490,12 +2378,13 @@ LRESULT OnPaint(HWND hWnd, HDC hdc)
     return 0;
 }
 
-void OnDraw(HWND hWnd)
+VOID OnDraw(HWND hWnd)
 {
     RECT rc;
     HBRUSH hBrush = NULL;
     HDC memdc = NULL;
     HBITMAP hBmp = NULL;
+    HBITMAP hOldBmp = NULL;
     HFONT hFont = NULL;
     Bitmap *image;
     Graphics *g = NULL;
@@ -2504,8 +2393,9 @@ void OnDraw(HWND hWnd)
     double scale;
     HDC hdcScreen = NULL;
     HBITMAP hTextBmp = NULL;
+    BOOL isBlank = TRUE;
+    BYTE alpha = _header->alpha;
     static u32 s_bgColor = 0;
-    static Bitmap *s_bgColorImage = NULL;
     static int s_width = 0;
     static int s_height = 0;
 
@@ -2514,48 +2404,24 @@ void OnDraw(HWND hWnd)
     w = rc.right-rc.left;
     h = rc.bottom-rc.top;
 
-#if 1
-    // load bg image
-    image = LoadBGImage(w, h, _header->alpha);
-    if (!image)
+    // memory dc
+    hdcScreen = GetDC(NULL);
+    memdc = CreateCompatibleDC(hdcScreen);
+
+    // draw text to image
+    if (_Book && !_Book->IsLoading())
     {
-        if (s_bgColorImage && s_width == w && s_height == h && s_bgColor == _header->bg_color)
-        {
-            image = s_bgColorImage;
-        }
-        else
-        {
-            if (s_bgColorImage)
-                delete s_bgColorImage;
-            s_bgColorImage = new Bitmap(w, h, PixelFormat32bppARGB);
-            // set bg color
-            Gdiplus::Color color;
-            Gdiplus::ARGB argb;
-            Gdiplus::Graphics *g = Gdiplus::Graphics::FromImage(s_bgColorImage);
-            color.SetFromCOLORREF(_header->bg_color);
-            argb = color.GetValue();
-            argb &= 0x00FFFFFF;
-            argb |= (((DWORD)_header->alpha) << 24);
-            color.SetValue(argb);
-            Gdiplus::SolidBrush brush_tr(color);
-            g->FillRectangle(&brush_tr, 0, 0, w, h);
-            delete g;
-            image = s_bgColorImage;
-        }
+        hFont = CreateFontIndirect(&_header->font);
+        hTextBmp = CreateAlphaTextBitmap(hWnd, hFont, _header->font_color, w, h, &isBlank);
     }
 
-    // memory dc
-    hdcScreen = GetDC(NULL);
-    memdc = CreateCompatibleDC(hdcScreen);
-    image->GetHBITMAP(Color(0, 0, 0, 0), &hBmp);
-    SelectObject(memdc, hBmp);
-#else
-    // memory dc
-    hdcScreen = GetDC(NULL);
-    memdc = CreateCompatibleDC(hdcScreen);
+    if (isBlank) // fixed windows cannot show bug.
+    {
+        alpha = _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha;
+    }
 
     // load bg image
-    image = LoadBGImage(w, h, _header->alpha);
+    image = LoadBGImage(w, h, alpha);
     if (image)
     {
         image->GetHBITMAP(Color(0, 0, 0, 0), &hBmp);
@@ -2563,44 +2429,11 @@ void OnDraw(HWND hWnd)
     }
     else
     {
-        hBmp = CreateCompatibleBitmap(hdcScreen, rc.right-rc.left, rc.bottom-rc.top);
+        hBmp = CreateAlphaBGColorBitmap(hWnd, _header->bg_color, rc.right-rc.left, rc.bottom-rc.top, alpha);
         SelectObject(memdc, hBmp);
-
-        // set bg color
-        COLORREF color = _header->bg_color;
-        hBrush = CreateSolidBrush(_header->bg_color);
-        color &= 0x00FFFFFF;
-        color |= (((DWORD)_header->alpha) << 24);
-        SelectObject(memdc, hBrush);
-        FillRect(memdc, &rc, hBrush);
     }
-#endif
-
-#if 0  // move to LoadBGImage() and Brush color
-    // set bitmap alpha
-    Gdiplus::Color color;
-    Gdiplus::ARGB argb;
-    for (INT i=0; i<h; i++)
-    {
-        for (INT j=0; j<w; j++)
-        {
-            image->GetPixel(j, i, &color);
-            argb = color.GetValue();
-            argb &= 0x00FFFFFF;
-            argb |= (((DWORD)_header->alpha) << 24);
-            color.SetValue(argb);
-            image->SetPixel(j, i, color);
-        }
-    }
-#endif
-
-    // draw text
-    if (_Book && !_Book->IsLoading() && _bShowText)
-    {
-        hFont = CreateFontIndirect(&_header->font);
-        hTextBmp = CreateAlphaTextBitmap(hWnd, hFont, _header->font_color, w, h);
-    }
-    if (_loading && _loading->enable && _bShowText)
+    
+    if (_loading && _loading->enable)
     {
         g = new Graphics(memdc);
         w = (UINT)(rc.right - rc.left) > _loading->image->GetWidth() ? _loading->image->GetWidth() : (UINT)(rc.right - rc.left);
@@ -2629,10 +2462,9 @@ void OnDraw(HWND hWnd)
     if (hTextBmp)
     {
         HDC hTempDC = CreateCompatibleDC(hdcScreen);
-        HBITMAP hOldBMP = (HBITMAP)SelectObject(hTempDC, hTextBmp);
-        if (hOldBMP)
+        hOldBmp = (HBITMAP)SelectObject(hTempDC, hTextBmp);
+        if (hOldBmp)
         {
-#if 1
             // Fill blend function and blend new text to window 
             BLENDFUNCTION bf;
             bf.BlendOp = AC_SRC_OVER;
@@ -2640,12 +2472,9 @@ void OnDraw(HWND hWnd)
             bf.SourceConstantAlpha = 0xFF; 
             bf.AlphaFormat = AC_SRC_ALPHA;
             AlphaBlend(memdc, 0, 0, w, h, hTempDC, 0, 0, w, h, bf);
-#else
-            BitBlt(memdc, 0, 0, w, h, hTempDC, 0, 0, SRCCOPY);
-#endif
 
             // Clean up 
-            SelectObject(hTempDC, hOldBMP); 
+            SelectObject(hTempDC, hOldBmp); 
             DeleteObject(hTextBmp); 
             DeleteDC(hTempDC); 
         }
@@ -2662,7 +2491,7 @@ void OnDraw(HWND hWnd)
     POINT ptPos = {winRect.left, winRect.top};
     SIZE sizeWnd = {winRect.right - winRect.left, winRect.bottom - winRect.top};
     POINT ptSrc = {0, 0};
-    BOOL ret = UpdateLayeredWindow(hWnd, hdcScreen, &ptPos, &sizeWnd, memdc, &ptSrc, 0, &blend, ULW_ALPHA);
+    UpdateLayeredWindow(hWnd, hdcScreen, &ptPos, &sizeWnd, memdc, &ptSrc, 0, &blend, ULW_ALPHA);
     
 
     DeleteObject(hBmp);
@@ -2677,20 +2506,47 @@ void OnDraw(HWND hWnd)
     return;
 }
 
-void ResetLayerd(HWND hWnd)
+BOOL ResetLayerd(HWND hWnd)
 {
-    static BOOL s_bHideBorder = FALSE;
-    static BOOL s_bFullScreen = FALSE;
+    DWORD exstyle;
 
-    if (s_bHideBorder != _WndInfo.bHideBorder || s_bFullScreen != _WndInfo.bFullScreen)
+    if (_WndInfo.bLayered_bak != _WndInfo.bLayered)
     {
-        DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+        exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
         exstyle &= ~WS_EX_LAYERED;
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle);
         exstyle |= WS_EX_LAYERED;
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle);
-        s_bHideBorder = _WndInfo.bHideBorder;
-        s_bFullScreen = _WndInfo.bFullScreen;
+        _WndInfo.bLayered_bak = _WndInfo.bLayered;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+VOID Invalidate(HWND hWnd, BOOL bOnlyClient, BOOL bErase)
+{
+    RECT rect;
+    if (_WndInfo.bLayered)
+    {
+        ResetLayerd(hWnd);
+        OnDraw(hWnd);
+    }
+    else
+    {
+        if (ResetLayerd(hWnd))
+        {
+            SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
+        }
+        if (bOnlyClient)
+        {
+            GetClientRectExceptStatusBar(hWnd, &rect);
+            InvalidateRect(hWnd, &rect, bErase);
+        }
+        else
+        {
+            InvalidateRect(hWnd, NULL, bErase);
+        }
     }
 }
 
@@ -2698,16 +2554,12 @@ LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rc;
 
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    if (_Book)
+    if (_Book && !_Book->IsLoading())
+    {
+        GetClientRectExceptStatusBar(hWnd, &rc);
         _Book->SetRect(&rc);
+    }
     SendMessage(_WndInfo.hStatusBar, message, wParam, lParam);
-    return 0;
-}
-
-LRESULT OnMove(HWND hWnd)
-{
-    // save rect to cache file when exit app
     return 0;
 }
 
@@ -2719,71 +2571,64 @@ LRESULT OnHideWin(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT rc;
+    RECT rcWin;
+    RECT rcStatus;
     Book *pBook = NULL;
+    WNDCLASSEX wcex;
+    static HICON hIconSm = NULL;
 
-    if (_WndInfo.bFullScreen)
+    if (hIconSm == NULL)
+    {
+        GetClassInfoEx(hInst, szWindowClass, &wcex);
+        hIconSm = wcex.hIconSm;
+    }
+    
+    if (_WndInfo.status == ds_fullscreen)
         return 0;
 
-    GetClientRectExceptStatusBar(hWnd, &rc);
-    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
+    GetClientRectExceptStatusBar(hWnd, &rcWin);
+    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rcWin.left));
+    ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rcWin.right));
 
-    // save status
-    if (!_WndInfo.bHideBorder)
-    {
-        _WndInfo.hbStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
-        _WndInfo.hbExStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
-        GetWindowRect(hWnd, &_WndInfo.hbRect);
-        _WndInfo.hbRect.left = rc.left - _WndInfo.hbRect.left;
-        _WndInfo.hbRect.right = _WndInfo.hbRect.right - rc.right;
-        _WndInfo.hbRect.top = rc.top - _WndInfo.hbRect.top;
-        _WndInfo.hbRect.bottom = _WndInfo.hbRect.bottom - rc.bottom;
-    }
-    else
-    {
-        rc.left = rc.left - _WndInfo.hbRect.left;
-        rc.right = rc.right + _WndInfo.hbRect.right;
-        rc.top = rc.top - _WndInfo.hbRect.top;
-        rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-    }
-
-    // set new status
-    _WndInfo.bHideBorder = !_WndInfo.bHideBorder;
+    SendMessage(hWnd, WM_SETREDRAW, FALSE, 0); // lock redraw
     pBook = _Book;_Book = NULL; // lock onsize
-    // hide border
-    if (_WndInfo.bHideBorder)
+    if (_WndInfo.status == ds_normal) // hide border
     {
-        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.hbStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
-        SetMenu(hWnd, NULL);
+        _header->style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE) & (~(WS_CAPTION | WS_THICKFRAME | /*WS_MINIMIZEBOX |*/ WS_MAXIMIZEBOX | WS_SYSMENU)) | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        _header->exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE) & (~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+
+        SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
-        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+        SetMenu(hWnd, NULL);
+        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+        _WndInfo.bLayered = TRUE;
+        _WndInfo.status = ds_borderless;
     }
-    // show border
-    else
+    else if (_WndInfo.status == ds_borderless)// show border
     {
-        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.hbStyle);
-        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.hbExStyle);
-        SetMenu(hWnd, _WndInfo.hMenu);
+        _header->style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE) | WS_OVERLAPPEDWINDOW;
+        _header->exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_WINDOWEDGE | WS_EX_ACCEPTFILES | WS_EX_LAYERED;
+
+        GetWindowRect(_WndInfo.hStatusBar, &rcStatus);
+        GetWindowRect(hWnd, &rcWin);
+        rcWin.bottom += rcStatus.bottom - rcStatus.top;
+        AdjustWindowRectEx(&rcWin, _header->style, TRUE, _header->exstyle);
+
+        SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
+        SendMessage(hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSm); // fixed bug
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
-        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+        SetMenu(hWnd, _WndInfo.hMenu);
+        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
+        _WndInfo.bLayered = FALSE;
+        _WndInfo.status = ds_normal;
     }
-
     _Book = pBook;
-
-    // for alpha
-    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-    {
-        ResetLayerd(hWnd);
-        OnDraw(hWnd);
-    }
-    else
-    {
-        ResetLayerd(hWnd);
-        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-        InvalidateRect(hWnd, NULL, TRUE);
-    }
+    
+    // repaint for alpha
+    Invalidate(hWnd, FALSE, FALSE);
+    SendMessage(hWnd, WM_SETREDRAW, TRUE, 0); // lock redraw
     return 0;
 }
 
@@ -2792,61 +2637,71 @@ LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     MONITORINFO mi;
     RECT rc;
 
-    if (!_WndInfo.bFullScreen)
+    SendMessage(hWnd, WM_SETREDRAW, FALSE, 0); // lock redraw
+    if (_WndInfo.status < ds_fullscreen) // fullscreen
     {
-        _WndInfo.fsStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
-        _WndInfo.fsExStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
-        GetWindowRect(hWnd, &_WndInfo.fsRect);
-    }
-
-    _WndInfo.bFullScreen = !_WndInfo.bFullScreen;
-
-    if (_WndInfo.bFullScreen)
-    {
-        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.fsStyle & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)));
-        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
-        SetMenu(hWnd, NULL);
-        ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
-
-
         mi.cbSize = sizeof(mi);
         GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST),&mi);
         rc = mi.rcMonitor;
-        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
-    }
-    else
-    {
-        SetWindowLongPtr(hWnd, GWL_STYLE, _WndInfo.fsStyle);
-        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _WndInfo.fsExStyle);
-        if (!_WndInfo.bHideBorder)
+
+        _header->fs_style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+        _header->fs_exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+        GetWindowPlacement(hWnd, &_header->fs_placement);
+
+        if ((WS_MAXIMIZE & _header->fs_style) == WS_MAXIMIZE)
         {
-            SetMenu(hWnd, _WndInfo.hMenu);
-            ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
+            GetWindowRect(hWnd, &_header->fs_rect);
         }
-        SetWindowPos(hWnd, NULL, _WndInfo.fsRect.left, _WndInfo.fsRect.top, 
-            _WndInfo.fsRect.right-_WndInfo.fsRect.left, _WndInfo.fsRect.bottom-_WndInfo.fsRect.top, SWP_DRAWFRAME);
+
+        _header->style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE) & (~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU));
+        _header->exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE) & (~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+
+        SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
+        ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
+        SetMenu(hWnd, NULL);
+        SetWindowPos(hWnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_DRAWFRAME);
+        _WndInfo.bLayered = TRUE;
+        _WndInfo.status = ds_fullscreen;
+    }
+    else // exit fullscreen
+    {
+        _header->style = _header->fs_style;
+        _header->exstyle = _header->fs_exstyle;
+        SetWindowLongPtr(hWnd, GWL_STYLE, _header->style);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
+        if ((WS_CAPTION & _header->style) == WS_CAPTION)
+        {
+            ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
+            SetMenu(hWnd, _WndInfo.hMenu);
+            _WndInfo.bLayered = FALSE;
+            _WndInfo.status = ds_normal;
+        }
+        else
+        {
+            _WndInfo.bLayered = TRUE;
+            _WndInfo.status = ds_borderless;
+            if ((WS_MAXIMIZE & _header->fs_style) == WS_MAXIMIZE)
+            {
+                SetWindowPos(hWnd, NULL, _header->fs_rect.left, _header->fs_rect.top, 
+                    _header->fs_rect.right-_header->fs_rect.left, _header->fs_rect.bottom-_header->fs_rect.top, SWP_DRAWFRAME);
+            }
+        }
+        _header->placement = _header->fs_placement;
+        SetWindowPlacement(hWnd, &_header->fs_placement);
     }
 
-    // for alpha
-    if (_WndInfo.bHideBorder || _WndInfo.bFullScreen)
-    {
-        ResetLayerd(hWnd);
-        OnDraw(hWnd);
-    }
-    else
-    {
-        ResetLayerd(hWnd);
-        SetLayeredWindowAttributes(hWnd, 0, _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha, LWA_ALPHA);
-        InvalidateRect(hWnd, NULL, TRUE);
-    }
+    // repaint for alpha
+    Invalidate(hWnd, FALSE, FALSE);
+    SendMessage(hWnd, WM_SETREDRAW, TRUE, 0); // lock redraw
+
     return 0;
 }
 
 LRESULT OnTopmost(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static bool isTopmost = false;
-    SetWindowPos(hWnd, isTopmost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
-    isTopmost = !isTopmost;
+    SetWindowPos(hWnd, _WndInfo.bTopMost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
+    _WndInfo.bTopMost = !_WndInfo.bTopMost;
     return 0;
 }
 
@@ -2952,9 +2807,15 @@ LRESULT OnEditMode(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (_Book && !_Book->IsLoading())
     {
-        if (_Book->GetCurPageText(&text))
+        if (!_Book->IsCoverPage() && _Book->GetCurPageText(&text))
         {
-            if (_WndInfo.bHideBorder)
+            _WndInfo.status_bak = _WndInfo.status;
+            if (_WndInfo.status == ds_fullscreen)
+            {
+                OnFullScreen(hWnd, message, wParam, lParam);
+            }
+
+            if (_WndInfo.status == ds_borderless)
             {
                 OnHideBorder(hWnd, message, wParam, lParam);
             }
@@ -2978,7 +2839,6 @@ LRESULT OnPageUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (_Book && !_Book->IsLoading())
     {
         _Book->PageUp(hWnd);
-        _NeedSave = TRUE;
     }
     return 0;
 }
@@ -2988,7 +2848,6 @@ LRESULT OnPageDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (_Book && !_Book->IsLoading())
     {
         _Book->PageDown(hWnd);
-        _NeedSave = TRUE;
     }
     return 0;
 }
@@ -3017,7 +2876,6 @@ LRESULT OnLineUp(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             _Book->PageUp(hWnd);
         else
             _Book->LineUp(hWnd, line_count);
-        _NeedSave = TRUE;
     }
     return 0;
 }
@@ -3046,7 +2904,6 @@ LRESULT OnLineDown(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             _Book->PageDown(hWnd);
         else
             _Book->LineDown(hWnd, line_count);
-        _NeedSave = TRUE;
     }
     return 0;
 }
@@ -3305,7 +3162,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
         }
         // Update title
         UpdateTitle(hWnd);
-
+        Invalidate(hWnd, TRUE, FALSE);
         return FALSE;
     }
 
@@ -3331,7 +3188,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     // set param
     GetClientRectExceptStatusBar(hWnd, &rect);
 #if ENABLE_TAG
-    _Book->Setting(hWnd, &_item->index, &_header->char_gap, &_header->line_gap, &_header->left_line_count, &_header->word_wrap, &_header->line_indent, &(_header->internal_border), _header->tags);
+    _Book->Setting(hWnd, &_item->index, &_header->char_gap, &_header->line_gap, &_header->left_line_count, &_header->word_wrap, &_header->line_indent, &(_header->internal_border), _header->tags, &_header->tag_count);
 #else
     _Book->Setting(hWnd, &_item->index, &_header->char_gap, &_header->line_gap, &_header->left_line_count, &_header->word_wrap, &_header->line_indent, &(_header->internal_border));
 #endif
@@ -3394,6 +3251,55 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     
     return CallNextHookEx(_hMouseHook, nCode, wParam, lParam);
 }
+
+#if ENABLE_GLOBAL_KEY
+extern BOOL IsCoveredByOtherWindow(HWND hWnd);
+LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    KBDLLHOOKSTRUCT const * pData;
+    if (nCode == HC_ACTION)
+    {
+        if (wParam == WM_KEYDOWN)
+        {
+            do
+            {
+                if (IsCoveredByOtherWindow(_hWnd))
+                    break;
+
+                pData = (KBDLLHOOKSTRUCT*)lParam;
+                if (KS_KeyDownProc(_hWnd, WM_KEYDOWN, pData->vkCode, 0))
+                    break;
+
+#if 1
+                if (VK_ESCAPE == pData->vkCode)
+                {
+                    if (_WndInfo.status == ds_fullscreen)
+                    {
+                        OnFullScreen(_hWnd, WM_KEYDOWN, pData->vkCode, lParam);
+                    }
+                }
+                else if ('P' == pData->vkCode)
+                {
+                    if (GetAsyncKeyState(VK_CONTROL) & 0x8000
+                        && GetAsyncKeyState(VK_SHIFT) & 0x8000
+                        && GetAsyncKeyState(18) & 0x8000) // alt
+                    {
+                        if (!_hMouseHook)
+                            _hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseProc, hInst, NULL);
+                        else
+                        {
+                            UnhookWindowsHookEx(_hMouseHook);
+                            _hMouseHook = NULL;
+                        }
+                    }
+                }
+#endif
+            } while (0);
+        }
+    }
+    return CallNextHookEx(_hKeyboardHook, nCode, wParam, lParam);
+}
+#endif
 
 void ShowHideWindow(HWND hWnd)
 {
@@ -3599,7 +3505,7 @@ void OnOpenOlBook(HWND hWnd, void* olparam)
         DeleteFile(savepath);
 
         // delete not exist items
-        for (int i = 0; i < _header->item_count; i++)
+        for (i = 0; i < _header->item_count; i++)
         {
             item_t* item = _Cache.get_item(i);
             if (_tcscmp(item->file_name, savepath) == 0)
@@ -3657,23 +3563,9 @@ void UpdateBookMark(HWND hWnd, int index, int size)
 VOID GetCacheVersion(TCHAR *ver)
 {
     TCHAR version[256] = { 0 };
-    Utils::GetApplicationVersion(version);
+    GetApplicationVersion(version);
     wcscpy(ver, version);
 }
-
-#if TEST_MODEL
-void __stdcall hapi_logger_print(const char* format,...)
-{
-    char buffer[4096] = { 0 };
-    va_list args;
-
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer) - 1, format, args);
-    va_end(args);
-
-    OutputDebugStringA(buffer);
-}
-#endif
 
 BOOL Init(void)
 {
@@ -3698,12 +3590,12 @@ BOOL Init(void)
 
 #ifdef ENABLE_NETWORK
     hapi_init();
+#if TEST_MODEL
+    logger_create();
+    hapi_set_logger(logger_printf);
+#endif
     // set proxy for http client
     hapi_set_proxy_ex(&_header->proxy);
-    hapi_enable_cache_cookie(1);
-#if TEST_MODEL
-    hapi_set_logger(hapi_logger_print);
-#endif
 #endif
 
     // just for debug
@@ -3730,7 +3622,99 @@ void Exit(void)
 #ifdef ENABLE_NETWORK
     HtmlParser::ReleaseInstance();
     hapi_uninit();
+#if TEST_MODEL
+    logger_destroy();
 #endif
+#endif
+}
+
+static void _free_resource(HWND hWnd)
+{
+    // stop loading
+    StopLoadingImage(hWnd);
+    if (_loading)
+    {
+        if (_loading->hMemory)
+            ::GlobalFree(_loading->hMemory);
+        if (_loading->image)
+            delete _loading->image;
+        free(_loading->item);
+        free(_loading);
+        _loading = NULL;
+    }
+    // close book
+    if (_Book)
+    {
+        delete _Book;
+        _Book = NULL;
+    }
+    // reset
+    ShowSysTray(hWnd, FALSE);
+    StopAutoPage(hWnd);
+    KS_UnRegisterAllHotKey(hWnd);
+    if (_hMouseHook)
+    {
+        UnhookWindowsHookEx(_hMouseHook);
+        _hMouseHook = NULL;
+    }
+#if ENABLE_GLOBAL_KEY
+    if (_hKeyboardHook)
+    {
+        UnhookWindowsHookEx(_hKeyboardHook);
+        _hKeyboardHook = NULL;
+    }
+#endif
+}
+
+static void _update_data(HWND hWnd, BOOL keep_header, BOOL do_save)
+{
+    RECT rcbak1 = {0}, rcbak2 = {0};
+    LOGFONT fontbak = {0};
+#if ENABLE_TAG
+    LOGFONT tagfontbak[MAX_TAG_COUNT] = { 0 };
+#endif
+
+    // backup
+    GetWindowPlacement(hWnd, &_header->placement);
+    if (keep_header)
+    {
+        rcbak1 = _header->placement.rcNormalPosition;
+        rcbak2 = _header->fs_placement.rcNormalPosition;
+        fontbak = _header->font;
+    }
+
+    RestoreRectForDpi(&_header->placement.rcNormalPosition);
+    RestoreRectForDpi(&_header->fs_placement.rcNormalPosition);
+    RestoreFontForDpi(&_header->font);
+#if ENABLE_TAG
+    for (int i = 0; i < MAX_TAG_COUNT; i++)
+    {
+        tagfontbak[i] = _header->tags[i].font;
+        RestoreFontForDpi(&_header->tags[i].font);
+    }
+#endif
+    _header->style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+    _header->exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+
+    // save
+    if (do_save)
+    {
+        _Cache.save();
+    }    
+
+    // restore
+    if (keep_header)
+    {
+        _header->placement.rcNormalPosition = rcbak1;
+        _header->fs_placement.rcNormalPosition = rcbak2;
+        _header->font = fontbak;
+#if ENABLE_TAG
+        for (int i = 0; i < MAX_TAG_COUNT; i++)
+        {
+            _header->tags[i].font = tagfontbak[i];
+        }
+#endif
+    }
 }
 
 void Save(HWND hWnd)
@@ -3743,48 +3727,7 @@ void Save(HWND hWnd)
 LRESULT OnSave(HWND hWnd)
 {
 #if ENABLE_REALTIME_SAVE
-    RECT rc, rcbak;
-    LOGFONT fontbak;
-#if ENABLE_TAG
-    LOGFONT tagfontbak[MAX_TAG_COUNT] = { 0 };
-#endif
-
-    // save rect
-    rcbak = _header->rect;
-    fontbak = _header->font;
-    if (_WndInfo.bHideBorder && !_WndInfo.bFullScreen)
-    {
-        GetClientRectExceptStatusBar(hWnd, &rc);
-        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.left));
-        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rc.right));
-        rc.left = rc.left - _WndInfo.hbRect.left;
-        rc.right = rc.right + _WndInfo.hbRect.right;
-        rc.top = rc.top - _WndInfo.hbRect.top;
-        rc.bottom = rc.bottom + _WndInfo.hbRect.bottom;
-        _header->rect = rc;
-    }
-    RestoreRectForDpi(&_header->rect);
-    RestoreFontForDpi(&_header->font);
-#if ENABLE_TAG
-    for (int i = 0; i < MAX_TAG_COUNT; i++)
-    {
-        tagfontbak[i] = _header->tags[i].font;
-        RestoreFontForDpi(&_header->tags[i].font);
-    }
-#endif
-
-    // save
-    _Cache.save();
-
-    // restore
-    _header->rect = rcbak;
-    _header->font = fontbak;
-#if ENABLE_TAG
-    for (int i = 0; i < MAX_TAG_COUNT; i++)
-    {
-        _header->tags[i].font = tagfontbak[i];
-    }
-#endif
+    _update_data(hWnd, TRUE, TRUE);
 #endif
     return 0;
 }
@@ -3834,7 +3777,7 @@ void UpdateTitle(HWND hWnd)
 
     if (_Book)
     {
-        memcpy(szFileName, _Book->GetFileName(), sizeof(szFileName));
+        memcpy(szFileName, _Book->GetFileName(), _tcslen(_Book->GetFileName()+1) * sizeof(TCHAR));
         PathRemoveExtension(szFileName);
         if (_Book->IsLoading())
         {
@@ -3845,6 +3788,10 @@ void UpdateTitle(HWND hWnd)
             if (_Book->GetChapterTitle(szChapter, MAX_PATH))
             {
                 _stprintf(szNewTitle, _T("%s - %s - %s"), szTitle, PathFindFileName(szFileName), szChapter);
+            }
+            else
+            {
+                _stprintf(szNewTitle, _T("%s - %s"), szTitle, PathFindFileName(szFileName));
             }
         }
     }
@@ -3910,10 +3857,10 @@ void RemoveMenus(HWND hWnd, BOOL redraw)
 BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc)
 {
     RECT rect;
-    GetClientRect(_WndInfo.hStatusBar, &rect);
     GetClientRect(hWnd, rc);
     if (IsWindowVisible(_WndInfo.hStatusBar))
     {
+        GetClientRect(_WndInfo.hStatusBar, &rect);
         rc->bottom -= rect.bottom;
     }
     return TRUE;
@@ -4144,10 +4091,6 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
 {
     chkbook_arg_t* arg = (chkbook_arg_t*)param;
     int i;
-#if TEST_MODEL
-    char msg[1024] = { 0 };
-    char* ansi = NULL;
-#endif
 
     if (!arg)
         return;
@@ -4155,11 +4098,7 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
     if (!arg->book)
         return;
 
-#if TEST_MODEL
-    ansi = Utils::Utf16ToAnsi(arg->book->GetFileName());
-    sprintf(msg, "{%s:%d} file=%s\n", __FUNCTION__, __LINE__, ansi);
-    OutputDebugStringA(msg);
-#endif
+    logger_printk("file=%s", Utf16ToAnsi(arg->book->GetFileName()));
 
     if (is_update)
     {
@@ -4271,11 +4210,9 @@ bool PlayLoadingImage(HWND hWnd)
 {
     UINT count;
     GUID *pDimensionIDs = NULL;
-    bool ret = false;
     WCHAR strGuid[39];
     UINT size;
     GUID Guid = FrameDimensionTime;
-    RECT rect;
 
     if (!_loading)
     {
@@ -4309,21 +4246,17 @@ bool PlayLoadingImage(HWND hWnd)
 
     SetTimer(hWnd, IDT_TIMER_LOADING, ((UINT*)_loading->item->value)[_loading->frameIndex] * 10, NULL);
     _loading->frameIndex = (++ _loading->frameIndex) % _loading->frameCount;
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    InvalidateRect(hWnd, &rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
     return true;
 }
 
 bool StopLoadingImage(HWND hWnd)
 {
-    RECT rect;
-
     if (!_loading)
         return false;
     _loading->enable = FALSE;
     KillTimer(hWnd, IDT_TIMER_LOADING);
-    GetClientRectExceptStatusBar(hWnd, &rect);
-    InvalidateRect(hWnd, &rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
     return true;
 }
 
@@ -4430,7 +4363,69 @@ void ShowSysTray(HWND hWnd, BOOL bShow)
     }
 }
 
-HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int width, int height)
+HBITMAP CreateAlphaBGColorBitmap(HWND hWnd, COLORREF inColour, int width, int height, BYTE alpha)
+{
+    // Create DC and select font into it
+    HDC hColorDC = CreateCompatibleDC(NULL);
+    HBITMAP hDIB = NULL;
+    BITMAPINFOHEADER BMIH;
+    HBRUSH hBrush = NULL;
+    RECT rc;
+    void *pvBits = NULL;
+    HBITMAP hOldBMP = NULL;
+    BYTE* DataPtr = NULL;
+    BYTE FillR,FillG,FillB;
+    int x,y;
+
+    // Specify DIB setup
+    memset(&BMIH, 0x0, sizeof(BITMAPINFOHEADER));
+    BMIH.biSize = sizeof(BMIH);
+    BMIH.biWidth = width;
+    BMIH.biHeight = height;
+    BMIH.biPlanes = 1;
+    BMIH.biBitCount = 32;
+    BMIH.biCompression = BI_RGB;
+
+    // Create and select DIB into DC
+    hDIB = CreateDIBSection(hColorDC, (LPBITMAPINFO)&BMIH, 0, (LPVOID*)&pvBits, NULL, 0); 
+    hOldBMP = (HBITMAP)SelectObject(hColorDC, hDIB);
+    if (hOldBMP)
+    {
+        // Set up DC properties 
+        hBrush = CreateSolidBrush(inColour);
+        SelectObject(hColorDC, hBrush);
+        memset(&rc, 0, sizeof(rc));
+        rc.right = width;
+        rc.bottom = height;
+        FillRect(hColorDC, &rc, hBrush);
+
+        DataPtr = (BYTE*)pvBits;
+        FillR = GetRValue(inColour);
+        FillG = GetGValue(inColour);
+        FillB = GetBValue(inColour);
+        for (y = 0; y < BMIH.biHeight; y++)
+        { 
+            for (x = 0; x < BMIH.biWidth; x++)
+            {
+                *DataPtr++ = (FillB * alpha) >> 8; 
+                *DataPtr++ = (FillG * alpha) >> 8; 
+                *DataPtr++ = (FillR * alpha) >> 8;
+                *DataPtr++ = alpha;
+            }
+        }
+
+        // De-select bitmap
+        SelectObject(hColorDC, hOldBMP);
+    }
+
+    // destroy temp DC
+    DeleteDC(hColorDC);
+
+    // Return DIBSection 
+    return hDIB;
+}
+
+HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int width, int height, BOOL *isBlank)
 {
     // Create DC and select font into it
     HDC hTextDC = CreateCompatibleDC(NULL);
@@ -4442,6 +4437,8 @@ HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int wi
     BYTE* DataPtr = NULL;
     BYTE FillR,FillG,FillB,ThisA;
     int x,y;
+    UINT v;
+    BOOL blank = TRUE;
 
     // Specify DIB setup
     memset(&BMIH, 0x0, sizeof(BITMAPINFOHEADER));
@@ -4473,18 +4470,32 @@ HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int wi
             for (y = 0; y < BMIH.biHeight; y++)
             { 
                 for (x = 0; x < BMIH.biWidth; x++)
-                { 
+                {
+                    if (blank)
+                    {
+                        v = *((UINT*)DataPtr);
+                        if (v & 0x00FFFFFF)
+                            blank = FALSE;
+                    }
+#if 1
+                    ThisA = *DataPtr; // Move alpha and pre-multiply with RGB 
+                    *DataPtr++ = (FillB * ThisA * _textAlpha) >> 16; 
+                    *DataPtr++ = (FillG * ThisA * _textAlpha) >> 16; 
+                    *DataPtr++ = (FillR * ThisA * _textAlpha) >> 16;
+                    *DataPtr++ = (ThisA * _textAlpha) >> 8; // Set text Alpha 
+#else
                     ThisA = *DataPtr; // Move alpha and pre-multiply with RGB 
                     *DataPtr++ = (FillB * ThisA) >> 8; 
                     *DataPtr++ = (FillG * ThisA) >> 8; 
                     *DataPtr++ = (FillR * ThisA) >> 8;
-#if 0
-                    *DataPtr++ = ThisA; // Set Alpha 
-#else
-                    *DataPtr++ = ThisA > _textAlpha ? _textAlpha : ThisA;
+                    *DataPtr++ = ThisA; // Set text Alpha 
 #endif
                 }
             }
+        }
+        else
+        {
+            blank = FALSE;
         }
 
         // De-select bitmap
@@ -4495,6 +4506,7 @@ HBITMAP CreateAlphaTextBitmap(HWND hWnd, HFONT inFont, COLORREF inColour, int wi
     SelectObject(hTextDC, hOldFont);
     DeleteDC(hTextDC);
 
+    *isBlank = blank;
     // Return DIBSection 
     return hDIB;
 }
@@ -4522,7 +4534,7 @@ void SetTreeviewFont()
     {
         NONCLIENTMETRICS theMetrics = {0};
         theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
-        if (Utils::Is_WinXP_SP2_or_Later())
+        if (Is_WinXP_SP2_or_Later())
             theMetrics.cbSize = sizeof(NONCLIENTMETRICS) - sizeof(theMetrics.iPaddedBorderWidth);
         SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(NONCLIENTMETRICS), (PVOID) &theMetrics,0);
         theMetrics.iMenuHeight = abs((int)(theMetrics.iMenuHeight * 1.25f)); // 1.25 line height
@@ -4620,6 +4632,27 @@ book_source_t* FindBookSource(const char* host)
             return &_header->book_sources[i];
     }
     return NULL;
+}
+
+void SetGlobalKey(HWND hWnd)
+{
+#if ENABLE_GLOBAL_KEY
+    if (_header->global_key)
+    {
+        if (!_hKeyboardHook)
+        {
+            _hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, hInst, NULL);
+        }
+    }
+    else
+    {
+        if (_hKeyboardHook)
+        {
+            UnhookWindowsHookEx(_hKeyboardHook);
+            _hKeyboardHook = NULL;
+        }
+    }
+#endif
 }
 
 HHOOK hMsgBoxHook = NULL;

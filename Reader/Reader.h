@@ -5,12 +5,12 @@
 #include "resource.h"
 #include "Cache.h"
 #include "Utils.h"
+#include "Book.h"
 #ifdef ENABLE_NETWORK
 #include "Upgrade.h"
-#endif
-#include "Book.h"
 #include "OnlineBook.h"
-#include "HttpClient.h"
+#include "https.h"
+#endif
 #include "HtmlParser.h"
 #include <map>
 #include <shellapi.h>
@@ -55,12 +55,13 @@ Upgrade             _Upgrade;
 #endif
 Book *              _Book                   = NULL;
 loading_data_t *    _loading                = NULL;
-BOOL                _bShowText              = TRUE;
 HHOOK               _hMouseHook             = NULL;
+#if ENABLE_GLOBAL_KEY
+HHOOK               _hKeyboardHook          = NULL;
+#endif
 HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
 BYTE                _textAlpha              = 0xFF;
-BOOL                _NeedSave               = FALSE;
 
 
 LRESULT             OnCreate(HWND);
@@ -71,10 +72,10 @@ LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnRestoreDefault(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPaint(HWND, HDC);
-void                OnDraw(HWND);
-void                ResetLayerd(HWND);
+VOID                OnDraw(HWND);
+BOOL                ResetLayerd(HWND);
+VOID                Invalidate(HWND, BOOL, BOOL);
 LRESULT             OnSize(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnMove(HWND);
 // WM_KEYWORD begin
 LRESULT             OnHideWin(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnHideBorder(HWND, UINT, WPARAM, LPARAM);
@@ -101,6 +102,7 @@ LRESULT             OnUpdateChapters(HWND);
 LRESULT             OnUpdateBookMark(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
+LRESULT CALLBACK    KeyboardProc(int, WPARAM, LPARAM);
 void                ShowHideWindow(HWND);
 void                OnOpenBook(HWND, TCHAR *, BOOL);
 VOID                GetCacheVersion(TCHAR *);
@@ -136,10 +138,12 @@ ULONGLONG           GetDllVersion(LPCTSTR);
 BOOL CALLBACK       EnumWindowsProc(HWND, LPARAM);
 void                ShowInTaskbar(HWND, BOOL);
 void                ShowSysTray(HWND, BOOL);
-HBITMAP             CreateAlphaTextBitmap(HWND, HFONT, COLORREF, int, int);
+HBITMAP             CreateAlphaBGColorBitmap(HWND hWnd, COLORREF inColour, int width, int height, BYTE alpha);
+HBITMAP             CreateAlphaTextBitmap(HWND, HFONT, COLORREF, int, int, BOOL *isBlank);
 void                SetTreeviewFont();
 BOOL                LoadResourceImage(LPCWSTR, LPCWSTR, Bitmap**, HGLOBAL*);
 book_source_t*      FindBookSource(const char* host);
+void                SetGlobalKey(HWND);
 int                 MessageBox_(HWND, UINT, UINT, UINT);
 int                 MessageBoxFmt_(HWND, UINT, UINT, UINT, ...);
 

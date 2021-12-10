@@ -12,9 +12,12 @@ static TCHAR *g_text = NULL;
 
 extern keydata_t g_Keysets[KI_MAXCOUNT];
 extern Book *_Book;
+extern HWND _hWnd;
+extern window_info_t _WndInfo;
 extern BOOL GetClientRectExceptStatusBar(HWND hWnd, RECT* rc);
 extern DWORD ToHotkey(WPARAM wParam);
 extern int MessageBox_(HWND, UINT, UINT, UINT);
+extern LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT CALLBACK EditWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void EnableMenu(HMENU hMenu, BOOL enable);
 static void EnableAllMenu(HWND hWnd, BOOL enable);
@@ -105,6 +108,11 @@ void EC_LeaveEditMode(void)
         {
             free(g_text);
             g_text = NULL;
+        }
+
+        if (_WndInfo.status_bak == ds_borderless)
+        {
+            OnHideBorder(_hWnd, 0, 0, 0);
         }
     }
 }

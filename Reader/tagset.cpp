@@ -617,7 +617,6 @@ INT_PTR CALLBACK TS_item_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
         break;
     case WM_CTLCOLORSTATIC:
         {
-            
             if (IDC_STATIC_PREVIEW == GetDlgCtrlID((HWND)lParam))
             {
                 SetBkColor((HDC)wParam, g_tag_item.bg_color);

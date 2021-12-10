@@ -48,15 +48,14 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\openssl\inc;..\opensrc\libhttps\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\libhttps\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest />
     <Manifest />
@@ -65,22 +64,23 @@
       <EnableDPIAwareness>PerMonitorHighDPIAware</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent />
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\openssl\inc;..\opensrc\libhttps\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\libhttps\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <Manifest>
@@ -122,7 +122,10 @@
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\opensrc\cjson\cJSON.cpp" />
+    <ClCompile Include="..\opensrc\cjson\cJSON.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Advset.cpp" />
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="BooksourceDlg.cpp" />

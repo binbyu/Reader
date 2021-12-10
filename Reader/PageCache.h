@@ -26,7 +26,7 @@ public:
 
 public:
 #if ENABLE_TAG
-    void Setting(HWND hWnd, INT *pos, INT *cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags);
+    void Setting(HWND hWnd, INT *pos, INT *cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags, int *tag_count);
 #else
     void Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib);
 #endif
@@ -80,7 +80,8 @@ protected:
     wchar_t * m_Text;
     INT m_TextLength;
     RECT m_Rect;
-    INT m_OnePageLineCount;
+    INT m_CurPageLineCount;
+    INT m_MaxPageLineCount;
     INT m_CurPageSize;
     INT m_CurrentLine;
     INT *m_CurrentPos;
@@ -93,6 +94,7 @@ protected:
     page_info_t m_PageInfo;
 #if ENABLE_TAG
     tagitem_t *m_tags;
+    int *m_tag_count;
 #endif
 };
 

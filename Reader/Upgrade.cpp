@@ -117,13 +117,13 @@ int Upgrade::ParserJson(const char* json)
         if (!force)
             goto end;
 
-        temp = Utils::Utf8ToUtf16(version->valuestring);
+        temp = Utf8ToUtf16(version->valuestring);
         if (vercmp(data.version.c_str(), temp) < 0)
         {
             data.version = temp;
-            temp = Utils::Utf8ToUtf16(url->valuestring);
+            temp = Utf8ToUtf16(url->valuestring);
             data.url = temp;
-            temp = Utils::Utf8ToUtf16(desc->valuestring);
+            temp = Utf8ToUtf16(desc->valuestring);
             data.desc = temp;
             data.force = force->valueint;
         }
@@ -135,7 +135,7 @@ int Upgrade::ParserJson(const char* json)
         goto end;
     }
 
-    Utils::GetApplicationVersion(appver);
+    GetApplicationVersion(appver);
     curversion = appver;
     if (!curversion.empty())
     {
@@ -192,51 +192,11 @@ unsigned int Upgrade::GetVersionCompleter(request_result_t *result)
 
     if (result->status_code != 200)
     {
-        // redirect
-        redirect = hapi_get_location(result->header);
-        if (redirect)
-        {
-            result->req->url = (char *)redirect;
-            _this->m_hReq = hapi_request(result->req);
-            return 0;
-        }
         return 1;
     }
 
-    if (hapi_is_gzip(result->header))
-    {
-        needfree = 1;
-        if (!Utils::gzipInflate((unsigned char*)result->body, result->bodylen, (unsigned char**)&html, &htmllen))
-            return 1;
-    }
-    else
-    {
-        html = result->body;
-        htmllen = result->bodylen;
-    }
-
-#if 0
-    //if (hapi_get_charset(result->header) != utf_8)
-#else
-    if (!Utils::is_utf8(html, htmllen)) // fixed bug, focus check encode
-#endif
-    {
-        wchar_t* tempbuf = NULL;
-        int templen = 0;
-        char* utf8buf = NULL;
-        int utf8len = 0;
-        // convert 'gbk' to 'utf-8'
-        tempbuf = Utils::ansi_to_utf16_ex(html, htmllen, &templen);
-        utf8buf = Utils::utf16_to_utf8_ex(tempbuf, templen, &utf8len);
-        free(tempbuf);
-        if (needfree)
-        {
-            free(html);
-        }
-        html = utf8buf;
-        htmllen = utf8len;
-        needfree = 1;
-    }
+    html = result->body;
+    htmllen = result->bodylen;
 
     if (html && htmllen > 0)
     {

@@ -26,6 +26,8 @@
 #define FD_SETSIZE  1024
 #endif
 
+#define ZLIB_ENABLE
+
 #include <objidl.h>
 #include <GdiPlus.h>
 using namespace Gdiplus;
@@ -33,28 +35,26 @@ using namespace Gdiplus;
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
-#include <Winsock2.h>
-#pragma comment(lib, "Ws2_32.lib")
-
-#include <psapi.h>
-#pragma comment(lib, "Psapi.lib")
-
 #include <Shobjidl.h>
 
 #pragma comment(lib, "Msimg32.lib")
 #pragma comment(lib, "Version.lib")
 
 #ifdef _DEBUG
+#ifdef ZLIB_ENABLE
 #pragma comment(lib, "zlibstatd.lib")
+#endif
 #pragma comment(lib, "libxml2_ad.lib")
 #ifdef ENABLE_NETWORK
-#pragma comment(lib, "libhttpsd.lib")
+#pragma comment(lib, "libhttps_ad.lib")
 #endif
 #else
+#ifdef ZLIB_ENABLE
 #pragma comment(lib, "zlibstat.lib")
+#endif
 #pragma comment(lib, "libxml2_a.lib")
 #ifdef ENABLE_NETWORK
-#pragma comment(lib, "libhttps.lib")
+#pragma comment(lib, "libhttps_a.lib")
 #endif
 #endif
 

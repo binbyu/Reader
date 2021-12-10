@@ -12,19 +12,21 @@
 #define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
 #define ENABLE_REALTIME_SAVE        1
+#define ENABLE_GLOBAL_SEARCH        1
+#define ENABLE_GLOBAL_KEY           0
 
 #ifdef _DEBUG
 #define TEST_MODEL                  1
 #else
 #define TEST_MODEL                  0
 #endif
-#define FAST_MODEL                  1
 
 #define MAX_CHAPTER_LENGTH          256
 #define MAX_MARK_COUNT              256
 #define MAX_TAG_COUNT               256
 #define MAX_BOOKSRC_COUNT           64
 #define MAX_CUST_COLOR_COUNT        16
+#define MAX_KEYSET_COUNT            32
 
 #define IDM_CUSTOM_BEGIN            (50000)
 
@@ -163,6 +165,10 @@ typedef struct book_source_t
     // chapter page
     char chapter_title_xpath[1024];
     char chapter_url_xpath[1024];
+    int enable_chapter_next;
+    char chapter_next_url_xpath[1024];
+    char chapter_next_keyword_xpath[1024];
+    char chapter_next_keyword[256];
 
     // content page
     char content_xpath[1024];
@@ -174,14 +180,26 @@ typedef struct book_source_t
     int book_status_pos; // 0:null, 1:query_page, 2:main_page, 3: chapter list page
     char book_status_xpath[1024];
     char book_status_keyword[256];
-} book_sourc_t;
+} book_source_t;
+
+typedef struct keyset_t
+{
+    DWORD value;
+    int   is_disable;
+} keyset_t;
 
 typedef struct header_t
 {
     TCHAR version[16];
     int item_count;
     int item_id;
-    RECT rect;
+    WINDOWPLACEMENT placement;
+    WINDOWPLACEMENT fs_placement; // fullscreen restore
+    RECT fs_rect; // fullscreen restore
+    DWORD style;
+    DWORD exstyle;
+    DWORD fs_style;   // fullscreen restore
+    DWORD fs_exstyle; // fullscreen restore
     LOGFONT font;
     u32 font_color;
     u32 bg_color;
@@ -204,7 +222,8 @@ typedef struct header_t
     int disable_lrhide;
     int word_wrap;
     int line_indent;
-    u32 keyset[64];
+    int global_key;
+    keyset_t keyset[MAX_KEYSET_COUNT];
     chapter_rule_t chapter_rule;
     u32 cust_colors[MAX_CUST_COLOR_COUNT];
 #if ENABLE_TAG
@@ -242,22 +261,24 @@ typedef struct upmenu_t
     LPCTSTR lpNewItem;
 } upmenu_t;
 
+typedef enum display_status_t
+{
+    ds_normal = 0,
+    ds_borderless,
+    ds_fullscreen
+} display_status_t;
+
 typedef struct window_info_t
 {
     HMENU hMenu;
     HWND hStatusBar;
-    BOOL bHideBorder;
-    BOOL bFullScreen;
 
-    // hide border restore data
-    DWORD hbStyle;
-    DWORD hbExStyle;
-    RECT hbRect;
+    display_status_t status;
+    display_status_t status_bak; // for edit mode
 
-    // full screen restore data
-    DWORD fsStyle;
-    DWORD fsExStyle;
-    RECT fsRect;
+    BOOL bLayered;
+    BOOL bLayered_bak;
+    BOOL bTopMost;
 } window_info_t;
 
 
@@ -282,5 +303,11 @@ typedef struct ol_header_t
     ol_chapter_info_t chapter_info_list[1];
 } ol_header_t;
 
+#if TEST_MODEL
+extern void __stdcall logger_printf(const char* format, ...);
+#define logger_printk(fmt, ...) logger_printf("{%s:%d} "##fmt"\n", __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#else
+#define logger_printk(fmt, ...)
+#endif
 
 #endif

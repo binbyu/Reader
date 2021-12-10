@@ -302,7 +302,6 @@ bool TextBook::ParserChaptersRegex(void)
 {
     wchar_t title[MAX_CHAPTER_LENGTH] = { 0 };
     int title_len = 0;
-    bool bFound = false;
     chapter_item_t chapter;
     int menu_begin_id = 0;
     int offset = 0;

@@ -4,7 +4,10 @@
 int GetCxScreenForDpi(void);
 int GetCyScreenForDpi(void);
 
-void UpdateLayoutForDpi(RECT *rect);
+int GetWidthForDpi(int w);
+int GetHeightForDpi(int h);
+
+void UpdateRectForDpi(RECT *rect);
 void UpdateFontForDpi(LOGFONT *lf);
 
 void RestoreRectForDpi(RECT *rect);

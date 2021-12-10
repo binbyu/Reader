@@ -3,7 +3,7 @@
 #ifdef ENABLE_NETWORK
 
 #include "Book.h"
-#include "httpclient.h"
+#include "https.h"
 #include "HtmlParser.h"
 #include <set>
 
@@ -54,7 +54,7 @@ protected:
     void TidyUrl(char* html, int* len);
     void PlayLoading(HWND hWnd);
     void StopLoading(HWND hWnd, int idx);
-    BOOL Redirect(OnlineBook* _this, request_t *r, const char *url, req_handler_t hOld);
+    BOOL RequestNextPage(OnlineBook* _this, request_t *r, const char *url, req_handler_t hOld);
 
 public:
     void UpdateBookSource(void);

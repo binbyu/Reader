@@ -10,6 +10,7 @@ static chapter_rule_t *g_rule = NULL;
 static BOOL g_bChanged = FALSE;
 static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
+extern Book *_Book;
 extern LRESULT OnOpenItem(HWND hWnd, int item_id, BOOL forced);
 extern int MessageBox_(HWND, UINT, UINT, UINT);
 
@@ -17,7 +18,6 @@ void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule, void *book)
 {
     g_rule = rule;
     g_bChanged = FALSE;
-    Book *b = (Book*)book;
     if (EC_IsEditMode())
     {
         EC_LeaveEditMode();
@@ -26,7 +26,8 @@ void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule, void *book)
     if (g_bChanged)
     {
         // reload book
-        OnOpenItem(hWnd, 0, TRUE);
+        if (_Book && _Book->GetBookType() == book_text)
+            OnOpenItem(hWnd, 0, TRUE);
     }
 }
 
@@ -58,6 +59,7 @@ static INT_PTR CALLBACK ADV_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
         }
         SetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD, g_rule->keyword);
         SetDlgItemText(hDlg, IDC_EDIT_CPT_REGEX, g_rule->regex);
+        SetFocus(GetDlgItem(hDlg, IDOK));
         return (INT_PTR)FALSE;
     case WM_COMMAND:
         switch (LOWORD(wParam))

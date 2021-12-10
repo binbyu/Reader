@@ -1,7 +1,12 @@
 #include "stdafx.h"
 #include "EpubBook.h"
 #include "Utils.h"
+#ifdef ZLIB_ENABLE
 #include "unzip.h"
+#include "iowin32.h"
+#else
+#include "miniz.h"
+#endif
 #include "libxml/xmlreader.h"
 #include "libxml/HTMLparser.h"
 #include "libxml/xpath.h"
@@ -113,6 +118,7 @@ void EpubBook::FreeFilelist(void)
     m_flist.clear();
 }
 
+#ifdef ZLIB_ENABLE
 bool EpubBook::UnzipBook(void)
 {
     unzFile uf = NULL;
@@ -124,12 +130,9 @@ bool EpubBook::UnzipBook(void)
     char filename_inzip[MAX_PATH] = {0};
     char *buf = NULL;
     file_data_t fdata;
-    char* filename = NULL;
-    int len = 0;
 
-    filename = Utils::Utf16ToAnsi(m_fileName);
-    fill_fopen64_filefunc(&ffunc);
-    uf = unzOpen2_64(filename, &ffunc);
+    fill_win32_filefunc64W(&ffunc);
+    uf = unzOpen2_64(m_fileName, &ffunc);
     if (!uf)
         goto end;
 
@@ -206,6 +209,79 @@ end:
         FreeFilelist();
     return err == UNZ_OK;
 }
+#else
+bool EpubBook::UnzipBook(void)
+{
+    mz_zip_archive zip_archive;
+    mz_zip_archive_file_stat file_stat;
+    mz_uint file_count = 0;
+    mz_uint i;
+#if 0
+    char* filename = NULL;
+#endif
+    char *buf = NULL;
+    file_data_t fdata;
+
+#if 0
+    filename = Utf16ToAnsi(m_fileName);
+#endif
+
+    FreeFilelist();
+
+    memset(&zip_archive, 0, sizeof(zip_archive));
+
+    if (!mz_zip_reader_init_file(&zip_archive, (const char*)m_fileName, 0))
+        return false;
+
+    file_count = mz_zip_reader_get_num_files(&zip_archive);
+    if (file_count == 0)
+    {
+        mz_zip_reader_end(&zip_archive);
+        return false;
+    }
+
+    if (!mz_zip_reader_file_stat(&zip_archive, 0, &file_stat))
+    {
+        mz_zip_reader_end(&zip_archive);
+        return false;
+    }
+
+    for (i = 0; i < file_count; i++)
+    {
+        if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat))
+            continue;
+        if (mz_zip_reader_is_file_a_directory(&zip_archive, i))
+            continue; // skip directories for now
+
+        // create memory to save this file
+        buf = (char *)malloc((size_t)file_stat.m_uncomp_size);
+        if (!buf)
+        {
+            mz_zip_reader_end(&zip_archive);
+            FreeFilelist();
+            return false;
+        }
+
+        // read file to memory
+        if (!mz_zip_reader_extract_to_mem(&zip_archive, i, buf, (size_t)file_stat.m_uncomp_size, 0))
+        {
+            free(buf);
+            mz_zip_reader_end(&zip_archive);
+            FreeFilelist();
+            return false;
+        }
+
+        // save to file map
+        fdata.data = buf;
+        fdata.size = (size_t)file_stat.m_uncomp_size;
+        m_flist.insert(std::make_pair(file_stat.m_filename, fdata));
+    }
+
+    // Close the archive, freeing any resources it was using
+    mz_zip_reader_end(&zip_archive);
+    return true;
+}
+#endif
 
 bool EpubBook::ParserOcf(epub_t &epub)
 {

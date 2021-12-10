@@ -1,10 +1,16 @@
 #include "StdAfx.h"
 #include "Utils.h"
 #include <stdint.h>
+#if ENABLE_MD5
 #include <Wincrypt.h>
+#endif
 #include <string.h>
 #include <stdio.h>
+#ifdef ZLIB_ENABLE
 #include "zlib.h"
+#else
+#include "miniz.h"
+#endif
 
 const char* UTF_16_BE_BOM = "\xFE\xFF";
 const char* UTF_16_LE_BOM = "\xFF\xFE";
@@ -12,17 +18,14 @@ const char* UTF_8_BOM = "\xEF\xBB\xBF";
 const char* UTF_32_BE_BOM = "\x00\x00\xFE\xFF";
 const char* UTF_32_LE_BOM = "\xFF\xFE\x00\x00";
 
-Utils::Utils(void)
-{
-}
+static char* _result = NULL;
+static int _len = 0;
+static wchar_t* _wresult = NULL;
+static int _wlen = 0;
 
-
-Utils::~Utils(void)
-{
-}
 
 #if ENABLE_MD5
-bool Utils::get_md5(void* data, size_t size, u128_t* result)
+bool get_md5(void* data, size_t size, u128_t* result)
 {
     HCRYPTPROV hProv = NULL;
     HCRYPTPROV hHash = NULL;
@@ -65,107 +68,59 @@ bool Utils::get_md5(void* data, size_t size, u128_t* result)
 }
 #endif
 
-#if 0
-wchar_t* Utils::ansi_to_utf16(const char* str, int* len)
-{
-    wchar_t* result;
-    *len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-    result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
-    memset(result, 0, (*len)*sizeof(wchar_t));
-    MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)result, *len);
-    return result;
-}
-#endif
-
-wchar_t* Utils::ansi_to_utf16_ex(const char* str, int size, int* len)
+wchar_t* ansi_to_utf16(const char* str, int size, int* len)
 {
     wchar_t* result;
     *len = MultiByteToWideChar(CP_ACP, 0, str, size, NULL, 0);
     result = (wchar_t*)malloc(((*len)+1)*sizeof(wchar_t));
-    memset(result, 0, ((*len)+1)*sizeof(wchar_t));
+    result[*len] = 0;
     MultiByteToWideChar(CP_ACP, 0, str, size, (LPWSTR)result, *len);
     return result;
 }
 
-#if 0
-char* Utils::utf16_to_ansi(const wchar_t* str, int* len)
-{
-    char* result;
-    *len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
-    result = (char*)malloc((*len)*sizeof(char));
-    memset(result, 0, (*len)*sizeof(char));
-    WideCharToMultiByte(CP_ACP, 0, str, -1, result, *len, NULL, NULL);
-    return result;
-}
-#endif
-
-char* Utils::utf16_to_ansi_ex(const wchar_t* str, int size, int* len)
+char* utf16_to_ansi(const wchar_t* str, int size, int* len)
 {
     char* result;
     *len = WideCharToMultiByte(CP_ACP, 0, str, size, NULL, 0, NULL, NULL);
-    result = (char*)malloc((*len) * sizeof(char));
-    memset(result, 0, (*len) * sizeof(char));
+    result = (char*)malloc(((*len)+1) * sizeof(char));
+    result[*len] = 0;
     WideCharToMultiByte(CP_ACP, 0, str, size, result, *len, NULL, NULL);
     return result;
 }
 
-#if 0
-wchar_t* Utils::utf8_to_utf16(const char* str, int* len)
-{
-    wchar_t* result;
-    *len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    result = (wchar_t*)malloc((*len)*sizeof(wchar_t));
-    memset(result, 0, (*len)*sizeof(wchar_t));
-    MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)result, *len);
-    return result;
-}
-#endif
-
-wchar_t* Utils::utf8_to_utf16_ex(const char* str, int size, int* len)
+wchar_t* utf8_to_utf16(const char* str, int size, int* len)
 {
     wchar_t* result;
     *len = MultiByteToWideChar(CP_UTF8, 0, str, size, NULL, 0);
     result = (wchar_t*)malloc(((*len)+1) * sizeof(wchar_t));
-    memset(result, 0, ((*len)+1) * sizeof(wchar_t));
+    result[*len] = 0;
     MultiByteToWideChar(CP_UTF8, 0, str, size, (LPWSTR)result, *len);
     return result;
 }
 
-#if 0
-char* Utils::utf16_to_utf8(const wchar_t* str, int* len)
-{
-    char* result;
-    *len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-    result =(char*)malloc((*len)*sizeof(char));
-    memset(result, 0, (*len)*sizeof(char));
-    WideCharToMultiByte(CP_UTF8, 0, str, -1, result, *len, NULL, NULL);
-    return result;
-}
-#endif
-
-char* Utils::utf16_to_utf8_ex(const wchar_t* str, int size, int* len)
+char* utf16_to_utf8(const wchar_t* str, int size, int* len)
 {
     char* result;
     *len = WideCharToMultiByte(CP_UTF8, 0, str, size, NULL, 0, NULL, NULL);
-    result = (char*)malloc((*len) * sizeof(char));
-    memset(result, 0, (*len) * sizeof(char));
+    result = (char*)malloc(((*len)+1) * sizeof(char));
+    result[*len] = 0;
     WideCharToMultiByte(CP_UTF8, 0, str, size, result, *len, NULL, NULL);
     return result;
 }
 
-char* Utils::utf16_to_utf8_bom(const wchar_t* str, int size, int* len)
+char* utf16_to_utf8_bom(const wchar_t* str, int size, int* len)
 {
     char* result;
     int bom_header_len = 3;//strlen(UTF_8_BOM);
     *len = WideCharToMultiByte(CP_UTF8, 0, str, size, NULL, 0, NULL, NULL);
-    result = (char*)malloc((*len) * sizeof(char) + bom_header_len);
-    memset(result, 0, (*len) * sizeof(char) + bom_header_len);
+    result = (char*)malloc(((*len) + 1) * sizeof(char) + bom_header_len);
+    result[*len + bom_header_len] = 0;
     memcpy(result, UTF_8_BOM, bom_header_len);
     WideCharToMultiByte(CP_UTF8, 0, str, size, result + bom_header_len, *len, NULL, NULL);
     return result;
 }
 
-void Utils::free_buffer(void* buffer)
+void free_buffer(void* buffer)
 {
     if (buffer)
     {
@@ -173,92 +128,86 @@ void Utils::free_buffer(void* buffer)
     }
 }
 
-
-char* Utils::g_result = NULL;
-int Utils::g_len = 0;
-wchar_t* Utils::g_wresult = NULL;
-int Utils::g_wlen = 0;
-
-char* Utils::Utf16ToUtf8(const wchar_t* str)
+char* Utf16ToUtf8(const wchar_t* str)
 {
     int len;
 
     len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-    if (!g_result)
+    if (!_result)
     {
-        g_len = len + 1;
-        g_result = (char*)malloc(g_len * sizeof(char));
+        _len = len + 1;
+        _result = (char*)malloc(_len * sizeof(char));
     }
-    else if (g_len < len + 1)
+    else if (_len < len + 1)
     {
-        g_len = len + 1;
-        g_result = (char*)realloc(g_result, g_len * sizeof(char));
+        _len = len + 1;
+        _result = (char*)realloc(_result, _len * sizeof(char));
     }
 
-    WideCharToMultiByte(CP_UTF8, 0, str, -1, g_result, len, NULL, NULL);
-    g_result[len] = 0;
-    return g_result;
+    WideCharToMultiByte(CP_UTF8, 0, str, -1, _result, len, NULL, NULL);
+    _result[len] = 0;
+    return _result;
 }
 
-char *Utils::Utf16ToAnsi(const wchar_t* str)
+char *Utf16ToAnsi(const wchar_t* str)
 {
     int len;
 
     len = WideCharToMultiByte(CP_ACP, 0, str, -1, NULL, 0, NULL, NULL);
-    if (!g_result)
+    if (!_result)
     {
-        g_len = len + 1;
-        g_result = (char*)malloc(g_len * sizeof(char));
+        _len = len + 1;
+        _result = (char*)malloc(_len * sizeof(char));
     }
-    else if (g_len < len + 1)
+    else if (_len < len + 1)
     {
-        g_len = len + 1;
-        g_result = (char*)realloc(g_result, g_len * sizeof(char));
+        _len = len + 1;
+        _result = (char*)realloc(_result, _len * sizeof(char));
     }
 
-    WideCharToMultiByte(CP_ACP, 0, str, -1, g_result, len, NULL, NULL);
-    g_result[len] = 0;
-    return g_result;
+    WideCharToMultiByte(CP_ACP, 0, str, -1, _result, len, NULL, NULL);
+    _result[len] = 0;
+    return _result;
 }
 
-wchar_t* Utils::Utf8ToUtf16(const char* str)
+wchar_t* Utf8ToUtf16(const char* str)
 {
     int len;
 
     len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    if (!g_wresult)
+    if (!_wresult)
     {
-        g_wlen = len + 1;
-        g_wresult = (wchar_t*)malloc(g_wlen * sizeof(wchar_t));
+        _wlen = len + 1;
+        _wresult = (wchar_t*)malloc(_wlen * sizeof(wchar_t));
     }
-    else if (g_wlen < len + 1)
+    else if (_wlen < len + 1)
     {
-        g_wlen = len + 1;
-        g_wresult = (wchar_t*)realloc(g_wresult, g_wlen * sizeof(wchar_t));
+        _wlen = len + 1;
+        _wresult = (wchar_t*)realloc(_wresult, _wlen * sizeof(wchar_t));
     }
 
-    MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)g_wresult, len);
-    g_wresult[len] = 0;
-    return g_wresult;
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, (LPWSTR)_wresult, len);
+    _wresult[len] = 0;
+    return _wresult;
 }
 
-void Utils::FreeConvertBuffer()
+void FreeConvertBuffer()
 {
-    if (g_result)
+    if (_result)
     {
-        free(g_result);
-        g_result = NULL;
+        free(_result);
+        _result = NULL;
     }
-    if (g_wresult)
+    if (_wresult)
     {
-        free(g_wresult);
-        g_wresult = NULL;
+        free(_wresult);
+        _wresult = NULL;
     }
-    g_len = 0;
-    g_wlen = 0;
+    _len = 0;
+    _wlen = 0;
 }
 
-type_t Utils::check_bom(const char *data, size_t size)
+type_t check_bom(const char *data, size_t size)
 {
     if (size >= 3) {
         if (memcmp(data, UTF_8_BOM, 3) == 0)
@@ -279,7 +228,7 @@ type_t Utils::check_bom(const char *data, size_t size)
     return Unknown;
 }
 
-int Utils::is_ascii(const char *data, size_t size)
+int is_ascii(const char *data, size_t size)
 {
     const unsigned char *str = (const unsigned char*)data;
     const unsigned char *end = str + size;
@@ -290,7 +239,7 @@ int Utils::is_ascii(const char *data, size_t size)
     return 1;
 }
 
-int Utils::is_utf8(const char *data, size_t size)
+int is_utf8(const char *data, size_t size)
 {
     const unsigned char *str = (unsigned char*)data;
     const unsigned char *end = str + size;
@@ -361,7 +310,7 @@ int Utils::is_utf8(const char *data, size_t size)
     return 1;
 }
 
-char* Utils::le_to_be(char* data, int len)
+char* le_to_be(char* data, int len)
 {
     char tmp;
     for (int i=0; i<len-1; i+=2)
@@ -373,12 +322,12 @@ char* Utils::le_to_be(char* data, int len)
     return data;
 }
 
-char* Utils::be_to_le(char* data, int len)
+char* be_to_le(char* data, int len)
 {
     return le_to_be(data, len);
 }
 
-void Utils::b64_encode(const char *src, int slen, char *dst, int *dlen)
+void b64_encode(const char *src, int slen, char *dst, int *dlen)
 {
     static const char b64[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -410,7 +359,7 @@ void Utils::b64_encode(const char *src, int slen, char *dst, int *dlen)
     *dlen = out_len;
 }
 
-void Utils::b64_decode(const char *src, int slen, char *dst, int *dlen)
+void b64_decode(const char *src, int slen, char *dst, int *dlen)
 {
     static const unsigned char ascii[256] =
     {
@@ -453,7 +402,7 @@ void Utils::b64_decode(const char *src, int slen, char *dst, int *dlen)
     *dlen = out_len;
 }
 
-BOOL Utils::Is_WinXP_SP2_or_Later(void)
+BOOL Is_WinXP_SP2_or_Later(void)
 {
     OSVERSIONINFOEX osvi;
     DWORDLONG dwlConditionMask = 0;
@@ -484,158 +433,7 @@ BOOL Utils::Is_WinXP_SP2_or_Later(void)
         dwlConditionMask);
 }
 
-void Utils::UrlEncode(const char* src, char** dst)
-{
-    static char rfc3986[256] = { 0 };
-    static char html5[256] = { 0 };
-    static int i = 0;
-
-    char* enc = NULL;
-    unsigned char* s = (unsigned char*)src;
-    int len = strlen(src);
-    *dst = (char*)malloc((len * 3) + 1);
-    memset(*dst, 0, (len * 3) + 1);
-    enc = *dst;
-
-    // init
-    if (i == 0)
-    {
-        for (i = 0; i < 256; i++) {
-            rfc3986[i] = isalnum(i) || i == '~' || i == '-' || i == '.' || i == '_'
-                ? i : 0;
-            html5[i] = isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_'
-                ? i : (i == ' ') ? '+' : 0;
-        }
-    }
-
-    // encode
-    for (; *s; s++) {
-        if (html5[*s])
-            sprintf(enc, "%c", html5[*s]);
-        else
-            sprintf(enc, "%%%02X", *s);
-        while (*++enc);
-    }
-
-    //free(*dst);
-}
-
-#define ishex(x) ((x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F'))
-void Utils::UrlDecode(const char* src, char** dst)
-{
-    int len = strlen(src);
-    char* out = NULL;
-    char* o = out;
-    const char* s = src;
-    const char* end = s + (len - 1);
-    int c;
-
-    *dst = NULL;
-    out = (char*)malloc(len + 1);
-    if (!out)
-    {
-        return;
-    }
-
-    for (o = out; s <= end; o++)
-    {
-        c = *s++;
-        if (c == '+')
-        {
-            c = ' ';
-        }
-        else if (c == '%'
-            && (!ishex(*s++) || !ishex(*s++) || !sscanf(s - 2, "%2x", &c)))
-        {
-            // bad uri
-            free(out);
-            return;
-        }
-
-        if (out)
-        {
-            *o = c;
-        }
-    }
-
-    *dst = out;
-    //free(out);
-}
-
-void Utils::UrlFree(char* url)
-{
-    if (url)
-        free(url);
-}
-
-BOOL Utils::gzipInflate(const unsigned char* src, int srclen, unsigned char** dst, int* dstlen)
-{
-    z_stream stream = { 0 };
-    bool done = false;
-    unsigned char* buf = NULL;
-    int buflen = 0;
-    int err;
-
-    *dst = NULL;
-    *dstlen = 0;
-    if (srclen <= 0)
-        return FALSE;
-
-    stream.next_in = (Bytef*)src;
-    stream.avail_in = srclen;
-    stream.total_out = 0;
-    stream.zalloc = Z_NULL;
-    stream.zfree = Z_NULL;
-
-    if (inflateInit2(&stream, (16 + MAX_WBITS)) != Z_OK)
-        return FALSE;
-
-    buflen = srclen + srclen / 2;
-    buf = (unsigned char*)malloc(buflen);
-
-    while (1)
-    {
-        if ((int)stream.total_out >= buflen)
-        {
-            // increase output buffer  
-            buflen += srclen / 2;
-            buf = (unsigned char*)realloc(buf, buflen);
-        }
-
-        stream.next_out = buf + stream.total_out;
-        stream.avail_out = buflen - stream.total_out;
-
-        // Inflate next chunk
-        err = inflate(&stream, Z_SYNC_FLUSH);
-        if (err == Z_STREAM_END)
-        {
-            err = Z_OK;
-            break;
-        }
-        else if (err != Z_OK)
-        {
-            break;
-        }
-    }
-
-    if (inflateEnd(&stream) != Z_OK)
-    {
-        free(buf);
-        return FALSE;
-    }
-
-    if (err != Z_OK)
-    {
-        free(buf);
-        return FALSE;
-    }
-
-    *dst = buf;
-    *dstlen = stream.total_out;
-    return TRUE;
-}
-
-void Utils::GetApplicationVersion(TCHAR* version)
+void GetApplicationVersion(TCHAR* version)
 {
     TCHAR szModPath[MAX_PATH] = { 0 };
     DWORD dwHandle;
@@ -675,4 +473,11 @@ void Utils::GetApplicationVersion(TCHAR* version)
         }
         free(pBlock);
     }
+}
+
+// return: 1, true, 0, false
+int memvcmp(void *memory, unsigned char val, unsigned int size)
+{
+    unsigned char *mm = (unsigned char*)memory;
+    return (*mm == val) && memcmp(mm, mm + 1, size - 1) == 0;
 }

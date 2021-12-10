@@ -3,7 +3,6 @@
 #include "Keyset.h"
 #include "Upgrade.h"
 #include "jsondata.h"
-#include "httpclient.h"
 #include "DPIAwareness.h"
 #include <stdio.h>
 #include <string.h>
@@ -44,7 +43,7 @@ bool Cache::init()
 {
     void* json = NULL;
     int size = 0;
-    header_t header;
+    header_t *header = NULL;
 
     if (!PathFileExists(m_file_name)) // not exist
     {
@@ -65,13 +64,24 @@ bool Cache::init()
             m_jsonbak = malloc(m_jsonlen);
             memcpy(m_jsonbak, json, m_jsonlen);
 
+            header = (header_t*)malloc(sizeof(header_t));
             // parser json string
             decode(json, size);
-            memset(&header, 0, sizeof(header_t));
-            header.item_id = -1;
-            default_header(&header);
-            parser_json((char *)json, &header, &m_buffer, &m_size);
+            memset(header, 0, sizeof(header_t));
+            header->item_id = -1;
+            default_header(header);
+            { // fixed bug
+                json = realloc(json, size+1);
+                if (!json)
+                {
+                    free(header);
+                    return false;
+                }
+                ((char*)json)[size] = 0;
+            }
+            parser_json((const char *)json, header, &m_buffer, &m_size);
             free(json);
+            free(header);
             return true;
         }
         return false;
@@ -98,7 +108,7 @@ bool Cache::exit()
     {
         free(m_jsonbak);
         m_jsonbak = NULL;
-        m_jsonlen = NULL;
+        m_jsonlen = 0;
     }
 
     return result;
@@ -215,7 +225,7 @@ item_t* Cache::new_item(TCHAR* file_name)
 #if ENABLE_MD5
     memcpy(&item->md5, item_md5, sizeof(u128_t));
 #endif
-    memcpy(item->file_name, file_name, sizeof(TCHAR) * MAX_PATH);
+    memcpy(item->file_name, file_name, sizeof(TCHAR) * (_tcslen(file_name) + 1));
 
     // move to index 0
     move_item(item->id, 0);
@@ -245,7 +255,7 @@ item_t* Cache::find_item(TCHAR* file_name)
             // update file name
             if (0 != _tcscmp(item->file_name, file_name))
             {
-                memcpy(item->file_name, file_name, sizeof(TCHAR) * MAX_PATH);
+                memcpy(item->file_name, file_name, sizeof(TCHAR) * (_tcslen(file_name) + 1));
             }
             return item;
         }
@@ -323,7 +333,7 @@ void Cache::default_header(header_t* header)
     {
         nHeight = -MulDiv(PointSize, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72);
         hFont = CreateFont(nHeight, 0, 0, 0,
-            FW_LIGHT, false, false, false,
+            FW_LIGHT, FALSE, FALSE, FALSE,
             ANSI_CHARSET, OUT_STROKE_PRECIS,
             CLIP_STROKE_PRECIS, PROOF_QUALITY,
             VARIABLE_PITCH | FF_SWISS, _T("Segoe UI Light"));
@@ -332,11 +342,48 @@ void Cache::default_header(header_t* header)
     memcpy(&header->font, &lf, sizeof(lf));
     header->font_color = 0x00;      // black
 
-    // default rect
-    header->rect.left = (GetCxScreenForDpi() - DEFAULT_APP_WIDTH) / 2;
-    header->rect.top = (GetCyScreenForDpi() - DEFAULT_APP_HEIGHT) / 2;
-    header->rect.right = header->rect.left + DEFAULT_APP_WIDTH;
-    header->rect.bottom = header->rect.top + DEFAULT_APP_HEIGHT;
+    // default style
+    header->style = WS_OVERLAPPEDWINDOW;
+    header->exstyle = WS_EX_ACCEPTFILES | WS_EX_LAYERED;
+    header->fs_style = WS_OVERLAPPEDWINDOW;
+    header->fs_exstyle = WS_EX_ACCEPTFILES | WS_EX_LAYERED;
+
+    // default placement
+    header->placement.length = sizeof(WINDOWPLACEMENT);
+    header->placement.flags = 0;
+    header->placement.showCmd = SW_SHOWNORMAL;
+    header->placement.ptMinPosition.x = -1;
+    header->placement.ptMinPosition.y = -1;
+    header->placement.ptMaxPosition.x = -1;
+    header->placement.ptMaxPosition.y = -1;
+    header->placement.rcNormalPosition.left = (GetCxScreenForDpi() - DEFAULT_APP_WIDTH) / 2;
+    header->placement.rcNormalPosition.top = (GetCyScreenForDpi() - DEFAULT_APP_HEIGHT) / 2;
+    header->placement.rcNormalPosition.right = header->placement.rcNormalPosition.left + DEFAULT_APP_WIDTH;
+    header->placement.rcNormalPosition.bottom = header->placement.rcNormalPosition.top + DEFAULT_APP_HEIGHT;
+#ifdef _MAC
+    header->placement.rcDevice.left = 0;
+    header->placement.rcDevice.top = 0;
+    header->placement.rcDevice.right = GetCxScreenForDpi();
+    header->placement.rcDevice.bottom = GetCyScreenForDpi();
+#endif
+
+    header->fs_placement.length = sizeof(WINDOWPLACEMENT);
+    header->fs_placement.flags = 0;
+    header->fs_placement.showCmd = SW_SHOWNORMAL;
+    header->fs_placement.ptMinPosition.x = -1;
+    header->fs_placement.ptMinPosition.y = -1;
+    header->fs_placement.ptMaxPosition.x = -1;
+    header->fs_placement.ptMaxPosition.y = -1;
+    header->fs_placement.rcNormalPosition.left = (GetCxScreenForDpi() - DEFAULT_APP_WIDTH) / 2;
+    header->fs_placement.rcNormalPosition.top = (GetCyScreenForDpi() - DEFAULT_APP_HEIGHT) / 2;
+    header->fs_placement.rcNormalPosition.right = header->fs_placement.rcNormalPosition.left + DEFAULT_APP_WIDTH;
+    header->fs_placement.rcNormalPosition.bottom = header->fs_placement.rcNormalPosition.top + DEFAULT_APP_HEIGHT;
+#ifdef _MAC
+    header->fs_placement.rcDevice.left = 0;
+    header->fs_placement.rcDevice.top = 0;
+    header->fs_placement.rcDevice.right = GetCxScreenForDpi();
+    header->fs_placement.rcDevice.bottom = GetCyScreenForDpi();
+#endif
 
     // default bk color
     header->bg_color = 0x00ffffff;  // White
@@ -363,8 +410,9 @@ void Cache::default_header(header_t* header)
     header->word_wrap = 0;
     header->line_indent = 1;
 
-    // default hotkey
-    KS_GetDefaultKeyBuff(header->keyset);
+    // default keyset
+    header->global_key = 0;
+    KS_GetDefaultKeyset(header->keyset);
 
     // default chapter rule
     header->chapter_rule.rule = 0;
@@ -525,7 +573,7 @@ bool Cache::read(void** data, int* size)
     }
     else
     {
-        if (dwBytesRead != *size)
+        if ((int)dwBytesRead != *size)
         {
             CloseHandle(hFile);
             free(*data);
@@ -570,7 +618,7 @@ bool Cache::write(void* data, int size)
     }
     else
     {
-        if (dwBytesWritten != size)
+        if ((int)dwBytesWritten != size)
         {
             CloseHandle(hFile);
             return false;
@@ -587,7 +635,7 @@ void Cache::update_addr(void)
 
     header = (header_t*)m_buffer;
 
-    KS_UpdateBuffAddr(header->keyset);
+    KS_UpdateKeyset(header->keyset);
 }
 
 void Cache::encode(void* data, int size)

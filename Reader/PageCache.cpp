@@ -6,10 +6,14 @@
 #include "Book.h"
 #include "EpubBook.h"
 
+extern VOID Invalidate(HWND, BOOL, BOOL);
+extern void Save(HWND hWnd);
+
 PageCache::PageCache()
     : m_Text(NULL)
     , m_TextLength(0)
-    , m_OnePageLineCount(0)
+    , m_CurPageLineCount(0)
+    , m_MaxPageLineCount(0)
     , m_CurPageSize(0)
     , m_CurrentLine(0)
     , m_CurrentPos(NULL)
@@ -20,6 +24,7 @@ PageCache::PageCache()
     , m_LineIndent(NULL)
 #if ENABLE_TAG
     , m_tags(NULL)
+    , m_tag_count(NULL)
 #endif
 {
     memset(&m_Rect, 0, sizeof(m_Rect));
@@ -33,7 +38,7 @@ PageCache::~PageCache()
 }
 
 #if ENABLE_TAG
-void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags)
+void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib, tagitem_t *tags, int* tag_count)
 #else
 void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *word_wrap, INT *indent, RECT *ib)
 #endif
@@ -50,9 +55,10 @@ void PageCache::Setting(HWND hWnd, INT *pos, INT* cg, INT *lg, INT *lc, INT *wor
         *m_CurrentPos = 0;
 #if ENABLE_TAG
     m_tags = tags;
+    m_tag_count = tag_count;
 #endif
     RemoveAllLine(TRUE);
-    InvalidateRect(hWnd, &m_Rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
 }
 
 void PageCache::SetRect(RECT *rect)
@@ -73,22 +79,22 @@ void PageCache::Reset(HWND hWnd, BOOL redraw)
 {
     RemoveAllLine();
     if (redraw)
-        InvalidateRect(hWnd, &m_Rect, FALSE);
+        Invalidate(hWnd, TRUE, FALSE);
 }
 
 void PageCache::ReDraw(HWND hWnd)
 {
-    InvalidateRect(hWnd, &m_Rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
 }
 
 void PageCache::PageUp(HWND hWnd)
 {
-    return LineUp(hWnd, m_OnePageLineCount - (*m_LeftLineCount));
+    return LineUp(hWnd, m_MaxPageLineCount - (*m_LeftLineCount));
 }
 
 void PageCache::PageDown(HWND hWnd)
 {
-    return LineDown(hWnd, m_OnePageLineCount - (*m_LeftLineCount));
+    return LineDown(hWnd, m_CurPageLineCount - (*m_LeftLineCount));
 }
 
 void PageCache::LineUp(HWND hWnd, INT n)
@@ -118,7 +124,7 @@ void PageCache::LineUp(HWND hWnd, INT n)
             m_CurrentLine = 0;
     }
     
-    InvalidateRect(hWnd, &m_Rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
 }
 
 void PageCache::LineDown(HWND hWnd, INT n)
@@ -133,7 +139,7 @@ void PageCache::LineDown(HWND hWnd, INT n)
         return;
     
     m_CurrentLine += n;
-    InvalidateRect(hWnd, &m_Rect, FALSE);
+    Invalidate(hWnd, TRUE, FALSE);
 }
 
 Bitmap * PageCache::GetCover(void)
@@ -170,7 +176,7 @@ BOOL PageCache::DrawCover(HDC hdc)
     (*m_CurrentPos) = 0;
     m_CurPageSize = 1; // 1 wchar_t for cover
     m_CurrentLine = 0;
-    m_OnePageLineCount = 1;
+    m_CurPageLineCount = 1;
 
     // calc image rect
     w = m_Rect.right - m_Rect.left;
@@ -216,7 +222,7 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
     SIZE sz = { 0 };
 #if ENABLE_TAG
 	HFONT tagfonts[MAX_TAG_COUNT] = {0};
-#endif	
+#endif
 
     if (!IsValid())
         return;
@@ -225,7 +231,7 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
         return;
 
 #if ENABLE_TAG
-    for (i=0; i<MAX_TAG_COUNT; i++)
+    for (i=0; i<(*m_tag_count); i++)
     {
         if (m_tags[i].enable && m_tags[i].keyword[0])
         {
@@ -236,15 +242,15 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
 #else
     h = GetLineHeight(hdc);
 #endif
-    m_OnePageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - (m_InternalBorder->top + m_InternalBorder->bottom)) / h;
+    m_MaxPageLineCount = (m_Rect.bottom - m_Rect.top + (*m_lineGap) - (m_InternalBorder->top + m_InternalBorder->bottom)) / h;
 
     if (m_PageInfo.line_size == 0 || m_CurrentLine < 0 
-        || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_OnePageLineCount >= m_PageInfo.line_size))
+        || (m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length != m_TextLength && m_CurrentLine + m_MaxPageLineCount >= m_PageInfo.line_size))
     {
 #if ENABLE_TAG
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_OnePageLineCount, tagfonts);
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_MaxPageLineCount, tagfonts);
 #else
-        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_OnePageLineCount);
+        LoadPageInfo(hdc, m_Rect.right - m_Rect.left - (m_InternalBorder->left + m_InternalBorder->right), m_MaxPageLineCount);
 #endif
     }
     if (m_PageInfo.line_size == 0) // fixed bug
@@ -264,7 +270,8 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
     m_CurPageSize = 0;
     rect.left = m_InternalBorder->left;
     rect.top = m_InternalBorder->top;
-    for (i = 0; i < m_OnePageLineCount && m_CurrentLine + i < m_PageInfo.line_size; i++)
+    m_CurPageLineCount = 0;
+    for (i = 0; i < m_MaxPageLineCount && m_CurrentLine + i < m_PageInfo.line_size; i++)
     {
         line = &m_PageInfo.line_info[m_CurrentLine + i];
         rect.bottom = rect.top + h;
@@ -277,7 +284,7 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
         {
             int tagid = IsTag(j+line->start);
             rect.left += (*m_charGap) / 2;
-            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            if (tagid >= 0 && tagid < (*m_tag_count))
             {
                 COLORREF oldcolor = SetBkColor(hdc, m_tags[tagid].bg_color);
                 COLORREF oldfontcolor = SetTextColor(hdc, m_tags[tagid].font_color);
@@ -311,12 +318,18 @@ void PageCache::DrawPage(HWND hWnd, HDC hdc)
 #endif
         rect.top += h;
         m_CurPageSize += line->length;
+        m_CurPageLineCount ++;
     }
     (*m_CurrentPos) = m_PageInfo.line_info[m_CurrentLine].start;
+    Save(hWnd);
 
+    // onlinebook: fixed not full page bug
+#if TEST_MODEL
+    assert(m_CurPageLineCount <= m_MaxPageLineCount);
+#endif
 #if ENABLE_TAG
 end:
-    for (i=0; i<MAX_TAG_COUNT; i++)
+    for (i=0; i<(*m_tag_count); i++)
     {
         if (tagfonts[i])
             DeleteObject(tagfonts[i]);
@@ -471,7 +484,7 @@ LONG PageCache::GetLineHeight(HDC hdc)
     int i;
     LONG maxcy = 0;
     
-	for (i=0; i<MAX_TAG_COUNT; i++)
+	for (i=0; i<(*m_tag_count); i++)
     {
         if (tagfonts[i])
         {
@@ -558,9 +571,8 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
     LONG width;
     INT index;
     SIZE sz = { 0 };
-    BOOL flag = TRUE;
-    int word_start_pos;
-    int word_width;
+    int word_start_pos = 0;
+    int word_width = 0;
     BOOL indent = FALSE;
 
     // pageup/lineup:         [pos1, pos2)
@@ -578,13 +590,10 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
         pos3 = m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length;
     else
         pos3 = (*m_CurrentPos);
-    //pos4 = pos3 + MAX_FIND_SIZE >= m_TextLength ? m_TextLength : pos3 + MAX_FIND_SIZE; // no use for FAST_MODEL
     pos4 = m_TextLength;
 
     if (m_CurrentLine < 0)
     {
-        flag = FALSE;
-
         // [pos1, pos2)
         start = pos1;
         length = 0;
@@ -625,7 +634,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
             // calc char width
 #if ENABLE_TAG
             int tagid = IsTag(i);
-            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            if (tagid >= 0 && tagid < (*m_tag_count))
             {
                 if (tagfonts[tagid])
                 {
@@ -745,7 +754,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
             }
             length++;
         }
-        if ((width > 0 && width <= maxw) || (length > 0 && pos2 - start == length))
+        if ((width > 0 && width <= maxw && length > 0) || (length > 0 && pos2 - start == length))
         {
             AddLine(start, length, indent, index++);
             SetIndent(hdc, i, &indent, &width);
@@ -766,7 +775,7 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
         }
     }
 
-    if (flag)
+    if (m_CurrentLine + m_MaxPageLineCount > m_PageInfo.line_size)
     {
         // [pos3, pos4)
         start = pos3;
@@ -802,17 +811,16 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
                     word_start_pos = start;
                     word_width = 0;
                 }
-#if FAST_MODEL
-                if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
+
+                if (m_CurrentLine + m_MaxPageLineCount <= m_PageInfo.line_size)
                     break;
-#endif
                 continue;
             }
 
             // calc char width
 #if ENABLE_TAG
             int tagid = IsTag(i);
-            if (tagid >= 0 && tagid < MAX_TAG_COUNT)
+            if (tagid >= 0 && tagid < (*m_tag_count))
             {
                 if (tagfonts[tagid])
                 {
@@ -929,20 +937,18 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
                     SetIndent(hdc, i, &indent, &width);
                 }
 
-#if FAST_MODEL
-                if (m_CurrentLine + m_OnePageLineCount <= m_PageInfo.line_size)
+                if (m_CurrentLine + m_MaxPageLineCount <= m_PageInfo.line_size)
                 {
                     width = 0;
                     break;
                 }
-#endif
                 continue;
             }
             length++;
         }
         if (pos4 == m_TextLength)
         {
-            if (width > 0 && width <= maxw)
+            if (width > 0 && width <= maxw && length > 0)
             {
                 AddLine(start, length, indent);
                 SetIndent(hdc, i, &indent, &width);
@@ -958,6 +964,9 @@ void PageCache::LoadPageInfo(HDC hdc, INT maxw, INT hcnt)
 void PageCache::AddLine(INT start, INT length, BOOL indent, INT pos)
 {
     const int UNIT_SIZE = 1024;
+    
+    if (length <= 0)
+        return;
 
     if (!m_PageInfo.line_info)
     {
@@ -1037,7 +1046,7 @@ int PageCache::IsTag(int index)
 {
     int i,j;
     int len,begin,end;
-    for (i=0; i<MAX_TAG_COUNT; i++)
+    for (i=0; i<(*m_tag_count); i++)
     {
         if (m_tags[i].enable && m_tags[i].keyword[0])
         {
@@ -1060,7 +1069,7 @@ void PageCache::UnitTest1(void)
 {
 #if TEST_MODEL
     assert(m_CurrentLine >= 0 && m_CurrentLine < m_PageInfo.line_size);
-    if (m_CurrentLine + m_OnePageLineCount > m_PageInfo.line_size)
+    if (m_CurrentLine + m_MaxPageLineCount > m_PageInfo.line_size)
     {
         assert(m_PageInfo.line_info[m_PageInfo.line_size - 1].start + m_PageInfo.line_info[m_PageInfo.line_size - 1].length == m_TextLength);
     }

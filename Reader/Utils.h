@@ -3,66 +3,42 @@
 
 #include "types.h"
 
-class Utils
-{
-public:
-    Utils(void);
-    ~Utils(void);
-
-public:
 #if ENABLE_MD5
-    // md5
-    static bool get_md5(void* data, size_t size, u128_t* result);
+// md5
+bool get_md5(void* data, size_t size, u128_t* result);
 #endif
 
-    // convert
-    //static wchar_t* ansi_to_utf16(const char* str, int* len);
-    static wchar_t* ansi_to_utf16_ex(const char* str, int size, int* len);
-    //static char* utf16_to_ansi(const wchar_t* str, int* len);
-    static char* utf16_to_ansi_ex(const wchar_t* str, int size, int* len);
-    //static wchar_t* utf8_to_utf16(const char* str, int* len);
-    static wchar_t* utf8_to_utf16_ex(const char* str, int size, int* len);
-    //static char* utf16_to_utf8(const wchar_t* str, int* len);
-    static char* utf16_to_utf8_ex(const wchar_t* str, int size, int* len);
-    static char* utf16_to_utf8_bom(const wchar_t* str, int size, int* len);
-    static void free_buffer(void* buffer);
+// convert
+wchar_t* ansi_to_utf16(const char* str, int size, int* len);
+char* utf16_to_ansi(const wchar_t* str, int size, int* len);
+wchar_t* utf8_to_utf16(const char* str, int size, int* len);
+char* utf16_to_utf8(const wchar_t* str, int size, int* len);
+char* utf16_to_utf8_bom(const wchar_t* str, int size, int* len);
+void free_buffer(void* buffer);
 
-    static char* Utf16ToUtf8(const wchar_t* str); // not free
-    static char* Utf16ToAnsi(const wchar_t* str); // not free
-    static wchar_t* Utf8ToUtf16(const char* str); // not free
-    static void FreeConvertBuffer();
+char* Utf16ToUtf8(const wchar_t* str); // not free
+char* Utf16ToAnsi(const wchar_t* str); // not free
+wchar_t* Utf8ToUtf16(const char* str); // not free
+void FreeConvertBuffer();
 
-    // encoding
-    static type_t check_bom(const char *data, size_t size);
-    static int is_ascii(const char *data, size_t size);    
-    static int is_utf8(const char *data, size_t size);
+// encoding
+type_t check_bom(const char *data, size_t size);
+int is_ascii(const char *data, size_t size);    
+int is_utf8(const char *data, size_t size);
 
-    // le be
-    static char* le_to_be(char* data, int len);
-    static char* be_to_le(char* data, int len);
+// le be
+char* le_to_be(char* data, int len);
+char* be_to_le(char* data, int len);
 
-    // base64
-    static void b64_encode(const char *src, int slen, char *dst, int *dlen);
-    static void b64_decode(const char *src, int slen, char *dst, int *dlen);
+// base64
+void b64_encode(const char *src, int slen, char *dst, int *dlen);
+void b64_decode(const char *src, int slen, char *dst, int *dlen);
 
-    // check system version
-    static BOOL Is_WinXP_SP2_or_Later(void);
+// check system version
+BOOL Is_WinXP_SP2_or_Later(void);
 
-    // url
-    static void UrlEncode(const char *src, char **dst); // free by UrlFree
-    static void UrlDecode(const char* src, char** dst); // free by UrlFree
-    static void UrlFree(char *url);
+void GetApplicationVersion(TCHAR *version);
 
-    // gzip
-    static BOOL gzipInflate(const unsigned char* src, int srclen, unsigned char** dst, int* dstlen);
-
-    static void GetApplicationVersion(TCHAR *version);
-
-private:
-    static char* g_result;
-    static int g_len;
-    static wchar_t* g_wresult;
-    static int g_wlen;
-};
+int memvcmp(void *memory, unsigned char val, unsigned int size);
 
 #endif

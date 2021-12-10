@@ -5,5 +5,9 @@
 void CreateDumpFile(LPCWSTR lpstrDumpFilePathName, EXCEPTION_POINTERS *pException);
 LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException);
 
+void logger_create(void);
+void logger_destroy(void);
+void __stdcall logger_printf(const char* format, ...);
+
 #endif
 #endif

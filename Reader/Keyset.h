@@ -40,18 +40,20 @@ typedef struct keydata_t
     DWORD   key;       // keyid << 16 | keytype
     DWORD   key_id;    // just for keytype = KT_HOTKEY
     DWORD  *pvalue;
+    int    *is_disable;
     DWORD   defval;
     DWORD   ctrl_id;
+    DWORD   able_id;
     keyproc proc;
     UINT    desc;
 } keydata_t;
 
 
-void KS_Init(HWND hWnd, void *keybuff);
-void KS_UpdateBuffAddr(void *keybuff);
-void KS_OpenDlg(HINSTANCE hInst, HWND hWnd);
+void KS_Init(HWND hWnd, keyset_t *keyset);
+void KS_UpdateKeyset(keyset_t *keyset);
+void KS_GetDefaultKeyset(keyset_t *keyset);
+void KS_OpenDlg(void);
 INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-void KS_GetDefaultKeyBuff(void *keybuff);
 BOOL KS_KeyDownProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 BOOL KS_HotKeyProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 BOOL KS_RegisterAllHotKey(HWND hWnd);

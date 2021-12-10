@@ -36,7 +36,35 @@ int GetCyScreenForDpi(void)
     return MulDiv(GetSystemMetrics(SM_CYSCREEN), DEFAULT_DPI, dpiy);
 }
 
-void UpdateLayoutForDpi(RECT *rect)
+int GetWidthForDpi(int w)
+{
+    int dpix = 0, dpiy = 0;
+
+    GetDPI(&dpix, &dpiy);
+
+    if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
+    {
+        return w;
+    }
+
+    return MulDiv(w, dpix, DEFAULT_DPI);
+}
+
+int GetHeightForDpi(int h)
+{
+    int dpix = 0, dpiy = 0;
+
+    GetDPI(&dpix, &dpiy);
+
+    if (dpix == DEFAULT_DPI && dpiy == DEFAULT_DPI)
+    {
+        return h;
+    }
+
+    return MulDiv(h, dpiy, DEFAULT_DPI);
+}
+
+void UpdateRectForDpi(RECT *rect)
 {
     int dpix = 0, dpiy = 0;
     int scaledx, scaledy, scaledw, scaledh;
