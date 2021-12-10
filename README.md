@@ -2,8 +2,10 @@
 A win32 txt/epub/online file reader
 
 ****
-最新release版本：`v1.10.0.0`  
-下载地址: []()  
+最新release版本：　`v1.10.0.0`  
+正式版:　　　　　　[Reader_v1.10.0.0.7z](https://github.com/binbyu/Reader/releases/download/untagged-8fce339b2c8271b4193d/Reader_v1.10.0.0.7z)  
+无网络版:　　　　　[Reader_v1.10.0.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/untagged-8fce339b2c8271b4193d/Reader_v1.10.0.0_networkless.7z)  
+调试版:　　　　　　[Reader_v1.10.0.0_debug.7z](https://github.com/binbyu/Reader/releases/download/untagged-8fce339b2c8271b4193d/Reader_v1.10.0.0_debug.7z)  
 ****
 <br/>
 <br/>
