@@ -146,6 +146,7 @@ book_source_t*      FindBookSource(const char* host);
 void                SetGlobalKey(HWND);
 int                 MessageBox_(HWND, UINT, UINT, UINT);
 int                 MessageBoxFmt_(HWND, UINT, UINT, UINT, ...);
+void                OnManualCheckBookUpdateCallback(int is_update, int err, void* param);
 
 
 #endif

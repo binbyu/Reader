@@ -663,6 +663,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 OnFullScreen(hWnd, message, wParam, lParam);
             }
+            else
+            {
+                if (_header->disable_eschide == 0)
+                    OnHideWin(hWnd, message, wParam, lParam);
+            }
         }
         else if ('P' == wParam)
         {
@@ -679,6 +684,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+#ifdef ENABLE_NETWORK
+        else if (VK_F5 == wParam) // online book manual check
+        {
+            if (_Book && !_Book->IsLoading() && _Book->GetBookType() == book_online)
+            {
+                if (IDYES == MessageBox_(_hWnd, IDS_REFRESH_TIP, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
+                {
+                    chkbook_arg_t* arg = GetCheckBookArguments();
+                    arg->book = (OnlineBook*)_Book;
+                    arg->hWnd = hWnd;
+                    arg->checked_list.insert(_Book->GetFileName());
+                    if (2 != ((OnlineBook*)_Book)->ManualCheckUpdate(hWnd, OnManualCheckBookUpdateCallback, arg))
+                    {
+                        if (arg->book != _Book)
+                            delete arg->book;
+                        arg->book = NULL;
+                    }
+                }
+            }
+        }
+#endif
         break;
     case WM_HOTKEY:
         KS_HotKeyProc(hWnd, message, wParam, lParam);
@@ -1185,7 +1211,7 @@ INT_PTR CALLBACK RewardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             {
                 ::SetRect(&rc_alipay, 0, 0, (int)(image_alipay->GetWidth()/2.0f), (int)(image_alipay->GetHeight()/2.0f));
             }
-            else if (dpiscaled <= 1.25)
+            else if (dpiscaled <= 1.25f)
             {
                 ::SetRect(&rc_alipay, 0, 0, (int)(image_alipay->GetWidth()/3.0f*2.0f), (int)(image_alipay->GetHeight()/3.0f*2.0f));
             }
@@ -1264,22 +1290,83 @@ INT_PTR CALLBACK RewardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
     return (INT_PTR)FALSE;
 }
 
-// Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK FollowProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    POINT pt;
-    HWND hWnd;
-    RECT rc;
-    Gdiplus::Bitmap *image_mp = NULL;
-    static double dpiscaled = 0.0;
-    TCHAR version[256];
-    TCHAR info[256];
+    Gdiplus::Bitmap* image_mp = NULL;
+    static RECT rc_mp;
+    double dpiscaled;
 
     switch (message)
     {
     case WM_INITDIALOG:
         image_mp = LoadBarCodeMP();
         dpiscaled = GetDpiScaled();
+        if (image_mp)
+        {
+            // calc mp image
+            ::SetRect(&rc_mp, 0, 0, (int)(image_mp->GetWidth() * dpiscaled), (int)(image_mp->GetHeight() * dpiscaled));
+
+            AdjustWindowRect(&rc_mp, GetWindowLongPtr(hDlg, GWL_STYLE), FALSE);
+            SetWindowPos(hDlg, NULL, rc_mp.left, rc_mp.top, rc_mp.right - rc_mp.left, rc_mp.bottom - rc_mp.top, SWP_NOMOVE);
+        }
+        return (INT_PTR)TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    case WM_PAINT:
+    {
+        HDC hdc;
+        PAINTSTRUCT ps;
+        Gdiplus::Graphics* graphics = NULL;
+        Rect rect;
+
+        hdc = BeginPaint(hDlg, &ps);
+        // TODO: Add any drawing code here...
+        image_mp = LoadBarCodeMP();
+
+        // draw image
+        graphics = new Gdiplus::Graphics(hdc);
+        if (graphics)
+        {
+            rect.X = 0;
+            rect.Y = 0;
+            rect.Width = rc_mp.right - rc_mp.left;
+            rect.Height = rc_mp.bottom - rc_mp.top;
+            graphics->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+            graphics->DrawImage(image_mp, rect, 0, 0, image_mp->GetWidth(), image_mp->GetHeight(), UnitPixel);
+            delete graphics;
+        }
+
+        EndPaint(hDlg, &ps);
+        return (INT_PTR)TRUE;
+    }
+    break;
+    case WM_LBUTTONDOWN:
+        EndDialog(hDlg, LOWORD(wParam));
+        return (INT_PTR)TRUE;
+        break;
+    default:
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+// Message handler for about box.
+INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    POINT pt;
+    HWND hWnd;
+    RECT rc;
+    TCHAR version[256];
+    TCHAR info[256];
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
         GetApplicationVersion(version);
         _sntprintf(info, 256, _T("Reader, Version %s"), version);
         SetDlgItemText(hDlg, IDC_STATIC_VERSION, info);
@@ -1297,44 +1384,12 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_REWARD), hDlg, RewardProc);
             }
         }
-        break;
-    case WM_PAINT:
+        else if (LOWORD(wParam) == IDC_BUTTON_FOLLOW)
         {
-            HDC hdc;
-            PAINTSTRUCT ps;
-            Gdiplus::Graphics *graphics = NULL;
-            Rect rect;
-
-            GetClientRect(hDlg, &rc);
-
-            hdc = BeginPaint(hDlg, &ps);
-            // TODO: Add any drawing code here...
-            image_mp = LoadBarCodeMP();
-
-            if (image_mp)
+            if (LoadBarCodeMP())
             {
-                // draw image
-                graphics = new Gdiplus::Graphics(hdc);
-                if (graphics)
-                {
-                    rect.X = (INT)(4.0 * dpiscaled);
-                    rect.Y = (INT)(80.0 * dpiscaled);
-                    rect.Width = (INT)((double)image_mp->GetWidth() * dpiscaled);
-                    rect.Height = (INT)((double)image_mp->GetHeight() * dpiscaled);
-                    if (rect.Width + (rect.X * 2) > rc.right - rc.left)
-                    {
-                        rect.Width = rc.right - rc.left;
-                        rect.Height = rect.Width;
-                        rect.X = 0;
-                    }
-                    //graphics->SetInterpolationMode(InterpolationModeHighQualityBicubic);
-                    graphics->DrawImage(image_mp, rect, 0, 0, image_mp->GetWidth(), image_mp->GetHeight(), UnitPixel);
-                    delete graphics;
-                }
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_REWARD), hDlg, FollowProc);
             }
-
-            EndPaint(hDlg, &ps);
-            return (INT_PTR)TRUE;
         }
         break;
     case WM_LBUTTONDOWN:
@@ -1401,6 +1456,10 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_UNCHECKED, NULL);
         else
             SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, BST_CHECKED, NULL);
+        if (_header->disable_eschide)
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_ESCHIDE), BM_SETCHECK, BST_UNCHECKED, NULL);
+        else
+            SendMessage(GetDlgItem(hDlg, IDC_CHECK_ESCHIDE), BM_SETCHECK, BST_CHECKED, NULL);
         if ((_header->autopage_mode & 0x0f) == apm_page)
             SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_SETCHECK, BST_CHECKED, NULL);
         else
@@ -1517,6 +1576,8 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             }
             res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_GETCHECK, 0, NULL);
             _header->disable_lrhide = res == BST_CHECKED ? 0 : 1;
+            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_ESCHIDE), BM_GETCHECK, 0, NULL);
+            _header->disable_eschide = res == BST_CHECKED ? 0 : 1;
             res = SendMessage(GetDlgItem(hDlg, IDC_RADIO_ATPAGE), BM_GETCHECK, 0, NULL);
             _header->autopage_mode = 0;
             _header->autopage_mode |= res == BST_CHECKED ? apm_page : apm_line;
@@ -3293,6 +3354,27 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
                         }
                     }
                 }
+#ifdef ENABLE_NETWORK
+                else if (VK_F5 == pData->vkCode) // online book manual check
+                {
+                    if (_Book && !_Book->IsLoading() && _Book->GetBookType() == book_online)
+                    {
+                        if (IDYES == MessageBox_(_hWnd, IDS_REFRESH_TIP, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
+                        {
+                            chkbook_arg_t* arg = GetCheckBookArguments();
+                            arg->book = (OnlineBook*)_Book;
+                            arg->hWnd = _hWnd;
+                            arg->checked_list.insert(_Book->GetFileName());
+                            if (2 != ((OnlineBook*)_Book)->ManualCheckUpdate(_hWnd, OnManualCheckBookUpdateCallback, arg))
+                            {
+                                if (arg->book != _Book)
+                                    delete arg->book;
+                                arg->book = NULL;
+                            }
+                        }
+                    }
+                }
+#endif
 #endif
             } while (0);
         }
@@ -3440,7 +3522,8 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
         if (arg && arg->book && arg->book->GetBookType() == book_online
             && 0 == _tcscmp(arg->book->GetFileName(), szFileName))
         {
-            delete arg->book;
+            if (arg->book != _Book)
+                delete arg->book;
             arg->book = NULL;
         }
         _Book = new OnlineBook;
@@ -4114,11 +4197,18 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
         }
 
         OnUpdateMenu(arg->hWnd);
+
+        if (arg->book == _Book)
+        {
+            arg->book = NULL;
+            PostMessage(arg->hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
+        }
     }
 
     if (arg->book)
     {
-        delete arg->book;
+        if (arg->book != _Book)
+            delete arg->book;
         arg->book = NULL;
     }   
 
@@ -4127,6 +4217,35 @@ void OnCheckBookUpdateCallback(int is_update, int err, void* param)
     {
         KillTimer(arg->hWnd, IDT_TIMER_CHECKBOOK);
         SetTimer(arg->hWnd, IDT_TIMER_CHECKBOOK, 60 * 1000 /*one minute*/, NULL);
+    }
+}
+
+void OnManualCheckBookUpdateCallback(int is_update, int err, void* param)
+{
+    chkbook_arg_t* arg = (chkbook_arg_t*)param;
+
+    if (!arg)
+        return;
+
+    if (!arg->book)
+        return;
+
+    logger_printk("file=%s", Utf16ToAnsi(arg->book->GetFileName()));
+
+    if (is_update)
+    {
+        if (arg->book == _Book)
+        {
+            arg->book = NULL;
+            PostMessage(arg->hWnd, WM_UPDATE_CHAPTERS, 0, NULL);
+        }
+    }
+    
+    if (arg->book)
+    {
+        if (arg->book != _Book)
+            delete arg->book;
+        arg->book = NULL;
     }
 }
 
@@ -4142,7 +4261,8 @@ void OnCheckBookUpdate(HWND hWnd)
 
     if (arg->book)
     {
-        delete arg->book;
+        if (arg->book != _Book)
+            delete arg->book;
         arg->book = NULL;
     }   
 
@@ -4170,6 +4290,7 @@ _check_next:
         {
             arg->hWnd = hWnd;
             arg->checked_list.insert(item->file_name);
+            arg->book = (OnlineBook*)_Book;
             if (2 != ((OnlineBook*)_Book)->CheckUpdate(hWnd, OnCheckBookUpdateCallback, arg))
             {
                 found = -1;
@@ -4184,7 +4305,8 @@ _check_next:
             arg->book->SetFileName(item->file_name);
             if (2 != arg->book->CheckUpdate(hWnd, OnCheckBookUpdateCallback, arg))
             {
-                delete arg->book;
+                if (arg->book != _Book)
+                    delete arg->book;
                 arg->book = NULL;
 
                 found = -1;
@@ -4196,7 +4318,8 @@ _check_next:
     {
         if (arg->book)
         {
-            delete arg->book;
+            if (arg->book != _Book)
+                delete arg->book;
             arg->book = NULL;
         }
         arg->checked_list.clear();

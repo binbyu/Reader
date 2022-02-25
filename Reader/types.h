@@ -40,9 +40,10 @@
 #define IDM_BS_DEL                  (IDM_OPEN_END + 5)
 #define IDM_BS_MOVE_UP              (IDM_OPEN_END + 6)
 #define IDM_BS_MOVE_DOWN            (IDM_OPEN_END + 7)
-#define IDM_TS_EDIT                 (IDM_OPEN_END + 8)
-#define IDM_TS_ENABLE               (IDM_OPEN_END + 9)
-#define IDM_TS_DISABLE              (IDM_OPEN_END + 10)
+#define IDM_BS_CLEAR                (IDM_OPEN_END + 8)
+#define IDM_TS_EDIT                 (IDM_OPEN_END + 9)
+#define IDM_TS_ENABLE               (IDM_OPEN_END + 10)
+#define IDM_TS_DISABLE              (IDM_OPEN_END + 11)
 
 #ifdef ENABLE_NETWORK
 #define WM_NEW_VERSION              (WM_USER + 100)
@@ -176,10 +177,9 @@ typedef struct book_source_t
     char content_next_url_xpath[1024];
     char content_next_keyword_xpath[1024];
     char content_next_keyword[256];
+    int content_filter_type; // 0: disable, 1: keyword, 2: regex
+    wchar_t content_filter_keyword[1024];
 
-    int book_status_pos; // 0:null, 1:query_page, 2:main_page, 3: chapter list page
-    char book_status_xpath[1024];
-    char book_status_keyword[256];
 } book_source_t;
 
 typedef struct keyset_t
@@ -220,6 +220,7 @@ typedef struct header_t
     int hide_taskbar;
     int show_systray;
     int disable_lrhide;
+    int disable_eschide;
     int word_wrap;
     int line_indent;
     int global_key;
@@ -297,7 +298,7 @@ typedef struct ol_header_t
     u32 main_page_offset;
     u32 host_offset;
     u64 update_time;
-    u32 is_finished;
+    u32 is_finished; // for bookstatus, deprecated
     u32 reserve[4]; // reserve
     u32 chapter_size;
     ol_chapter_info_t chapter_info_list[1];

@@ -149,13 +149,6 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
 
                 colnum = 2;
                 colnum++; // author
-                if (_header->book_sources[idx].book_status_pos == 1)
-                {
-                    ListView_GetItemText(hList, iPos, colnum, text, 256);
-                    if (_tcscmp(text, Utf8ToUtf16(_header->book_sources[idx].book_status_keyword)) == 0)
-                        param.is_finished = 1;
-                }
-                colnum++; // status
                 ListView_GetItemText(hList, iPos, colnum, path, 1024);
                 ListView_GetItemText(hList, iPos, 1, param.book_name, 256);
                 strcpy(param.main_page, Utf16ToUtf8(path));
@@ -221,7 +214,6 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     std::vector<std::string> table_name;
     std::vector<std::string> table_url;
     std::vector<std::string> table_author;
-    std::vector<std::string> table_status;
     HWND hList = NULL;
     LV_COLUMN lvc = { 0 };
     LVITEM lvitem = { 0 };
@@ -301,8 +293,6 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_mainpage_xpath, table_url, &cancel);
     if (_header->book_sources[bs_idx].book_author_xpath[0])
         HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_author_xpath, table_author, &cancel, true);
-    if (_header->book_sources[bs_idx].book_status_pos == 1)
-        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_status_xpath, table_status, &cancel, true);
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
     // check value
@@ -356,18 +346,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
                 memset(&lvc, 0, sizeof(LV_COLUMN));
                 lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
                 lvc.pszText = colname;
-                lvc.cx = 60;
-                SendMessage(hList, LVM_INSERTCOLUMN, col++, (LPARAM)&lvc);
-            }
-
-            // book status
-            //if (g_query_param->is_global || !table_status.empty())
-            {
-                LoadString(hInst, IDS_STATUS, colname, 256);
-                memset(&lvc, 0, sizeof(LV_COLUMN));
-                lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-                lvc.pszText = colname;
-                lvc.cx = 60;
+                lvc.cx = 100;
                 SendMessage(hList, LVM_INSERTCOLUMN, col++, (LPARAM)&lvc);
             }
 
@@ -413,20 +392,6 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
                 lvitem.iItem = i+colnum;
                 lvitem.iSubItem = col;
                 lvitem.pszText = Utf8ToUtf16(table_author[i].c_str());
-                ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
-                ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
-            }
-            col++;
-
-            // book status
-            if (!table_status.empty() && i < (int)table_status.size())
-            {
-                memset(&lvitem, 0, sizeof(LVITEM));
-                lvitem.mask = LVIF_TEXT;
-                lvitem.cchTextMax = MAX_PATH;
-                lvitem.iItem = i+colnum;
-                lvitem.iSubItem = col;
-                lvitem.pszText = Utf8ToUtf16(table_status[i].c_str());
                 ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
                 ::SendMessage(hList, LVM_SETITEMTEXT, lvitem.iItem, (LPARAM)&lvitem);
             }

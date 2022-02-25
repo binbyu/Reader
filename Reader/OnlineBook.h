@@ -41,7 +41,6 @@ protected:
     bool ParserChapterPage(HWND hWnd, int idx); // chapter index
     bool ParserChapters(HWND hWnd, int idx); // chapter index
     bool ParserContent(HWND hWnd, int idx, u32 todo = todo_nothing); // chapter index
-    bool ParserBookStatus(HWND hWnd);
     bool ReadOlFile(BOOL fast=FALSE);
     bool WriteOlFile();
     bool GenerateOlHeader(ol_header_t **header);
@@ -55,16 +54,17 @@ protected:
     void PlayLoading(HWND hWnd);
     void StopLoading(HWND hWnd, int idx);
     BOOL RequestNextPage(OnlineBook* _this, request_t *r, const char *url, req_handler_t hOld);
+    int FilterContent(TCHAR *text, int *len);
 
 public:
     void UpdateBookSource(void);
     int CheckUpdate(HWND hWnd, olbook_checkupdate_callback cb, void* arg);
+    int ManualCheckUpdate(HWND hWnd, olbook_checkupdate_callback cb, void* arg);
 
 private:
     static unsigned int GetChapterPageCompleter(request_result_t *result);
     static unsigned int GetChaptersCompleter(request_result_t *result);
     static unsigned int GetContentCompleter(request_result_t *result);
-    static unsigned int GetBookStatusCompleter(request_result_t *result);
 
 protected:
     HANDLE m_hEvent;
@@ -76,13 +76,12 @@ protected:
     TCHAR m_BookName[256];
     char m_Host[1024];
     u64 m_UpdateTime;
-    u32 m_IsFinished;
     BOOL m_IsLoading;
     int m_TagetIndex;
     book_source_t* m_Booksrc;
     olbook_checkupdate_callback m_cb;
     void* m_arg;
-    BOOL m_IsCheck;
+    BOOL m_IsNotCurnOpenedBook;
 };
 
 #endif

@@ -10,6 +10,7 @@
 #include <shellapi.h>
 #include <commdlg.h>
 #include <stdio.h>
+#include <regex>
 
 extern header_t *_header;
 extern HWND _hWnd;
@@ -29,19 +30,17 @@ void BS_OpenDlg(HWND hWnd)
 	DialogBox(hInst, MAKEINTRESOURCE(IDD_BOOKSOURCE), hWnd, BS_DlgProc);
 }
 
-static void _enable_book_status(HWND hDlg)
+static void _enable_content_filter(HWND hDlg)
 {
     int iPos;
-    iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_GETCURSEL, 0, NULL);
+    iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
-        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_STATUS), FALSE);
-        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_KEYWORD), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_FILTER), FALSE);
     }
     else
     {
-        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_STATUS), TRUE);
-        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_KEYWORD), TRUE);
+        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_FILTER), TRUE);
     }
 }
 
@@ -128,14 +127,13 @@ static void _clear_ui(HWND hDlg)
     SetDlgItemText(hDlg, IDC_EDIT_CTX_NEXT, _T(""));
     SetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD, _T(""));
     SetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD_TXT, _T(""));
-    SetDlgItemText(hDlg, IDC_EDIT_STATUS, _T(""));
-    SetDlgItemText(hDlg, IDC_EDIT_KEYWORD, _T(""));
+    SetDlgItemText(hDlg, IDC_EDIT_FILTER, _T(""));
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_SETCURSEL, 0, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_SETCURSEL, 0, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_SETCURSEL, 0, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_SETCURSEL, 0, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_SETCURSEL, 0, NULL);
-    SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_SETCURSEL, 0, NULL);
+    SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_SETCURSEL, 0, NULL);
 }
 
 static void _set_data_to_ui(HWND hDlg, const book_source_t *data)
@@ -157,67 +155,85 @@ static void _set_data_to_ui(HWND hDlg, const book_source_t *data)
     SetDlgItemText(hDlg, IDC_EDIT_CTX_NEXT, Utf8ToUtf16(data->content_next_url_xpath));
     SetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD, Utf8ToUtf16(data->content_next_keyword_xpath));
     SetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD_TXT, Utf8ToUtf16(data->content_next_keyword));
-    SetDlgItemText(hDlg, IDC_EDIT_STATUS, Utf8ToUtf16(data->book_status_xpath));
-    SetDlgItemText(hDlg, IDC_EDIT_KEYWORD, Utf8ToUtf16(data->book_status_keyword));
+    SetDlgItemText(hDlg, IDC_EDIT_FILTER, data->content_filter_keyword);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_SETCURSEL, data->query_method, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_SETCURSEL, data->query_charset, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_SETCURSEL, data->enable_chapter_page, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_SETCURSEL, data->enable_chapter_next, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_SETCURSEL, data->enable_content_next, NULL);
-    SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_SETCURSEL, data->book_status_pos, NULL);
+    SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_SETCURSEL, data->content_filter_type, NULL);
 }
 
 static void _get_data_from_ui(HWND hDlg, book_source_t *data)
 {
     TCHAR buf[1024];
+    int i,j=0,len;
     GetDlgItemText(hDlg, IDC_EDIT_TITLE, data->title, 256);
-    GetDlgItemText(hDlg, IDC_EDIT_HOST, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_HOST, buf, 1023);
     if (buf[_tcslen(buf) - 1] == _T('/')) // fixed host
     {
         buf[_tcslen(buf) - 1] = 0;
         SetDlgItemText(hDlg, IDC_EDIT_HOST, buf);
     }
     strcpy(data->host, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_QUERY, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_QUERY, buf, 1023);
     strcpy(data->query_url, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_POST, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_POST, buf, 1023);
     strcpy(data->query_params, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_NAME, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_NAME, buf, 1023);
     strcpy(data->book_name_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_MAINPAGE, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_MAINPAGE, buf, 1023);
     strcpy(data->book_mainpage_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_AUTHOR, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_AUTHOR, buf, 1023);
     strcpy(data->book_author_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_LISTPAGE, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_LISTPAGE, buf, 1023);
     strcpy(data->chapter_page_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CPT_TITLE, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CPT_TITLE, buf, 1023);
     strcpy(data->chapter_title_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CPT_URL, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CPT_URL, buf, 1023);
     strcpy(data->chapter_url_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CPT_NEXT, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CPT_NEXT, buf, 1023);
     strcpy(data->chapter_next_url_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD, buf, 1023);
     strcpy(data->chapter_next_keyword_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD_TXT, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CPT_KEYWORD_TXT, buf, 1023);
     strcpy(data->chapter_next_keyword, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CTX, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CTX, buf, 1023);
     strcpy(data->content_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CTX_NEXT, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CTX_NEXT, buf, 1023);
     strcpy(data->content_next_url_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD, buf, 1023);
     strcpy(data->content_next_keyword_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD_TXT, buf, 1024);
+    GetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD_TXT, buf, 1023);
     strcpy(data->content_next_keyword, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_STATUS, buf, 1024);
-    strcpy(data->book_status_xpath, Utf16ToUtf8(buf));
-    GetDlgItemText(hDlg, IDC_EDIT_KEYWORD, buf, 1024);
-    strcpy(data->book_status_keyword, Utf16ToUtf8(buf));
+    data->content_filter_type = SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_GETCURSEL, 0, NULL);
+    // <!-- format filter keyword, \r\n -> \n
+    GetDlgItemText(hDlg, IDC_EDIT_FILTER, buf, 1023);
+    if (data->content_filter_type == 1)
+    {
+        
+        len = _tcslen(buf);
+        for (i = 0; i < len; i++)
+        {
+            if (buf[i] == _T('\n') && i > 0 && buf[i - 1] == _T('\r'))
+            {
+                buf[i - 1] = _T('\n');
+                continue;
+            }
+            data->content_filter_keyword[j++] = buf[i];
+        }
+        data->content_filter_keyword[j] = 0;
+    }
+    else
+    {
+        _tcscpy(data->content_filter_keyword, buf);
+    }
+    // --!>
     data->query_method = SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_GETCURSEL, 0, NULL);
     data->query_charset = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_GETCURSEL, 0, NULL);
     data->enable_chapter_page = SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_GETCURSEL, 0, NULL);
     data->enable_chapter_next = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_GETCURSEL, 0, NULL);
     data->enable_content_next = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_GETCURSEL, 0, NULL);
-    data->book_status_pos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_GETCURSEL, 0, NULL);
 }
 
 static void _load_ui(HWND hDlg, int idx, BOOL initList)
@@ -267,7 +283,7 @@ static void _load_ui(HWND hDlg, int idx, BOOL initList)
     _enable_chapter_page(hDlg);
     _enable_chapter_next(hDlg);
     _enable_content_next(hDlg);
-    _enable_book_status(hDlg);
+    _enable_content_filter(hDlg);
 }
 
 static BOOL _check_is_empty(HWND hDlg, book_source_t *data)
@@ -318,11 +334,9 @@ static BOOL _check_is_empty(HWND hDlg, book_source_t *data)
         if (!data->content_next_keyword[0])
             goto _yes;
     }
-    if (data->book_status_pos != 0)
+    if (data->content_filter_type != 0)
     {
-        if (!data->book_status_xpath[0])
-            goto _yes;
-        if (!data->book_status_keyword[0])
+        if (!data->content_filter_keyword[0])
             goto _yes;
     }
     if (p_temp)
@@ -333,6 +347,42 @@ _yes:
     if (p_temp)
         free(p_temp);
     MessageBox_(hDlg, IDS_FIELED_EMPTY, IDS_ERROR, MB_ICONERROR | MB_OK);
+    return TRUE;
+}
+
+static BOOL _check_is_valid(HWND hDlg, book_source_t* data)
+{
+    book_source_t* p_temp = NULL;
+    std::wregex* e = NULL;
+
+    if (!data)
+    {
+        p_temp = (book_source_t*)malloc(sizeof(book_source_t));
+        memset(p_temp, 0, sizeof(book_source_t));
+        _get_data_from_ui(hDlg, p_temp);
+        data = p_temp;
+    }
+
+    if (data->content_filter_type == 2)
+    {
+        try
+        {
+            e = new std::wregex(data->content_filter_keyword);
+        }
+        catch (...)
+        {
+            if (e)
+            {
+                delete e;
+            }
+            if (p_temp)
+                free(p_temp);
+            MessageBox_(hDlg, IDS_INVALID_REGEX, IDS_ERROR, MB_ICONERROR | MB_OK);
+            return FALSE;
+        }
+    }
+    if (p_temp)
+        free(p_temp);
     return TRUE;
 }
 
@@ -387,6 +437,107 @@ static BOOL _check_is_modify(HWND hDlg, int idx, book_source_t *data)
     return is_modify;
 }
 
+static void _backup_curn_bsconfig(void)
+{
+    char *json = NULL;
+    FILE *fp = NULL;
+    TCHAR file_name[MAX_PATH] = {0};
+    const TCHAR *bak_name = _T("bs_bak.json");
+
+    if (_header->book_source_count == 0)
+        return;
+
+    if (export_book_source(_header->book_sources, _header->book_source_count, &json))
+    {
+        GetModuleFileName(NULL, file_name, sizeof(TCHAR) * (MAX_PATH - 1));
+        for (int i = _tcslen(file_name) - 1; i >= 0; i--)
+        {
+            if (file_name[i] == _T('\\'))
+            {
+                memcpy(&file_name[i + 1], bak_name, (_tcslen(bak_name) + 1) * sizeof(TCHAR));
+                break;
+            }
+        }
+
+        fp = _tfopen(file_name, _T("wb"));
+        if (fp)
+        {
+            fwrite(json, 1, strlen(json), fp);
+            fclose(fp);
+        }
+    }
+
+    export_book_source_free(json);
+}
+
+static BOOL _merge_bsconfig(HWND hDlg, const char *json)
+{
+    int book_source_count;
+    book_source_t *book_sources = NULL;
+    int i, j, ret;
+    int found;
+
+    book_sources = (book_source_t*)malloc(sizeof(book_source_t) * MAX_BOOKSRC_COUNT);
+    memset(book_sources, 0, sizeof(book_source_t) * MAX_BOOKSRC_COUNT);
+    book_source_count = 0;
+    if (!import_book_source(json, book_sources, &book_source_count))
+    {
+        free(book_sources);
+        return FALSE;
+    }
+    // no changed
+    if (book_source_count == _header->book_source_count && 0 == memcmp(book_sources, _header->book_sources, sizeof(book_sources)))
+    {
+        free(book_sources);
+        return TRUE;
+    }
+    // do check
+    for (i = 0; i < book_source_count; i++)
+    {
+        found = 0;
+        for (j = 0; j < _header->book_source_count; j++)
+        {
+            if (0 == memcmp(&book_sources[i], &_header->book_sources[j], sizeof(book_source_t)))
+            {
+                found = 1;
+                break;
+            }
+            if (0 == strcmp(book_sources[i].host, _header->book_sources[j].host))
+            {
+                found = 1;
+                ret = MessageBoxFmt_(hDlg, IDS_WARN, MB_ICONINFORMATION | MB_YESNO, IDS_BS_EXIST_TIP, _header->book_sources[j].title);
+                if (IDYES == ret)
+                {
+                    // replace
+                    memcpy(&_header->book_sources[j], &book_sources[i], sizeof(book_source_t));
+                }
+                else if (IDNO == ret)
+                {
+                    // ignore, keep old config
+                }
+                else
+                {
+                    // exit
+                    free(book_sources);
+                    return TRUE;
+                }
+                break;
+            }
+        }
+        if (found == 0)
+        {
+            // add new one
+            if (_header->book_source_count < MAX_BOOKSRC_COUNT)
+            {
+                memcpy(&_header->book_sources[_header->book_source_count], &book_sources[i], sizeof(book_source_t));
+                _header->book_source_count++;
+            }
+        }
+    }
+    free(book_sources);
+    return TRUE;
+}
+
 static void EnableDialog_Sync(HWND hDlg, BOOL enable)
 {
     TCHAR szSync[256] = { 0 };
@@ -412,14 +563,13 @@ static void EnableDialog_Sync(HWND hDlg, BOOL enable)
     EnableWindow(GetDlgItem(hDlg, IDC_EDIT_CTX_NEXT), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_EDIT_CTX_KEYWORD), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_EDIT_CTX_KEYWORD_TXT), enable);
-    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_STATUS), enable);
-    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_KEYWORD), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_EDIT_FILTER), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_METHOD), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_CHARSET), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), enable);
-    EnableWindow(GetDlgItem(hDlg, IDC_COMBO_STATUS), enable);
+    EnableWindow(GetDlgItem(hDlg, IDC_COMBO_FILTER), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_LIST_BOOKSRC), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_EXPORT), enable);
     EnableWindow(GetDlgItem(hDlg, IDC_IMPORT), enable);
@@ -440,7 +590,7 @@ static void EnableDialog_Sync(HWND hDlg, BOOL enable)
         _enable_chapter_page(hDlg);
         _enable_chapter_next(hDlg);
         _enable_content_next(hDlg);
-        _enable_book_status(hDlg);
+        _enable_content_filter(hDlg);
     }
 
     g_EnableSync = enable;
@@ -455,6 +605,7 @@ static unsigned int DownloadBooksrcCompleter(request_result_t* result)
     HWND hDlg = (HWND)result->param1;
     char* html = NULL;
     int htmllen = 0;
+    int needfree = 0;
 
     g_hRequestSync = NULL;
 
@@ -497,13 +648,19 @@ static unsigned int DownloadBooksrcCompleter(request_result_t* result)
         free(tempbuf);
         html = utf8buf;
         htmllen = utf8len;
+        needfree = 1;
     }
+
+    // backup current bs config
+    _backup_curn_bsconfig();
 
     // import book src
     if (!import_book_source(html, _header->book_sources, &_header->book_source_count))
     {
         EnableDialog_Sync(hDlg, TRUE);
         MessageBox_(hDlg, IDS_IMPORT_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
+        if (needfree == 1)
+            free(html);
         return 1;
     }
 
@@ -516,7 +673,8 @@ static unsigned int DownloadBooksrcCompleter(request_result_t* result)
 
     EnableDialog_Sync(hDlg, TRUE);
     MessageBox_(hDlg, IDS_SYNC_SUCC, IDS_ERROR, MB_OK);
-
+    if (needfree == 1)
+        free(html);
     return 0;
 }
 
@@ -569,11 +727,11 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
         hList = GetDlgItem(hDlg, IDC_LIST_BOOKSRC);
         ListView_SetExtendedListViewStyleEx(hList, LVS_REPORT | LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_TWOCLICKACTIVATE);
         LoadString(hInst, IDS_NULL, buf, 256);
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_ADDSTRING, 0, (LPARAM)buf);
-        LoadString(hInst, IDS_QUERYPAGE, buf, 256);
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_ADDSTRING, 0, (LPARAM)buf);
-        LoadString(hInst, IDS_MAINPAGE, buf, 256);
-        SendMessage(GetDlgItem(hDlg, IDC_COMBO_STATUS), CB_ADDSTRING, 0, (LPARAM)buf);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_ADDSTRING, 0, (LPARAM)buf);
+        LoadString(hInst, IDS_KEYWORD, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_ADDSTRING, 0, (LPARAM)buf);
+        LoadString(hInst, IDS_REGEX, buf, 256);
+        SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_ADDSTRING, 0, (LPARAM)buf);
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_ADDSTRING, 0, (LPARAM)_T("GET"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_ADDSTRING, 0, (LPARAM)_T("POST"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_ADDSTRING, 0, (LPARAM)_T("AUTO"));
@@ -611,6 +769,13 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
             // check empty
             if (_check_is_empty(hDlg, p_temp))
+            {
+                free(p_temp);
+                return (INT_PTR)FALSE;
+            }
+
+            // check valid
+            if (!_check_is_valid(hDlg, p_temp))
             {
                 free(p_temp);
                 return (INT_PTR)FALSE;
@@ -688,6 +853,13 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 return (INT_PTR)FALSE;
             }
 
+            // check valid
+            if (!_check_is_valid(hDlg, p_temp))
+            {
+                free(p_temp);
+                return (INT_PTR)FALSE;
+            }
+
             // check is exist
             if (_check_is_exist(hDlg, iPos, p_temp))
             {
@@ -749,8 +921,8 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
         case IDC_COMBO_CPT_NEXT:
             _enable_chapter_next(hDlg);
             break;
-        case IDC_COMBO_STATUS:
-            _enable_book_status(hDlg);
+        case IDC_COMBO_FILTER:
+            _enable_content_filter(hDlg);
             break;        
         case IDC_IMPORT:
         {
@@ -775,6 +947,9 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 break;
             }
 
+            // backup current bs config
+            _backup_curn_bsconfig();
+
             fp = _tfopen(szFileName, _T("rb"));
             if (!fp)
             {
@@ -789,7 +964,11 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
             fread(json, 1, len, fp);
             fclose(fp);
 
+#if 1
+            if (!_merge_bsconfig(hDlg, json))
+#else
             if (!import_book_source(json, _header->book_sources, &_header->book_source_count))
+#endif
             {
                 MessageBox_(hDlg, IDS_IMPORT_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
                 break;
@@ -910,23 +1089,27 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
                         LoadString(hInst, IDS_MOVE_DOWN, str, 256);
                         InsertMenu(hMenu, (UINT)-1, MF_BYPOSITION, IDM_BS_MOVE_DOWN, str);
                     }
+                    LoadString(hInst, IDS_CLEAR, str, 256);
+                    InsertMenu(hMenu, (UINT)-1, MF_BYPOSITION, IDM_BS_CLEAR, str);
                     int ret = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, 0, hList, NULL);
                     DestroyMenu(hMenu);
                     if (IDM_BS_DEL == ret)
                     {
-                        // delete from data
-                        for (int i = iPos + 1; i < _header->book_source_count; i++)
+                        if (IDYES == MessageBox_(hDlg, IDS_DELETE_BS_CFM, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
                         {
-                            book_source_t* item_1 = &_header->book_sources[i];
-                            book_source_t* item_2 = &_header->book_sources[i - 1];
-                            memcpy(item_2, item_1, sizeof(book_source_t));
+                            // delete from data
+                            for (int i = iPos + 1; i < _header->book_source_count; i++)
+                            {
+                                book_source_t* item_1 = &_header->book_sources[i];
+                                book_source_t* item_2 = &_header->book_sources[i - 1];
+                                memcpy(item_2, item_1, sizeof(book_source_t));
+                            }
+                            _header->book_source_count--;
+
+                            // delete from list view
+                            ListView_DeleteItem(hList, iPos);
+                            _load_ui(hDlg, iPos, FALSE);
                         }
-                        _header->book_source_count--;
-
-                        // delete from list view
-                        ListView_DeleteItem(hList, iPos);
-
-                        _load_ui(hDlg, iPos, FALSE);
                     }
                     else if (IDM_BS_MOVE_UP == ret)
                     {
@@ -957,6 +1140,18 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
                         // update ui
                         ListView_DeleteAllItems(GetDlgItem(hDlg, IDC_LIST_BOOKSRC));
                         _load_ui(hDlg, iPos + 1, TRUE);
+                    }
+                    else if (IDM_BS_CLEAR == ret)
+                    {
+                        if (IDYES == MessageBox_(hDlg, IDS_CLEAR_BS_CFM, IDS_WARN, MB_ICONINFORMATION | MB_YESNO))
+                        {
+                            _header->book_source_count = 0;
+                            memset(_header->book_sources, 0, sizeof(_header->book_sources));
+                            
+                            // update ui
+                            ListView_DeleteAllItems(GetDlgItem(hDlg, IDC_LIST_BOOKSRC));
+                            _load_ui(hDlg, -1, TRUE);
+                        }
                     }
                 }
             }

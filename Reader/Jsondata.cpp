@@ -460,9 +460,8 @@ class json_book_source_t
     cJSON* content_next_url_xpath;
     cJSON* content_next_keyword_xpath;
     cJSON* content_next_keyword;
-    cJSON* book_status_pos;
-    cJSON* book_status_xpath;
-    cJSON* book_status_keyword;
+    cJSON* content_filter_type;
+    cJSON* content_filter_keyword;
 public:
     json_book_source_t(cJSON* parent, const book_source_t* data)
     {
@@ -488,9 +487,8 @@ public:
         content_next_url_xpath = cJSON_AddStringToObject(parent, "content_next_url_xpath", data->content_next_url_xpath);
         content_next_keyword_xpath = cJSON_AddStringToObject(parent, "content_next_keyword_xpath", data->content_next_keyword_xpath);
         content_next_keyword = cJSON_AddStringToObject(parent, "content_next_keyword", data->content_next_keyword);
-        book_status_pos = cJSON_AddNumberToObject(parent, "book_status_pos", data->book_status_pos);
-        book_status_xpath = cJSON_AddStringToObject(parent, "book_status_xpath", data->book_status_xpath);
-        book_status_keyword = cJSON_AddStringToObject(parent, "book_status_keyword", data->book_status_keyword);
+        content_filter_type = cJSON_AddNumberToObject(parent, "content_filter_type", data->content_filter_type);
+        content_filter_keyword = cJSON_AddStringToObject(parent, "content_filter_keyword", Utf16ToUtf8(data->content_filter_keyword));
     }
     json_book_source_t(cJSON* parent) // for json parser
     {
@@ -516,9 +514,8 @@ public:
         content_next_url_xpath = cJSON_GetObjectItem(parent, "content_next_url_xpath");
         content_next_keyword_xpath = cJSON_GetObjectItem(parent, "content_next_keyword_xpath");
         content_next_keyword = cJSON_GetObjectItem(parent, "content_next_keyword");
-        book_status_pos = cJSON_GetObjectItem(parent, "book_status_pos");
-        book_status_xpath = cJSON_GetObjectItem(parent, "book_status_xpath");
-        book_status_keyword = cJSON_GetObjectItem(parent, "book_status_keyword");
+        content_filter_type = cJSON_GetObjectItem(parent, "content_filter_type");
+        content_filter_keyword = cJSON_GetObjectItem(parent, "content_filter_keyword");
     }
     void GetData(book_source_t* data)
     {
@@ -566,12 +563,10 @@ public:
             strcpy(data->content_next_keyword_xpath, content_next_keyword_xpath->valuestring);
         if (content_next_keyword)
             strcpy(data->content_next_keyword, content_next_keyword->valuestring);
-        if (book_status_pos)
-            data->book_status_pos = book_status_pos->valueint;
-        if (book_status_xpath)
-            strcpy(data->book_status_xpath, book_status_xpath->valuestring);
-        if (book_status_keyword)
-            strcpy(data->book_status_keyword, book_status_keyword->valuestring);
+        if (content_filter_type)
+            data->content_filter_type = content_filter_type->valueint;
+        if (content_filter_keyword)
+            wcscpy(data->content_filter_keyword, Utf8ToUtf16(content_filter_keyword->valuestring));
     }
 };
 
@@ -599,6 +594,7 @@ class json_header_t
     cJSON* hide_taskbar;
     cJSON* show_systray;
     cJSON* disable_lrhide;
+    cJSON* disable_eschide;
     cJSON* word_wrap;
     cJSON* line_indent;
     cJSON* ingore_version;
@@ -649,6 +645,7 @@ public:
         hide_taskbar = cJSON_AddNumberToObject(parent, "hide_taskbar", data->hide_taskbar);
         show_systray = cJSON_AddNumberToObject(parent, "show_systray", data->show_systray);
         disable_lrhide = cJSON_AddNumberToObject(parent, "disable_lrhide", data->disable_lrhide);
+        disable_eschide = cJSON_AddNumberToObject(parent, "disable_eschide", data->disable_eschide);
         word_wrap = cJSON_AddNumberToObject(parent, "word_wrap", data->word_wrap);
         line_indent = cJSON_AddNumberToObject(parent, "line_indent", data->line_indent);
         ingore_version = cJSON_AddStringToObject(parent, "ingore_version", Utf16ToUtf8(data->ingore_version));
@@ -762,6 +759,7 @@ public:
         hide_taskbar = cJSON_GetObjectItem(parent, "hide_taskbar");
         show_systray = cJSON_GetObjectItem(parent, "show_systray");
         disable_lrhide = cJSON_GetObjectItem(parent, "disable_lrhide");
+        disable_eschide = cJSON_GetObjectItem(parent, "disable_eschide");
         word_wrap = cJSON_GetObjectItem(parent, "word_wrap");
         line_indent = cJSON_GetObjectItem(parent, "line_indent");
         ingore_version = cJSON_GetObjectItem(parent, "ingore_version");
@@ -931,6 +929,8 @@ public:
             data->show_systray = show_systray->valueint;
         if (disable_lrhide)
             data->disable_lrhide = disable_lrhide->valueint;
+        if (disable_eschide)
+            data->disable_eschide = disable_eschide->valueint;
         if (word_wrap)
             data->word_wrap = word_wrap->valueint;
         if (line_indent)

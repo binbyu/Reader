@@ -29,11 +29,13 @@ struct book_event_data_t
 {
     Book* _this;
     int ret;
+    int is_updated;
 
     book_event_data_t()
     {
         _this = NULL;
         ret = 0;
+        is_updated = 0;
     }
 };
 

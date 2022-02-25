@@ -404,6 +404,7 @@ void Cache::default_header(header_t* header)
 
     header->bg_image.enable = 0;
     header->disable_lrhide = 1;
+    header->disable_eschide = 1;
 
     header->show_systray = 0;
     header->hide_taskbar = 0;
