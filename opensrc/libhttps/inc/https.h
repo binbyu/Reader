@@ -22,7 +22,7 @@ typedef unsigned int(*progress_cb)(void *param, double dltotal, double dlnow, do
 typedef unsigned int(*write_data_cb)(void *data, unsigned int size, unsigned int nmemb, void *stream);
 typedef struct request_result_t request_result_t;
 typedef unsigned int(*complete_cb)(request_result_t *result);
-typedef void (__stdcall *logger_print)(const char* format,...);
+typedef void (__stdcall *logger_print)(char const *const format,...);
 
 typedef enum request_method_t
 {

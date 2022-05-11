@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "tagset.h"
 
 #if ENABLE_TAG
@@ -9,13 +8,13 @@ extern header_t *_header;
 extern HWND _hWnd;
 extern HINSTANCE hInst;
 extern void Save(HWND);
-extern UINT_PTR CALLBACK ChooseFontProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+extern LRESULT CALLBACK ChooseFontComboProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubClass, DWORD_PTR udata);
 extern int MessageBox_(HWND hWnd, UINT textId, UINT captionId, UINT uType);
 
 typedef int (*tag_item_callback_t)(tagitem_t *tag, int idx);
 static void TS_item_OpenDlg(tag_item_callback_t cb, tagitem_t *tags, int idx);
 static INT_PTR CALLBACK TS_item_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-
+static UINT_PTR CALLBACK ChooseFontProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK TS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 static int _add_tag_item(tagitem_t *tag, int idx)
@@ -635,5 +634,20 @@ INT_PTR CALLBACK TS_item_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     }
     return (INT_PTR)FALSE;
 }
+
+static UINT_PTR CALLBACK ChooseFontProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HWND hComb;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        hComb = GetDlgItem(hWnd, 0x473);
+        SendMessage(hComb, CB_SETITEMDATA, 0, _header->font_color);
+        SendMessage(hComb, CB_SETCURSEL, 0, _header->font_color);
+        SetWindowSubclass(hComb, ChooseFontComboProc, 0, 0);
+        break;
+    }
+    return 0;
+};
 
 #endif

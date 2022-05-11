@@ -18,7 +18,7 @@ typedef struct json_item_data_t
 
 typedef std::map<std::wstring, json_item_data_t*> json_data_t;
 
-typedef bool (* upgrade_callback_t)(void *param, json_item_data_t *item);
+typedef BOOL (* upgrade_callback_t)(void *param, json_item_data_t *item);
 
 
 class Upgrade

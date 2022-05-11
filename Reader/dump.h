@@ -7,7 +7,7 @@ LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException);
 
 void logger_create(void);
 void logger_destroy(void);
-void __stdcall logger_printf(const char* format, ...);
+void __stdcall logger_printf(char const* const format, ...);
 
 #endif
 #endif

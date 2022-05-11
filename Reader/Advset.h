@@ -3,6 +3,6 @@
 
 #include "types.h"
 
-void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule, void *book);
+void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule);
 
 #endif

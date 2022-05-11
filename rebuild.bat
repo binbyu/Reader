@@ -1,6 +1,6 @@
 @echo off
 
-set "drive_letter=C"
+set "drive_letter=D"
 set "work_dir=%cd%"
 set "sln_name=Reader"
 set "vsdevcmd=%drive_letter%:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat"
@@ -14,31 +14,42 @@ call "%vsdevcmd%"
 setlocal enableextensions
 
 :: build networkless
-call:func_build Release 1
+call:func_build Release x86 1
 if "%ret%" == "1" goto _err
 call:func_get_version Release
 if "%vers%" == "" goto _err
 call:func_copy_to_publish Release %vers% 1
 call:func_packet %vers% networkless
-call:func_cleanup Release %vers%
+call:func_cleanup Release 1
 
 :: build Release normal
-call:func_build Release
+call:func_build Release x86
 if "%ret%" == "1" goto _err
 call:func_get_version Release
 if "%vers%" == "" goto _err
 call:func_copy_to_publish Release %vers%
 call:func_packet %vers%
-call:func_cleanup Release %vers%
+call:func_cleanup Release 1
 
 :: build Debug normal
-call:func_build Debug
+call:func_build Debug x86
 if "%ret%" == "1" goto _err
 call:func_get_version Debug
 if "%vers%" == "" goto _err
 call:func_copy_to_publish Debug %vers%
 call:func_packet %vers% debug
-call:func_cleanup Debug %vers%
+call:func_cleanup Debug 1
+
+:: build Release x64
+call:func_build Release x64
+if "%ret%" == "1" goto _err
+call:func_get_version x64\Release
+if "%vers%" == "" goto _err
+call:func_copy_to_publish x64\Release %vers%
+call:func_packet %vers% x64
+call:func_cleanup x64\Release 1
+call:func_cleanup x64 1
+
 
 :: completed
 :_completed
@@ -54,18 +65,24 @@ exit
 
 
 :func_build
-:: %1 is Release/Debug, %2 is networkless
-if "%2" == "1" (
+:: %1 is Release/Debug, %2 is x86/x64, %3 is networkless
+if "%3" == "1" (
 copy "%sln_name%\%sln_name%.vcxproj" "%sln_name%\%sln_name%_bak.vcxproj"
 tool\repstr "ENABLE_NETWORK;" "" "%sln_name%\%sln_name%.vcxproj"
 )
-devenv %sln_name%.sln /rebuild %1
-if "%2" == "1" (
+devenv %sln_name%.sln /rebuild "%1|%2"
+if "%3" == "1" (
 del "%sln_name%\%sln_name%.vcxproj" /q
 ren "%sln_name%\%sln_name%_bak.vcxproj" "%sln_name%.vcxproj"
 )
+if "%2" == "x64" (
+if not exist "%work_dir%\%2\%1\%sln_name%.exe" (
+set "ret=1"
+)
+) else (
 if not exist "%work_dir%\%1\%sln_name%.exe" (
 set "ret=1"
+)
 )
 goto:eof
 
@@ -91,8 +108,8 @@ if "%3" == "1" (
 if exist "%work_dir%\%publish%\Reader_v%2" rd "%work_dir%\%publish%\Reader_v%2" /q /s
 mkdir "%work_dir%\%publish%\Reader_v%2"
 )
-xcopy /y "%work_dir%\%1\%sln_name%.exe" "%work_dir%\%publish%\Reader_v%2"
-xcopy /y "%work_dir%\readme.txt" "%work_dir%\%publish%\Reader_v%2"
+xcopy /y "%work_dir%\%1\%sln_name%.exe" "%work_dir%\%publish%\Reader_v%2\"
+xcopy /y "%work_dir%\readme.txt" "%work_dir%\%publish%\Reader_v%2\"
 goto:eof
 
 :func_packet
@@ -110,7 +127,9 @@ cd "%work_dir%"
 goto:eof
 
 :func_cleanup
-:: %1 is config, %2 is version
+:: %1 is config, %2 need clean target
 if exist "%work_dir%\%sln_name%\%1" rd "%work_dir%\%sln_name%\%1" /q /s
-:: if exist "%work_dir%\%1" rd "%work_dir%\%1" /q /s
+if "%2" == "1" (
+if exist "%work_dir%\%1" rd "%work_dir%\%1" /q /s
+)
 goto:eof

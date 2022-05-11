@@ -1,6 +1,5 @@
-#include "stdafx.h"
-
 #ifdef ENABLE_NETWORK
+#include "framework.h"
 #include "BooksourceDlg.h"
 #include "resource.h"
 #include "types.h"
@@ -32,7 +31,7 @@ void BS_OpenDlg(HWND hWnd)
 
 static void _enable_content_filter(HWND hDlg)
 {
-    int iPos;
+    LRESULT iPos;
     iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
@@ -46,7 +45,7 @@ static void _enable_content_filter(HWND hDlg)
 
 static void _enable_query_method(HWND hDlg)
 {
-    int iPos;
+    LRESULT iPos;
     iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
@@ -60,7 +59,7 @@ static void _enable_query_method(HWND hDlg)
 
 static void _enable_chapter_page(HWND hDlg)
 {
-    int iPos;
+    LRESULT iPos;
     iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
@@ -74,7 +73,7 @@ static void _enable_chapter_page(HWND hDlg)
 
 static void _enable_content_next(HWND hDlg)
 {
-    int iPos;
+    LRESULT iPos;
     iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
@@ -92,7 +91,7 @@ static void _enable_content_next(HWND hDlg)
 
 static void _enable_chapter_next(HWND hDlg)
 {
-    int iPos;
+    LRESULT iPos;
     iPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_GETCURSEL, 0, NULL);
     if (iPos == 0)
     {
@@ -167,7 +166,7 @@ static void _set_data_to_ui(HWND hDlg, const book_source_t *data)
 static void _get_data_from_ui(HWND hDlg, book_source_t *data)
 {
     TCHAR buf[1024];
-    int i,j=0,len;
+    size_t i,j=0,len;
     GetDlgItemText(hDlg, IDC_EDIT_TITLE, data->title, 256);
     GetDlgItemText(hDlg, IDC_EDIT_HOST, buf, 1023);
     if (buf[_tcslen(buf) - 1] == _T('/')) // fixed host
@@ -206,7 +205,7 @@ static void _get_data_from_ui(HWND hDlg, book_source_t *data)
     strcpy(data->content_next_keyword_xpath, Utf16ToUtf8(buf));
     GetDlgItemText(hDlg, IDC_EDIT_CTX_KEYWORD_TXT, buf, 1023);
     strcpy(data->content_next_keyword, Utf16ToUtf8(buf));
-    data->content_filter_type = SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_GETCURSEL, 0, NULL);
+    data->content_filter_type = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_FILTER), CB_GETCURSEL, 0, NULL);
     // <!-- format filter keyword, \r\n -> \n
     GetDlgItemText(hDlg, IDC_EDIT_FILTER, buf, 1023);
     if (data->content_filter_type == 1)
@@ -229,11 +228,11 @@ static void _get_data_from_ui(HWND hDlg, book_source_t *data)
         _tcscpy(data->content_filter_keyword, buf);
     }
     // --!>
-    data->query_method = SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_GETCURSEL, 0, NULL);
-    data->query_charset = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_GETCURSEL, 0, NULL);
-    data->enable_chapter_page = SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_GETCURSEL, 0, NULL);
-    data->enable_chapter_next = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_GETCURSEL, 0, NULL);
-    data->enable_content_next = SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_GETCURSEL, 0, NULL);
+    data->query_method = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_METHOD), CB_GETCURSEL, 0, NULL);
+    data->query_charset = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_CHARSET), CB_GETCURSEL, 0, NULL);
+    data->enable_chapter_page = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_LISTPAGE), CB_GETCURSEL, 0, NULL);
+    data->enable_chapter_next = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_GETCURSEL, 0, NULL);
+    data->enable_content_next = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_GETCURSEL, 0, NULL);
 }
 
 static void _load_ui(HWND hDlg, int idx, BOOL initList)
@@ -247,7 +246,7 @@ static void _load_ui(HWND hDlg, int idx, BOOL initList)
     if (initList && hList)
     {
         hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
-        colnum = SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
+        colnum = (int)SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
         for (i = colnum - 1; i >= 0; i--)
             SendMessage(hList, LVM_DELETECOLUMN, i, 0);
 
@@ -442,7 +441,8 @@ static void _backup_curn_bsconfig(void)
     char *json = NULL;
     FILE *fp = NULL;
     TCHAR file_name[MAX_PATH] = {0};
-    const TCHAR *bak_name = _T("bs_bak.json");
+    const TCHAR *bak_name = _T(".bs_bak.json");
+    size_t i;
 
     if (_header->book_source_count == 0)
         return;
@@ -450,7 +450,7 @@ static void _backup_curn_bsconfig(void)
     if (export_book_source(_header->book_sources, _header->book_source_count, &json))
     {
         GetModuleFileName(NULL, file_name, sizeof(TCHAR) * (MAX_PATH - 1));
-        for (int i = _tcslen(file_name) - 1; i >= 0; i--)
+        for (i = _tcslen(file_name) - 1; i >= 0; i--)
         {
             if (file_name[i] == _T('\\'))
             {
@@ -465,6 +465,7 @@ static void _backup_curn_bsconfig(void)
             fwrite(json, 1, strlen(json), fp);
             fclose(fp);
         }
+        SetFileAttributes(file_name, FILE_ATTRIBUTE_HIDDEN);
     }
 
     export_book_source_free(json);
@@ -700,7 +701,7 @@ static int DownloadBooksrc(HWND hDlg)
     // do request    
     memset(&req, 0, sizeof(request_t));
     req.method = GET;
-    req.url = "https://raw.githubusercontent.com/binbyu/Reader/master/bs.json";
+    req.url = (char*)"https://raw.githubusercontent.com/binbyu/Reader/master/bs.json";
     req.completer = DownloadBooksrcCompleter;
     req.param1 = hDlg;
     req.param2 = NULL;
@@ -743,7 +744,7 @@ static INT_PTR CALLBACK BS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_CPT_NEXT), CB_ADDSTRING, 0, (LPARAM)_T("Enable"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_ADDSTRING, 0, (LPARAM)_T("Disable"));
         SendMessage(GetDlgItem(hDlg, IDC_COMBO_CTX_NEXT), CB_ADDSTRING, 0, (LPARAM)_T("Enable"));
-        iPos = SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+        iPos = (int)SendMessage(GetDlgItem(GetParent(hDlg), IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
         if (iPos < 0 || iPos >= _header->book_source_count)
             iPos = 0;
         _load_ui(hDlg, iPos, TRUE);

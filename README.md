@@ -10,14 +10,28 @@ Reader 是我个人开发的一款绿色、开源、免费的阅读器软件，�
 3. 本软件严禁用于商业用途,如有违反保留追究法律责任的权力。（ps:有人居然在某宝出售）  
 ```
 ****
-最新release版本：　`v1.10.1.0`  
-正式版:　　　　　　[Reader_v1.10.1.0.7z](https://github.com/binbyu/Reader/releases/download/v1.10.1/Reader_v1.10.1.0.7z)  
-无网络版:　　　　　[Reader_v1.10.1.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/v1.10.1/Reader_v1.10.1.0_networkless.7z)  
-调试版:　　　　　　[Reader_v1.10.1.0_debug.7z](https://github.com/binbyu/Reader/releases/download/v1.10.1/Reader_v1.10.1.0_debug.7z)  
+最新release版本：　`v2.0.0.0`  
+正式版win32:　　　 [Reader_v2.0.0.0.7z]()  
+正式版x64: 　　　　[Reader_v2.0.0.0_x64.7z]()  
+无网络版:　　　　　[Reader_v2.0.0.0_networkless.7z]()  
+调试版:　　　　　　[Reader_v2.0.0.0_debug.7z]()  
 ****
 <br/>
 <br/>
 <br/>
+
+## v2.0.0.0 2022/02/25 功能更新  
+1.  修复上一个版本gzip的书源网站解析失败的问题  
+2.  修复设置Reader为默认打开方式时，无法打开新的文本问题  
+3.  新增“显示设置”，为所有文本排版布局相关设置。  
+4.  新增“取色器”，可以使用取色器直接设置背景颜色。在“显示设置”内。  
+5.  新增“段距”配置。在“显示设置”内。  
+6.  新增“压缩空行”配置。在“显示设置”内。  
+7.  新增“章节字体”配置。可以单独设置章节标题字体。在“显示设置”内。  
+8.  新增“章前分页”配置。每个章节在新一页显示。在“显示设置”内。  
+9.  修复部分epub文件，章节丢失问题。  
+10. 新增windows 64位版本，该版本不支持windows xp及以下系统。  
+11. 为了支持新增功能，重新编写了翻页算法，改动较大。如遇到问题请发我邮箱 binbyu@qq.com  
 
 ## v1.10.1.0 2022/02/25 功能更新  
 1. 新增书源配置规则，支持文本过滤  

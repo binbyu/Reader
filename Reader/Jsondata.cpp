@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "cJSON.h"
 #include "Jsondata.h"
 #include "Keyset.h"
@@ -584,6 +583,8 @@ class json_header_t
     cJSON* paragraph_gap;
     cJSON* left_line_count;
     cJSON* font_color;
+    cJSON* font_color_title;
+    cJSON* use_same_font;
     cJSON* bg_color;
     cJSON* alpha;
     cJSON* meun_font_follow;
@@ -597,6 +598,8 @@ class json_header_t
     cJSON* disable_eschide;
     cJSON* word_wrap;
     cJSON* line_indent;
+    cJSON* blank_lines;
+    cJSON* chapter_page;
     cJSON* ingore_version;
     cJSON* checkver_time;
     cJSON* global_key;
@@ -607,6 +610,7 @@ class json_header_t
     json_rect_t* fs_rect;
     json_rect_t* internal_border;
     json_font_t* font;
+    json_font_t* font_title;
     json_bg_image_t* bg_image;
     json_proxy_t* proxy;
     json_chapter_rule_t* chapter_rule;
@@ -635,6 +639,8 @@ public:
         paragraph_gap = cJSON_AddNumberToObject(parent, "paragraph_gap", data->paragraph_gap);
         left_line_count = cJSON_AddNumberToObject(parent, "left_line_count", data->left_line_count);
         font_color = cJSON_AddULongToObject(parent, "font_color", data->font_color);
+        font_color_title = cJSON_AddULongToObject(parent, "font_color_title", data->font_color_title);
+        use_same_font = cJSON_AddNumberToObject(parent, "use_same_font", data->use_same_font);
         bg_color = cJSON_AddULongToObject(parent, "bg_color", data->bg_color);
         alpha = cJSON_AddNumberToObject(parent, "alpha", data->alpha);
         meun_font_follow = cJSON_AddNumberToObject(parent, "meun_font_follow", data->meun_font_follow);
@@ -648,6 +654,8 @@ public:
         disable_eschide = cJSON_AddNumberToObject(parent, "disable_eschide", data->disable_eschide);
         word_wrap = cJSON_AddNumberToObject(parent, "word_wrap", data->word_wrap);
         line_indent = cJSON_AddNumberToObject(parent, "line_indent", data->line_indent);
+        blank_lines = cJSON_AddNumberToObject(parent, "blank_lines", data->blank_lines);
+        chapter_page = cJSON_AddNumberToObject(parent, "chapter_page", data->chapter_page);
         ingore_version = cJSON_AddStringToObject(parent, "ingore_version", Utf16ToUtf8(data->ingore_version));
         checkver_time = cJSON_AddULongToObject(parent, "checkver_time", data->checkver_time);
 
@@ -691,6 +699,10 @@ public:
         cJSON_AddItemToObject(parent, "font", item);
 
         item = cJSON_CreateObject();
+        font_title = new json_font_t(item, &(data->font_title));
+        cJSON_AddItemToObject(parent, "font_title", item);
+
+        item = cJSON_CreateObject();
         bg_image = new json_bg_image_t(item, &(data->bg_image));
         cJSON_AddItemToObject(parent, "bg_image", item);
 
@@ -729,6 +741,7 @@ public:
         , fs_rect(NULL)
         , internal_border(NULL)
         , font(NULL)
+        , font_title(NULL)
         , bg_image(NULL)
         , proxy(NULL)
         , chapter_rule(NULL)
@@ -749,6 +762,8 @@ public:
         paragraph_gap = cJSON_GetObjectItem(parent, "paragraph_gap");
         left_line_count = cJSON_GetObjectItem(parent, "left_line_count");
         font_color = cJSON_GetObjectItem(parent, "font_color");
+        font_color_title = cJSON_GetObjectItem(parent, "font_color_title");
+        use_same_font = cJSON_GetObjectItem(parent, "use_same_font");
         bg_color = cJSON_GetObjectItem(parent, "bg_color");
         alpha = cJSON_GetObjectItem(parent, "alpha");
         meun_font_follow = cJSON_GetObjectItem(parent, "meun_font_follow");
@@ -762,6 +777,8 @@ public:
         disable_eschide = cJSON_GetObjectItem(parent, "disable_eschide");
         word_wrap = cJSON_GetObjectItem(parent, "word_wrap");
         line_indent = cJSON_GetObjectItem(parent, "line_indent");
+        blank_lines = cJSON_GetObjectItem(parent, "blank_lines");
+        chapter_page = cJSON_GetObjectItem(parent, "chapter_page");
         ingore_version = cJSON_GetObjectItem(parent, "ingore_version");
         checkver_time = cJSON_GetObjectItem(parent, "checkver_time");
 
@@ -800,6 +817,10 @@ public:
         item = cJSON_GetObjectItem(parent, "font");
         if (item)
             font = new json_font_t(item);
+
+        item = cJSON_GetObjectItem(parent, "font_title");
+        if (item)
+            font_title = new json_font_t(item);
 
         item = cJSON_GetObjectItem(parent, "bg_image");
         if (item)
@@ -856,6 +877,8 @@ public:
             delete internal_border;
         if (font)
             delete font;
+        if (font_title)
+            delete font_title;
         if (bg_image)
             delete bg_image;
         if (proxy)
@@ -909,12 +932,16 @@ public:
             data->left_line_count = left_line_count->valueint;
         if (font_color)
             data->font_color = *((u32*)&font_color->valueint);
+        if (font_color_title)
+            data->font_color_title = *((u32*)&font_color_title->valueint);
+        if (use_same_font)
+            data->use_same_font = use_same_font->valueint;
         if (bg_color)
             data->bg_color = *((u32*)&bg_color->valueint);
         if (alpha)
             data->alpha = (BYTE)alpha->valueint;
         if (meun_font_follow)
-            data->meun_font_follow = (BYTE)meun_font_follow->valueint;
+            data->meun_font_follow = meun_font_follow->valueint;
         if (wheel_speed)
             data->wheel_speed = wheel_speed->valueint;
         if (page_mode)
@@ -935,6 +962,10 @@ public:
             data->word_wrap = word_wrap->valueint;
         if (line_indent)
             data->line_indent = line_indent->valueint;
+        if (blank_lines)
+            data->blank_lines = blank_lines->valueint;
+        if (chapter_page)
+            data->chapter_page = chapter_page->valueint;
         if (ingore_version)
             wcscpy(data->ingore_version, Utf8ToUtf16(ingore_version->valuestring));
         if (checkver_time)
@@ -972,6 +1003,8 @@ public:
             internal_border->GetData(&(data->internal_border));
         if (font)
             font->GetData(&(data->font));
+        if (font_title)
+            font_title->GetData(&(data->font_title));
         if (bg_image)
             bg_image->GetData(&(data->bg_image));
         if (proxy)
@@ -1000,9 +1033,6 @@ public:
 
 class json_item_t
 {
-#if ENABLE_MD5
-    cJSON* md5;
-#endif
     cJSON* id;
     cJSON* index;
     cJSON* file_name;
@@ -1014,16 +1044,6 @@ public:
     {
         cJSON* item;
         int i;
-
-#if ENABLE_MD5
-        char buf[64] = { 0 };
-        sprintf(buf, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-            data->md5.data[0], data->md5.data[1], data->md5.data[2], data->md5.data[3],
-            data->md5.data[4], data->md5.data[5], data->md5.data[6], data->md5.data[7],
-            data->md5.data[8], data->md5.data[9], data->md5.data[10], data->md5.data[11],
-            data->md5.data[12], data->md5.data[13], data->md5.data[14], data->md5.data[15]);
-        md5 = cJSON_AddStringToObject(parent, "md5", buf);
-#endif
 
         id = cJSON_AddNumberToObject(parent, "id", data->id);
         index = cJSON_AddNumberToObject(parent, "index", data->index);
@@ -1040,9 +1060,6 @@ public:
     }
     json_item_t(cJSON* parent) // for json parser
     {
-#if ENABLE_MD5
-        md5 = cJSON_GetObjectItem(parent, "md5");
-#endif
         id = cJSON_GetObjectItem(parent, "id");
         index = cJSON_GetObjectItem(parent, "index");
         file_name = cJSON_GetObjectItem(parent, "file_name");
@@ -1054,17 +1071,6 @@ public:
     {
         cJSON* item;
         int i, size;
-
-#if ENABLE_MD5
-        if (md5)
-        {
-            sscanf(md5->valuestring, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
-                &(data->md5.data[0]), &(data->md5.data[1]), &(data->md5.data[2]), &(data->md5.data[3]),
-                &(data->md5.data[4]), &(data->md5.data[5]), &(data->md5.data[6]), &(data->md5.data[7]),
-                &(data->md5.data[8]), &(data->md5.data[9]), &(data->md5.data[10]), &(data->md5.data[11]),
-                &(data->md5.data[12]), &(data->md5.data[13]), &(data->md5.data[14]), &(data->md5.data[15]));
-        }
-#endif
         
         if (id)
             data->id = id->valueint;
@@ -1132,7 +1138,7 @@ void create_json_free(char* json)
         free(json);
 }
 
-bool parser_json(const char* json, header_t* defhdr, void** data, int* size)
+BOOL parser_json(const char* json, header_t* defhdr, void** data, int* size)
 {
     cJSON* root, *header, *items, *item;
     json_header_t* headerobj;
@@ -1148,7 +1154,7 @@ bool parser_json(const char* json, header_t* defhdr, void** data, int* size)
         *size = sizeof(header_t);
         *data = (header_t*)malloc(*size);
         memcpy(*data, defhdr, *size);
-        return true;
+        return TRUE;
     }
 
     // parser header
@@ -1159,7 +1165,7 @@ bool parser_json(const char* json, header_t* defhdr, void** data, int* size)
         *data = (header_t*)malloc(*size);
         memcpy(*data, defhdr, *size);
         cJSON_Delete(root);
-        return true;
+        return TRUE;
     }
 
     headerobj = new json_header_t(header);
@@ -1175,7 +1181,7 @@ bool parser_json(const char* json, header_t* defhdr, void** data, int* size)
         *data = (header_t*)malloc(*size);
         memcpy(*data, defhdr, *size);
         cJSON_Delete(root);
-        return true;
+        return TRUE;
     }
 
     *size = sizeof(header_t) + (sizeof(item_t) * (defhdr->item_count));
@@ -1194,10 +1200,10 @@ bool parser_json(const char* json, header_t* defhdr, void** data, int* size)
     }
     
     cJSON_Delete(root);
-    return true;
+    return TRUE;
 }
 
-bool import_book_source(const char* json, book_source_t *bs, int* count)
+BOOL import_book_source(const char* json, book_source_t *bs, int* count)
 {
     cJSON* root, * book_sources, * item;
     json_book_source_t* json_bs;
@@ -1206,14 +1212,14 @@ bool import_book_source(const char* json, book_source_t *bs, int* count)
     root = cJSON_Parse(json);
     if (!root)
     {
-        return false;
+        return FALSE;
     }
 
     book_sources = cJSON_GetObjectItem(root, "book_sources");
     if (!book_sources || cJSON_GetArraySize(book_sources) <= 0 || cJSON_GetArraySize(book_sources) > MAX_BOOKSRC_COUNT)
     {
         cJSON_Delete(root);
-        return false;
+        return FALSE;
     }
 
     *count = 0;
@@ -1229,10 +1235,10 @@ bool import_book_source(const char* json, book_source_t *bs, int* count)
         }   
     }
     cJSON_Delete(root);
-    return true;
+    return TRUE;
 }
 
-bool export_book_source(const book_source_t* bs, int count, char** json)
+BOOL export_book_source(const book_source_t* bs, int count, char** json)
 {
     cJSON* root, * book_sources, * item;
     json_book_source_t* json_bs;
@@ -1241,7 +1247,7 @@ bool export_book_source(const book_source_t* bs, int count, char** json)
     *json = NULL;
     if (!bs || count < 0 || count > MAX_BOOKSRC_COUNT)
     {
-        return false;
+        return FALSE;
     }
 
     root = cJSON_CreateObject();
@@ -1258,7 +1264,7 @@ bool export_book_source(const book_source_t* bs, int count, char** json)
     //*json = cJSON_PrintUnformatted(root);
     *json = cJSON_Print(root);
     cJSON_Delete(root);
-    return true;
+    return TRUE;
 }
 
 void export_book_source_free(char* json)

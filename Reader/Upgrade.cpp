@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #ifdef ENABLE_NETWORK
 #include "Upgrade.h"
 #include "cJSON.h"
@@ -176,10 +175,6 @@ int Upgrade::vercmp(const wchar_t *v1, const wchar_t *v2)
 unsigned int Upgrade::GetVersionCompleter(request_result_t *result)
 {
     Upgrade *_this = (Upgrade *)result->param1;
-    const char *redirect = NULL;
-    int needfree = 0;
-    char *html = NULL;
-    int htmllen = 0;
 
     _this->m_hReq = NULL;
     *_this->m_ChkTime = _time32(NULL);
@@ -195,12 +190,9 @@ unsigned int Upgrade::GetVersionCompleter(request_result_t *result)
         return 1;
     }
 
-    html = result->body;
-    htmllen = result->bodylen;
-
-    if (html && htmllen > 0)
+    if (result->body && result->bodylen > 0)
     {
-        _this->ParserJson(html);
+        _this->ParserJson(result->body);
     }
     return 0;
 }

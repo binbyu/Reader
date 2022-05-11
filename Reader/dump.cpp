@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "framework.h"
 #include "dump.h"
 #ifdef _DEBUG
 #include <DbgHelp.h>
@@ -49,7 +49,7 @@ LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException)
         tm.wYear,tm.wMonth,tm.wDay, tm.wHour,tm.wMinute,tm.wSecond,tm.wMilliseconds);
 
     CreateDumpFile(fileName, pException);  
-    FatalAppExit(-1,  L"*** Unhandled Exception! ***");  
+    FatalAppExit((UINT)-1,  L"*** Unhandled Exception! ***");  
 
     return EXCEPTION_EXECUTE_HANDLER;  
 }
@@ -105,7 +105,7 @@ void logger_destroy(void)
     }
 }
 
-void __stdcall logger_printf(const char* format, ...)
+void __stdcall logger_printf(char const* const format, ...)
 {
     va_list args;
 

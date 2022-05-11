@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #include "Keyset.h"
 #include "resource.h"
 
@@ -144,7 +143,7 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
         case IDOK:
             for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
             {
-                tempkeys[i] = SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_GETHOTKEY, 0, 0);
+                tempkeys[i] = (DWORD)SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_GETHOTKEY, 0, 0);
                 tempable[i] = SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_GETCHECK, 0, NULL) == BST_CHECKED ? 0 : 1;
             }
             // check duplicate
@@ -317,7 +316,7 @@ DWORD ToHotkey(WPARAM wParam)
     {
         hw |= HOTKEYF_EXT;
     }
-    lw = wParam;
+    lw = (DWORD)wParam;
 
     return MAKEWORD(lw, hw);
 }
@@ -443,7 +442,7 @@ BOOL IsCoveredByOtherWindow(HWND hWnd)
         if (isChild)
         {
             hWnd = GetParent(hCurWnd);
-            isChild = hWnd ? (WS_CHILD == (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)) : false;
+            isChild = hWnd ? (WS_CHILD == (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)) : FALSE;
         }
         else
         {

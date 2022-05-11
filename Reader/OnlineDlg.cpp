@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #ifdef ENABLE_NETWORK
 #include "OnlineDlg.h"
 #include "BooksourceDlg.h"
@@ -66,7 +65,7 @@ void TestXpathFromDump(void)
     int htmllen;
     void *doc = NULL;
     void *ctx = NULL;
-    bool fkill = false;
+    BOOL fkill = FALSE;
     const char *xpath1 = "//div[@id='list']/dl/dd[position()>12]/a";
     const char *xpath2 = "//div[@id='list']/dl/dd[position()>12]/a/@href";
     std::vector<std::string> value1, value2;
@@ -114,7 +113,6 @@ void ReloadBookSourceCombobox(HWND hDlg, int iPos)
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    TCHAR text[256] = { 0 };
     TCHAR path[1024] = { 0 };
     HWND hList;
     int iPos;
@@ -166,7 +164,7 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
             }
             g_hRequest = NULL;
             g_Enable = TRUE;
-            g_lastPos = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+            g_lastPos = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
             break;
@@ -181,7 +179,7 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
                     hList = GetDlgItem(hDlg, IDC_LIST_QUERY);
                     ListView_DeleteAllItems(hList);
                     hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
-                    colnum = SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
+                    colnum = (int)SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
                     for (i=colnum-1; i>=0; i--)
                         SendMessage(hList, LVM_DELETECOLUMN, i, 0);
                     OnRequestCharset();
@@ -220,7 +218,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     int i,col;
     void* doc = NULL;
     void* ctx = NULL;
-    bool cancel = false;
+    BOOL cancel = FALSE;
     TCHAR colname[256] = { 0 };
     char Url[1024] = { 0 };
     int needfree = 0;
@@ -289,10 +287,10 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     }
 
     HtmlParser::Instance()->HtmlParseBegin(html, htmllen, &doc, &ctx, &cancel);
-    HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_name_xpath, table_name, &cancel, true);
+    HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_name_xpath, table_name, &cancel, TRUE);
     HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_mainpage_xpath, table_url, &cancel);
     if (_header->book_sources[bs_idx].book_author_xpath[0])
-        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_author_xpath, table_author, &cancel, true);
+        HtmlParser::Instance()->HtmlParseByXpath(doc, ctx, _header->book_sources[bs_idx].book_author_xpath, table_author, &cancel, TRUE);
     HtmlParser::Instance()->HtmlParseEnd(doc, ctx);
 
     // check value
@@ -317,7 +315,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     if (hList)
     {
         hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
-        colnum = SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
+        colnum = (int)SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
 
         // add list header
         if (colnum == 0)
@@ -459,7 +457,7 @@ static int OnRequestQuery(http_charset_t charset)
     req.method = _header->book_sources[bs_idx].query_method == 0 ? GET : POST;
     req.url = url;
     req.content = content;
-    req.content_length = strlen(content);
+    req.content_length = (int)strlen(content);
     req.completer = RequestQueryCompleter;
     req.param1 = NULL;
     req.param2 = NULL;
@@ -609,7 +607,7 @@ static BOOL _begin_query(HWND hDlg)
         goto _failed;
     }
 
-    g_query_param->bs_idx = SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
+    g_query_param->bs_idx = (int)SendMessage(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), CB_GETCURSEL, 0, NULL);
 #if ENABLE_GLOBAL_SEARCH
     if (g_query_param->bs_idx < 0 || g_query_param->bs_idx > _header->book_source_count)
 #else

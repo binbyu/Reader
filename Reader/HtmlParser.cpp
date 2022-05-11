@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "framework.h"
 #include "HtmlParser.h"
 #include "libxml/HTMLparser.h"
 #include "libxml/xpath.h"
@@ -71,7 +71,7 @@ void HtmlParser::ReleaseContent(char *content)
 
 #define GOTO_STOP(s) if (*(s)) goto _stop
 
-int HtmlParser::HtmlParseByXpath(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, bool* stop, bool clear)
+int HtmlParser::HtmlParseByXpath(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, BOOL* stop, BOOL clear)
 {
     int i;
     xmlDocPtr doc = NULL;
@@ -156,7 +156,7 @@ _stop:
     return 1;
 }
 
-int HtmlParser::HtmlParseBegin(const char *html, int len, void** pdoc, void** pctx, bool* stop)
+int HtmlParser::HtmlParseBegin(const char *html, int len, void** pdoc, void** pctx, BOOL* stop)
 {
     xmlDocPtr doc = NULL;
     xmlXPathContextPtr xpathCtx = NULL;
@@ -191,7 +191,7 @@ _stop:
     return 1;
 }
 
-int HtmlParser::HtmlParseByXpath(void* doc_, void* ctx_, const std::string& xpath, std::vector<std::string>& value, bool* stop, bool clear)
+int HtmlParser::HtmlParseByXpath(void* doc_, void* ctx_, const std::string& xpath, std::vector<std::string>& value, BOOL* stop, BOOL clear)
 {
     int i;
     xmlDocPtr doc = (xmlDocPtr)doc_;

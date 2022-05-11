@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-#if ENABLE_MD5
-// md5
-bool get_md5(void* data, size_t size, u128_t* result);
-#endif
-
 // convert
 wchar_t* ansi_to_utf16(const char* str, int size, int* len);
 char* utf16_to_ansi(const wchar_t* str, int size, int* len);
@@ -33,6 +28,15 @@ char* be_to_le(char* data, int len);
 // base64
 void b64_encode(const char *src, int slen, char *dst, int *dlen);
 void b64_decode(const char *src, int slen, char *dst, int *dlen);
+
+// url
+int url_encode(const char *src, char *dest);
+int url_decode(const char *src, char *dest); 
+
+// string
+int strcasecmp(const char *s1, const char *s2);
+int strncasecmp(const char *s1, const char *s2, int n);
+char *strcasestr(const char *s, const char *find);
 
 // check system version
 BOOL Is_WinXP_SP2_or_Later(void);

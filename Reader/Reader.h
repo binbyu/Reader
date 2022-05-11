@@ -18,8 +18,8 @@
 typedef struct loading_data_t
 {
     BOOL enable;
-    Bitmap*image;
-    PropertyItem *item;
+    Gdiplus::Bitmap*image;
+    Gdiplus::PropertyItem *item;
     UINT frameCount;
     UINT frameIndex;
     HGLOBAL hMemory;
@@ -62,14 +62,13 @@ HHOOK               _hKeyboardHook          = NULL;
 HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
 BYTE                _textAlpha              = 0xFF;
+BOOL                _menuInvalid            = FALSE;
 
 
 LRESULT             OnCreate(HWND);
 LRESULT             OnUpdateMenu(HWND);
 LRESULT             OnOpenItem(HWND, int, BOOL);
 LRESULT             OnClearFileList(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnSetFont(HWND, UINT, WPARAM, LPARAM);
-LRESULT             OnSetBkColor(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnRestoreDefault(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnPaint(HWND, HDC);
 VOID                OnDraw(HWND);
@@ -101,9 +100,11 @@ LRESULT             OnFindText(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnUpdateChapters(HWND);
 LRESULT             OnUpdateBookMark(HWND);
 LRESULT             OnOpenBookResult(HWND, BOOL);
+LRESULT             OnCopyData(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    MouseProc(int, WPARAM, LPARAM);
 LRESULT CALLBACK    KeyboardProc(int, WPARAM, LPARAM);
 void                ShowHideWindow(HWND);
+BOOL                IsVaildFile(HWND, TCHAR *, int *);
 void                OnOpenBook(HWND, TCHAR *, BOOL);
 VOID                GetCacheVersion(TCHAR *);
 BOOL                Init(void);
@@ -115,7 +116,7 @@ void                UpdateTitle(HWND);
 void                RemoveMenus(HWND, BOOL);
 BOOL                GetClientRectExceptStatusBar(HWND, RECT*);
 void                WheelSpeedInit(HWND);
-Bitmap*             LoadBGImage(int, int, BYTE alpha=0xFF);
+Gdiplus::Bitmap*    LoadBGImage(int, int, BYTE alpha=0xFF);
 BOOL                FileExists(TCHAR *);
 void                StartAutoPage(HWND);
 void                StopAutoPage(HWND);
@@ -124,7 +125,7 @@ void                ResumeAutoPage(HWND);
 void                ResetAutoPage(HWND hWnd);
 #ifdef ENABLE_NETWORK
 void                CheckUpgrade(HWND);
-bool                UpgradeCallback(void *, json_item_data_t *);
+BOOL                UpgradeCallback(void *, json_item_data_t *);
 chkbook_arg_t*      GetCheckBookArguments();
 void                StartCheckBookUpdate(HWND hWnd);
 void                OnCheckBookUpdateCallback(int is_update, int err, void* param);
@@ -132,16 +133,15 @@ void                OnCheckBookUpdate(HWND hWnd);
 void                OnOpenOlBook(HWND, void*);
 void                UpdateBookMark(HWND, int, int);
 #endif
-bool                PlayLoadingImage(HWND);
-bool                StopLoadingImage(HWND);
+BOOL                PlayLoadingImage(HWND);
+BOOL                StopLoadingImage(HWND);
 ULONGLONG           GetDllVersion(LPCTSTR);
 BOOL CALLBACK       EnumWindowsProc(HWND, LPARAM);
 void                ShowInTaskbar(HWND, BOOL);
 void                ShowSysTray(HWND, BOOL);
 HBITMAP             CreateAlphaBGColorBitmap(HWND hWnd, COLORREF inColour, int width, int height, BYTE alpha);
-HBITMAP             CreateAlphaTextBitmap(HWND, HFONT, COLORREF, int, int, BOOL *isBlank);
 void                SetTreeviewFont();
-BOOL                LoadResourceImage(LPCWSTR, LPCWSTR, Bitmap**, HGLOBAL*);
+BOOL                LoadResourceImage(LPCWSTR, LPCWSTR, Gdiplus::Bitmap**, HGLOBAL*);
 book_source_t*      FindBookSource(const char* host);
 void                SetGlobalKey(HWND);
 int                 MessageBox_(HWND, UINT, UINT, UINT);

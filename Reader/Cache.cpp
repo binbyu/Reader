@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "framework.h"
 #include "Cache.h"
 #include "Keyset.h"
 #include "Upgrade.h"
@@ -11,12 +11,13 @@
 
 extern VOID GetCacheVersion(TCHAR *);
 
-Cache::Cache(TCHAR* file)
+Cache::Cache(const TCHAR* file)
     : m_jsonbak(NULL)
     , m_jsonlen(0)
 {
+    size_t i;
     GetModuleFileName(NULL, m_file_name, sizeof(TCHAR)*(MAX_PATH-1));
-    for (int i=_tcslen(m_file_name)-1; i>=0; i--)
+    for (i=_tcslen(m_file_name)-1; i>=0; i--)
     {
         if (m_file_name[i] == _T('\\'))
         {
@@ -39,7 +40,7 @@ Cache::~Cache(void)
     m_size = 0;
 }
 
-bool Cache::init()
+BOOL Cache::init()
 {
     void* json = NULL;
     int size = 0;
@@ -48,7 +49,7 @@ bool Cache::init()
     if (!PathFileExists(m_file_name)) // not exist
     {
         if (!default_header())
-            return false;
+            return FALSE;
     }
     else
     {
@@ -75,24 +76,24 @@ bool Cache::init()
                 if (!json)
                 {
                     free(header);
-                    return false;
+                    return FALSE;
                 }
                 ((char*)json)[size] = 0;
             }
             parser_json((const char *)json, header, &m_buffer, &m_size);
             free(json);
             free(header);
-            return true;
+            return TRUE;
         }
-        return false;
+        return FALSE;
     }
 
-    return true;
+    return TRUE;
 }
 
-bool Cache::exit()
+BOOL Cache::exit()
 {
-    bool result = true;
+    BOOL result = TRUE;
 
     if (m_buffer)
     {
@@ -114,16 +115,16 @@ bool Cache::exit()
     return result;
 }
 
-bool Cache::save()
+BOOL Cache::save()
 {
-    bool result = false;
+    BOOL result = FALSE;
     char* json = NULL;
     int size = 0;
 
     json = create_json(get_header());
     if (json)
     {
-        size = strlen(json);
+        size = (int)strlen(json);
         encode(json, size);
 
         // check if data is changed
@@ -147,7 +148,7 @@ bool Cache::save()
         }
         else
         {
-            result = true; // no change, don't need write file
+            result = TRUE; // no change, don't need write file
         }
     }
     create_json_free(json);
@@ -185,18 +186,11 @@ item_t* Cache::open_item(int item_id)
     return item;
 }
 
-#if ENABLE_MD5
-item_t* Cache::new_item(u128_t* item_md5, TCHAR* file_name)
-#else
 item_t* Cache::new_item(TCHAR* file_name)
-#endif
 {
     header_t* header = NULL;
-#if ENABLE_MD5
-    item_t* item = find_item(item_md5, file_name);
-#else
     item_t* item = find_item(file_name);
-#endif
+    
     int item_id = -1;
     void *oldAddr = NULL;
 
@@ -222,9 +216,6 @@ item_t* Cache::new_item(TCHAR* file_name)
     item = get_item(item_id);
     memset(item, 0, sizeof(item_t));
     item->id = item_id;
-#if ENABLE_MD5
-    memcpy(&item->md5, item_md5, sizeof(u128_t));
-#endif
     memcpy(item->file_name, file_name, sizeof(TCHAR) * (_tcslen(file_name) + 1));
 
     // move to index 0
@@ -234,11 +225,7 @@ item_t* Cache::new_item(TCHAR* file_name)
     return item;
 }
 
-#if ENABLE_MD5
-item_t* Cache::find_item(u128_t* item_md5, TCHAR* file_name)
-#else
 item_t* Cache::find_item(TCHAR* file_name)
-#endif
 {
     header_t* header = get_header();
     item_t* item = NULL;
@@ -249,32 +236,20 @@ item_t* Cache::find_item(TCHAR* file_name)
     for (int i=0; i<header->item_count; i++)
     {
         item = get_item(i);
-#if ENABLE_MD5
-        if (0 == memcmp(&item->md5, item_md5, sizeof(u128_t)))
-        {
-            // update file name
-            if (0 != _tcscmp(item->file_name, file_name))
-            {
-                memcpy(item->file_name, file_name, sizeof(TCHAR) * (_tcslen(file_name) + 1));
-            }
-            return item;
-        }
-#else
         if (0 == _tcscmp(item->file_name, file_name))
         {
             return item;
         }
-#endif
     }
     return NULL;
 }
 
-bool Cache::delete_item(int item_id)
+BOOL Cache::delete_item(int item_id)
 {
     header_t* header = get_header();
     item_t* item = get_item(item_id);
     if (!item)
-        return false;
+        return FALSE;
 
     for (int i=item_id+1; i<header->item_count; i++)
     {
@@ -285,17 +260,17 @@ bool Cache::delete_item(int item_id)
     }
     header->item_count--;
     m_size -= sizeof(item_t);
-    return true;
+    return TRUE;
 }
 
-bool Cache::delete_all_item(void)
+BOOL Cache::delete_all_item(void)
 {
     header_t* header = get_header();
 
     header->item_count = 0;
     header->item_id = -1;
     m_size = sizeof(header_t);
-    return true;
+    return TRUE;
 }
 
 header_t* Cache::default_header()
@@ -341,6 +316,9 @@ void Cache::default_header(header_t* header)
     }
     memcpy(&header->font, &lf, sizeof(lf));
     header->font_color = 0x00;      // black
+    memcpy(&header->font_title, &lf, sizeof(lf));
+    header->font_color_title = 0x00;  // black
+    header->use_same_font = 1;
 
     // default style
     header->style = WS_OVERLAPPEDWINDOW;
@@ -391,7 +369,7 @@ void Cache::default_header(header_t* header)
 
     header->char_gap = 0;
     header->line_gap = 5;
-    header->paragraph_gap = 0;
+    header->paragraph_gap = 15;
     header->left_line_count = 0;
     header->internal_border = { 0 };
     GetCacheVersion(header->version);
@@ -410,6 +388,8 @@ void Cache::default_header(header_t* header)
     header->hide_taskbar = 0;
     header->word_wrap = 0;
     header->line_indent = 1;
+    header->blank_lines = 1;
+    header->chapter_page = 0;
 
     // default keyset
     header->global_key = 0;
@@ -441,32 +421,32 @@ void Cache::default_header(header_t* header)
 #endif
 }
 
-bool Cache::add_mark(item_t *item, int value)
+BOOL Cache::add_mark(item_t *item, int value)
 {
     int i;
 
     if (!item)
-        return false;
+        return FALSE;
     if (item->mark_size >= MAX_MARK_COUNT)
-        return false;
+        return FALSE;
     for (i=0; i<item->mark_size; i++)
     {
         if (value == item->mark[i])
-            return false;
+            return FALSE;
     }
     item->mark[item->mark_size] = value;
     item->mark_size++;
-    return true;
+    return TRUE;
 }
 
-bool Cache::del_mark(item_t *item, int index)
+BOOL Cache::del_mark(item_t *item, int index)
 {
     if (!item)
-        return false;
+        return FALSE;
     if (item->mark_size <= 0)
-        return false;
+        return FALSE;
     if (index >= item->mark_size)
-        return false;
+        return FALSE;
 
     // delete
     if (item->mark_size - index - 1 > 0)
@@ -475,10 +455,10 @@ bool Cache::del_mark(item_t *item, int index)
     }
     item->mark_size--;
     item->mark[item->mark_size] = 0;
-    return true;
+    return TRUE;
 }
 
-bool Cache::move_item(int from, int to)
+BOOL Cache::move_item(int from, int to)
 {
     // from and to is exist
     item_t temp = {0};
@@ -486,12 +466,12 @@ bool Cache::move_item(int from, int to)
     item_t* to_item = get_item(to);
     if (!from_item || !to_item)
     {
-        return false;
+        return FALSE;
     }
 
     if (from == to)
     {
-        return true;
+        return TRUE;
     }
     else if (from > to)
     {
@@ -519,10 +499,10 @@ bool Cache::move_item(int from, int to)
         temp.id = to;
         memcpy(to_item, &temp, sizeof(item_t));
     }
-    return true;
+    return TRUE;
 }
 
-bool Cache::read(void** data, int* size)
+BOOL Cache::read(void** data, int* size)
 {
     HANDLE hFile = NULL;
     BOOL bErrorFlag = FALSE;
@@ -541,14 +521,14 @@ bool Cache::read(void** data, int* size)
 
     if (hFile == INVALID_HANDLE_VALUE) 
     {
-        return false;
+        return FALSE;
     }
 
     dwFileSize = GetFileSize(hFile, NULL);
     if (INVALID_FILE_SIZE == dwFileSize)
     {
         CloseHandle(hFile);
-        return false;
+        return FALSE;
     }
 
     *size = dwFileSize;
@@ -556,7 +536,7 @@ bool Cache::read(void** data, int* size)
     if (!(*data))
     {
         CloseHandle(hFile);
-        return false;
+        return FALSE;
     }
 
     bErrorFlag = ReadFile(hFile,
@@ -570,7 +550,7 @@ bool Cache::read(void** data, int* size)
         CloseHandle(hFile);
         free(*data);
         *size = 0;
-        return false;
+        return FALSE;
     }
     else
     {
@@ -579,15 +559,15 @@ bool Cache::read(void** data, int* size)
             CloseHandle(hFile);
             free(*data);
             *size = 0;
-            return false;
+            return FALSE;
         }
     }
 
     CloseHandle(hFile);
-    return true;
+    return TRUE;
 }
 
-bool Cache::write(void* data, int size)
+BOOL Cache::write(void* data, int size)
 {
     HANDLE hFile = NULL;
     BOOL bErrorFlag = FALSE;
@@ -602,7 +582,7 @@ bool Cache::write(void* data, int size)
         NULL);                  // no attr. template
     if (hFile == INVALID_HANDLE_VALUE) 
     {
-        return false;
+        return FALSE;
     }
 
     bErrorFlag = WriteFile( 
@@ -615,19 +595,19 @@ bool Cache::write(void* data, int size)
     if (FALSE == bErrorFlag)
     {
         CloseHandle(hFile);
-        return false;
+        return FALSE;
     }
     else
     {
         if ((int)dwBytesWritten != size)
         {
             CloseHandle(hFile);
-            return false;
+            return FALSE;
         }
     }
 
     CloseHandle(hFile);
-    return true;
+    return TRUE;
 }
 
 void Cache::update_addr(void)

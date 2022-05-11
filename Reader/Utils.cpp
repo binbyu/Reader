@@ -1,9 +1,5 @@
-#include "StdAfx.h"
 #include "Utils.h"
 #include <stdint.h>
-#if ENABLE_MD5
-#include <Wincrypt.h>
-#endif
 #include <string.h>
 #include <stdio.h>
 #ifdef ZLIB_ENABLE
@@ -22,51 +18,6 @@ static char* _result = NULL;
 static int _len = 0;
 static wchar_t* _wresult = NULL;
 static int _wlen = 0;
-
-
-#if ENABLE_MD5
-bool get_md5(void* data, size_t size, u128_t* result)
-{
-    HCRYPTPROV hProv = NULL;
-    HCRYPTPROV hHash = NULL;
-    DWORD cbHashSize = 0;
-    DWORD dwCount = sizeof(DWORD);
-    if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
-    {
-        return false;
-    }
-
-    if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
-    {
-        CryptReleaseContext(hProv, 0);
-        return false;
-    }
-
-    if (!CryptHashData(hHash, (BYTE*)data, size, 0))
-    {
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
-        return false;
-    }
-
-    if (!CryptGetHashParam(hHash, HP_HASHSIZE, (BYTE*)&cbHashSize, &dwCount, 0))
-    {
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
-        return false;
-    }
-
-    if (!CryptGetHashParam(hHash, HP_HASHVAL, (BYTE*)result, &cbHashSize, 0))
-    {
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
-        return false;
-    }
-    CryptDestroyHash(hHash);
-    CryptReleaseContext(hProv, 0);
-    return true;
-}
-#endif
 
 wchar_t* ansi_to_utf16(const char* str, int size, int* len)
 {
@@ -402,6 +353,160 @@ void b64_decode(const char *src, int slen, char *dst, int *dlen)
     *dlen = out_len;
 }
 
+static char to_hex(char code) {
+    static char hex[] = "0123456789abcdef";
+    return hex[code & 15];
+}
+
+static char from_hex(char ch) {
+    return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+}
+
+/*!
+size of dest must have min size of  3*strlen(src) +1
+*/
+int url_encode(const char *src, char *dest)
+{
+    const char *pstr = src;
+    char *pbuf = dest;
+
+    if (src == NULL || dest == NULL)
+    {
+        return -1;
+    }
+    while (*pstr)
+    {
+        if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~')
+            *pbuf++ = *pstr;
+        else if (*pstr == ' ')
+            *pbuf++ = '+';
+        else
+            *pbuf++ = '%', *pbuf++ = to_hex(*pstr >> 4), *pbuf++ = to_hex(*pstr & 15);
+        pstr++;
+    }
+    *pbuf = '\0';
+    return (int)(pbuf - dest);
+}
+
+/*!
+size of dest must have min size of  strlen(src) +1
+*/
+int url_decode(const char *src, char *dest)
+{
+    const char *pstr = src;
+    char *pbuf = dest;
+
+    if (src == NULL || dest == NULL)
+    {
+        return -1;
+    }
+    while (*pstr)
+    {
+        if (*pstr == '%')
+        {
+            if (pstr[1] && pstr[2])
+            {
+                *pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
+                pstr += 2;
+            }
+        }
+        else if (*pstr == '+')
+        {
+            *pbuf++ = ' ';
+        }
+        else
+        {
+            *pbuf++ = *pstr;
+        }
+        pstr++;
+    }
+    *pbuf = '\0';
+    return (int)(pbuf - dest);
+}
+
+static const unsigned char _charmap[] = {
+    u'\000', u'\001', u'\002', u'\003', u'\004', u'\005', u'\006', u'\007',
+    u'\010', u'\011', u'\012', u'\013', u'\014', u'\015', u'\016', u'\017',
+    u'\020', u'\021', u'\022', u'\023', u'\024', u'\025', u'\026', u'\027',
+    u'\030', u'\031', u'\032', u'\033', u'\034', u'\035', u'\036', u'\037',
+    u'\040', u'\041', u'\042', u'\043', u'\044', u'\045', u'\046', u'\047',
+    u'\050', u'\051', u'\052', u'\053', u'\054', u'\055', u'\056', u'\057',
+    u'\060', u'\061', u'\062', u'\063', u'\064', u'\065', u'\066', u'\067',
+    u'\070', u'\071', u'\072', u'\073', u'\074', u'\075', u'\076', u'\077',
+    u'\100', u'\141', u'\142', u'\143', u'\144', u'\145', u'\146', u'\147',
+    u'\150', u'\151', u'\152', u'\153', u'\154', u'\155', u'\156', u'\157',
+    u'\160', u'\161', u'\162', u'\163', u'\164', u'\165', u'\166', u'\167',
+    u'\170', u'\171', u'\172', u'\133', u'\134', u'\135', u'\136', u'\137',
+    u'\140', u'\141', u'\142', u'\143', u'\144', u'\145', u'\146', u'\147',
+    u'\150', u'\151', u'\152', u'\153', u'\154', u'\155', u'\156', u'\157',
+    u'\160', u'\161', u'\162', u'\163', u'\164', u'\165', u'\166', u'\167',
+    u'\170', u'\171', u'\172', u'\173', u'\174', u'\175', u'\176', u'\177',
+    u'\200', u'\201', u'\202', u'\203', u'\204', u'\205', u'\206', u'\207',
+    u'\210', u'\211', u'\212', u'\213', u'\214', u'\215', u'\216', u'\217',
+    u'\220', u'\221', u'\222', u'\223', u'\224', u'\225', u'\226', u'\227',
+    u'\230', u'\231', u'\232', u'\233', u'\234', u'\235', u'\236', u'\237',
+    u'\240', u'\241', u'\242', u'\243', u'\244', u'\245', u'\246', u'\247',
+    u'\250', u'\251', u'\252', u'\253', u'\254', u'\255', u'\256', u'\257',
+    u'\260', u'\261', u'\262', u'\263', u'\264', u'\265', u'\266', u'\267',
+    u'\270', u'\271', u'\272', u'\273', u'\274', u'\275', u'\276', u'\277',
+    u'\300', u'\341', u'\342', u'\343', u'\344', u'\345', u'\346', u'\347',
+    u'\350', u'\351', u'\352', u'\353', u'\354', u'\355', u'\356', u'\357',
+    u'\360', u'\361', u'\362', u'\363', u'\364', u'\365', u'\366', u'\367',
+    u'\370', u'\371', u'\372', u'\333', u'\334', u'\335', u'\336', u'\337',
+    u'\340', u'\341', u'\342', u'\343', u'\344', u'\345', u'\346', u'\347',
+    u'\350', u'\351', u'\352', u'\353', u'\354', u'\355', u'\356', u'\357',
+    u'\360', u'\361', u'\362', u'\363', u'\364', u'\365', u'\366', u'\367',
+    u'\370', u'\371', u'\372', u'\373', u'\374', u'\375', u'\376', u'\377',
+};
+
+int strcasecmp(const char *s1, const char *s2)
+{
+    const unsigned char *cm = _charmap;
+    const unsigned char *us1 = (const unsigned char *)s1;
+    const unsigned char *us2 = (const unsigned char *)s2;
+
+    while (cm[*us1] == cm[*us2++])
+        if (*us1++ == '\0')
+            return (0);
+    return (cm[*us1] - cm[*--us2]);
+}
+
+int strncasecmp(const char *s1, const char *s2, int n)
+{
+    if (n != 0) {
+        const unsigned char *cm = _charmap;
+        const unsigned char *us1 = (const unsigned char *)s1;
+        const unsigned char *us2 = (const unsigned char *)s2;
+
+        do {
+            if (cm[*us1] != cm[*us2++])
+                return (cm[*us1] - cm[*--us2]);
+            if (*us1++ == '\0')
+                break;
+        } while (--n != 0);
+    }
+    return (0);
+}
+
+char *strcasestr(const char *s, const char *find)
+{
+    char c, sc;
+    int len;
+
+    if ((c = *find++) != 0) {
+        c = (char)tolower((unsigned char)c);
+        len = (int)strlen(find);
+        do {
+            do {
+                if ((sc = *s++) == 0)
+                    return (NULL);
+            } while ((char)tolower((unsigned char)sc) != c);
+        } while (strncasecmp(s, find, len) != 0);
+        s--;
+    }
+    return ((char *)s);
+}
+
 BOOL Is_WinXP_SP2_or_Later(void)
 {
     OSVERSIONINFOEX osvi;
@@ -475,7 +580,7 @@ void GetApplicationVersion(TCHAR* version)
     }
 }
 
-// return: 1, true, 0, false
+// return: 1, TRUE, 0, FALSE
 int memvcmp(void *memory, unsigned char val, unsigned int size)
 {
     unsigned char *mm = (unsigned char*)memory;

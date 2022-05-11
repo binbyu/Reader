@@ -12,18 +12,17 @@ public:
 
 public:
     virtual book_type_t GetBookType(void);
-    virtual bool SaveBook(HWND hWnd);
-    virtual bool UpdateChapters(int offset);
+    virtual BOOL SaveBook(HWND hWnd);
+    virtual BOOL UpdateChapters(int offset);
 
 protected:
-    virtual bool ParserBook(HWND hWnd);
-    bool ReadBook(void);
-    bool ParserChapters(void);
-    bool ParserChaptersDefault(void);
-    bool ParserChaptersKeyword(void);
-    bool ParserChaptersRegex(void);
-    bool GetLine(wchar_t* text, int len, int* line_size);
-    bool IsChapter(wchar_t* text, int len);
+    virtual BOOL ParserBook(HWND hWnd);
+    BOOL ReadBook(void);
+    BOOL ParserChapters(void);
+    BOOL ParserChaptersDefault(void);
+    BOOL ParserChaptersKeyword(void);
+    BOOL ParserChaptersRegex(void);
+    BOOL IsChapter(wchar_t* text, int len);
 
 protected:
     static wchar_t m_ValidChapter[];

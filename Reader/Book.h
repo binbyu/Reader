@@ -3,7 +3,7 @@
 
 #include <map>
 #include "types.h"
-#include "PageCache.h"
+#include "Page.h"
 #include <string>
 
 
@@ -12,9 +12,10 @@ typedef struct chapter_item_t
     int index;
     std::wstring title;
     std::string url; // for online book
-    int size;
+    int size; // current chapter total len, for online book
+    int title_len;
 } chapter_item_t;
-typedef std::map<int, chapter_item_t> chapters_t;
+typedef std::vector<chapter_item_t> chapters_t;
 
 typedef enum book_type_t
 {
@@ -39,7 +40,7 @@ struct book_event_data_t
     }
 };
 
-class Book : public PageCache
+class Book : public Page
 {
 public:
     Book();
@@ -47,17 +48,12 @@ public:
 
 public:
     virtual book_type_t GetBookType(void) = 0;
-    virtual bool SaveBook(HWND hWnd) = 0;
-    virtual bool UpdateChapters(int offset) = 0;
-    bool OpenBook(HWND hWnd);
-    bool OpenBook(char *data, int size, HWND hWnd);
-    bool CloseBook(void);
-    virtual bool IsLoading(void);
-#if ENABLE_MD5
-    void SetMd5(u128_t *md5);
-    u128_t * GetMd5(void);
-    void UpdateMd5(void);
-#endif
+    virtual BOOL SaveBook(HWND hWnd) = 0;
+    virtual BOOL UpdateChapters(int offset) = 0;
+    BOOL OpenBook(HWND hWnd);
+    BOOL OpenBook(char *data, int size, HWND hWnd);
+    BOOL CloseBook(void);
+    virtual BOOL IsLoading(void);
     void SetFileName(const TCHAR *fileName);
     TCHAR * GetFileName(void);
     wchar_t * GetText(void);
@@ -69,18 +65,19 @@ public:
     virtual void JumpNextChapter(HWND hWnd);
     virtual int GetCurChapterIndex(void);
     virtual LRESULT OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-    bool GetChapterTitle(TCHAR *title, int size);
-#if ENABLE_MD5
-    static bool CalcMd5(TCHAR *fileName, u128_t *md5, char **data, int *size);
-#endif
-    bool FormatText(wchar_t* text, int* len, bool flag = true);
+    BOOL GetChapterTitle(TCHAR *title, int size);
+    BOOL FormatText(wchar_t *p_data, int *p_len);
 
 protected:
-    virtual bool ParserBook(HWND hWnd) = 0;
+    virtual BOOL ParserBook(HWND hWnd) = 0;
     // srcsize and dstsize not include \0
-    virtual bool DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
+    virtual BOOL DecodeText(const char *src, int srcsize, wchar_t **dst, int *dstsize);
+    virtual BOOL IsChapterIndex(int index);
+    virtual BOOL IsChapter(int index);
+    virtual BOOL GetChapterInfo(int type, int *start, int *length);
+    virtual BOOL IsValid(void);
     
-    bool IsBlanks(wchar_t c);
+    BOOL GetLine(wchar_t* text, int len, int *line_len, int *lf_len, int *is_blank_line, int *prefix_blank_len, int *suffix_blank_len);
     void ForceKill(void);
 
 protected:
@@ -92,10 +89,7 @@ protected:
     char *m_Data;
     int m_Size;
     HANDLE m_hThread;
-#if ENABLE_MD5
-    u128_t m_md5;
-#endif
-    bool m_bForceKill;
+    BOOL m_bForceKill;
     chapter_rule_t *m_Rule;
 };
 

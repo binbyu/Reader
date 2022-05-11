@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "framework.h"
 #include "DPIAwareness.h"
 
 #define DEFAULT_DPI             96

@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "resource.h"
 #include "Advset.h"
 #include "Editctrl.h"
@@ -14,7 +13,7 @@ extern Book *_Book;
 extern LRESULT OnOpenItem(HWND hWnd, int item_id, BOOL forced);
 extern int MessageBox_(HWND, UINT, UINT, UINT);
 
-void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule, void *book)
+void ADV_OpenDlg(HINSTANCE hInst, HWND hWnd, chapter_rule_t *rule)
 {
     g_rule = rule;
     g_bChanged = FALSE;

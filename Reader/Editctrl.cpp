@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #include "Editctrl.h"
 #include "Keyset.h"
 #include "resource.h"
@@ -25,12 +24,12 @@ static void EnableAllMenu(HWND hWnd, BOOL enable);
 void EC_EnterEditMode(HINSTANCE hInst, HWND hWnd, LOGFONT *font, TCHAR *text, BOOL readonly)
 {
     RECT rc;
-    int len;
+    size_t len;
 
     if (!g_hEditCtrl)
     {
         g_hEditCtrl = CreateWindow(WC_EDIT, _T("Edit Ctrl"),
-            /*WS_VISIBLE |*/ WS_CHILD /*| WS_BORDER*/ | ES_LEFT | ES_MULTILINE/* | ES_READONLY*/,
+            /*WS_VISIBLE |*/ WS_CHILD /*| WS_BORDER*/ | ES_LEFT | ES_MULTILINE/* | ES_READONLY*/ | ES_AUTOVSCROLL,
             0, 0, 200, 300, hWnd, NULL, hInst, NULL);
 
         g_defproc = (WNDPROC)SetWindowLongPtr(g_hEditCtrl, GWLP_WNDPROC, (LONG_PTR)EditWndProc);
@@ -70,7 +69,7 @@ void EC_LeaveEditMode(void)
     if (g_IsEditMode)
     {
         // save text
-        len = SendMessage(g_hEditCtrl, WM_GETTEXTLENGTH, 0, NULL);
+        len = (int)SendMessage(g_hEditCtrl, WM_GETTEXTLENGTH, 0, NULL);
         if (len >= 0)
         {
             buffer = (TCHAR*)malloc(sizeof(TCHAR)*(len+1));
@@ -144,8 +143,25 @@ static LRESULT CALLBACK EditWndProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
                     EC_LeaveEditMode();
                 }
             }
+            // ctrl + a, select all
+            else if ('A' == wParam)
+            {
+                SendMessage(hWnd, EM_SETSEL, 0, -1);
+            }
         }
         break;
+    case WM_MOUSEWHEEL:
+    {
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+        {
+            SendMessage(hWnd, EM_LINESCROLL, 0, -1);
+        }
+        else
+        {
+            SendMessage(hWnd, EM_LINESCROLL, 0, 1);
+        }
+    }
+    break;
     }
 
     return CallWindowProc(g_defproc, hWnd, message, wParam, lParam);

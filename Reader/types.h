@@ -1,7 +1,14 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-//#pragma pack(1)
+#include "framework.h"
+
+#if _DEBUG
+#include <assert.h>
+#define ASSERT(x) assert(x)
+#else
+#define ASSERT(x)
+#endif
 
 #define CACHE_FILE_NAME             _T(".cache.dat")
 #define ONLINE_FILE_SAVE_PATH       _T(".online\\")
@@ -9,7 +16,6 @@
 #define DEFAULT_APP_WIDTH           (300)
 #define DEFAULT_APP_HEIGHT          (500)
 
-#define ENABLE_MD5                  0
 #define ENABLE_TAG                  0
 #define ENABLE_REALTIME_SAVE        1
 #define ENABLE_GLOBAL_SEARCH        1
@@ -65,22 +71,12 @@
 #define IDT_TIMER_LOADING           105
 
 
-typedef unsigned char       u8;
-typedef unsigned int        u32;
-typedef unsigned long long  u64;
-
-#if ENABLE_MD5
-typedef struct u128_t
-{
-    u8 data[16];
-} u128_t;
-#endif
+typedef unsigned char               u8;
+typedef unsigned int                u32;
+typedef unsigned long long          u64;
 
 typedef struct item_t
 {
-#if ENABLE_MD5
-    u128_t md5;
-#endif
     int id;
     int index; // save text current pos
     TCHAR file_name[MAX_PATH];
@@ -202,6 +198,9 @@ typedef struct header_t
     DWORD fs_exstyle; // fullscreen restore
     LOGFONT font;
     u32 font_color;
+    LOGFONT font_title;
+    u32 font_color_title;
+    int use_same_font;
     u32 bg_color;
     BYTE alpha;
     int char_gap;
@@ -223,6 +222,8 @@ typedef struct header_t
     int disable_eschide;
     int word_wrap;
     int line_indent;
+    int blank_lines;
+    int chapter_page;
     int global_key;
     keyset_t keyset[MAX_KEYSET_COUNT];
     chapter_rule_t chapter_rule;
@@ -231,7 +232,7 @@ typedef struct header_t
     int tag_count;
     tagitem_t tags[MAX_TAG_COUNT];
 #endif
-    BYTE meun_font_follow;
+    int meun_font_follow;
     int book_source_count;
     book_source_t book_sources[MAX_BOOKSRC_COUNT];
 } header_t;
@@ -305,7 +306,7 @@ typedef struct ol_header_t
 } ol_header_t;
 
 #if TEST_MODEL
-extern void __stdcall logger_printf(const char* format, ...);
+extern void __stdcall logger_printf(char const* const format, ...);
 #define logger_printk(fmt, ...) logger_printf("{%s:%d} "##fmt"\n", __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define logger_printk(fmt, ...)

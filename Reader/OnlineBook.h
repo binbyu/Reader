@@ -27,9 +27,9 @@ public:
 
 public:
     virtual book_type_t GetBookType(void);
-    virtual bool SaveBook(HWND hWnd);
-    virtual bool UpdateChapters(int offset);
-    virtual bool IsLoading(void);
+    virtual BOOL SaveBook(HWND hWnd);
+    virtual BOOL UpdateChapters(int offset);
+    virtual BOOL IsLoading(void);
     virtual void JumpChapter(HWND hWnd, int index);
     virtual void JumpPrevChapter(HWND hWnd);
     virtual void JumpNextChapter(HWND hWnd);
@@ -37,17 +37,17 @@ public:
     virtual LRESULT OnBookEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 protected:
-    virtual bool ParserBook(HWND hWnd);
-    bool ParserChapterPage(HWND hWnd, int idx); // chapter index
-    bool ParserChapters(HWND hWnd, int idx); // chapter index
-    bool ParserContent(HWND hWnd, int idx, u32 todo = todo_nothing); // chapter index
-    bool ReadOlFile(BOOL fast=FALSE);
-    bool WriteOlFile();
-    bool GenerateOlHeader(ol_header_t **header);
-    bool ParseOlHeader(ol_header_t *header);
-    bool DownloadPrevNext(HWND hWnd);
-    virtual bool OnDrawPageEvent(HWND hWnd);
-    virtual bool OnLineUpDownEvent(HWND hWnd, BOOL up, int n);
+    virtual BOOL ParserBook(HWND hWnd);
+    BOOL ParserChapterPage(HWND hWnd, int idx); // chapter index
+    BOOL ParserChapters(HWND hWnd, int idx); // chapter index
+    BOOL ParserContent(HWND hWnd, int idx, u32 todo = todo_nothing); // chapter index
+    BOOL ReadOlFile(BOOL fast=FALSE);
+    BOOL WriteOlFile();
+    BOOL GenerateOlHeader(ol_header_t **header);
+    BOOL ParseOlHeader(ol_header_t *header);
+    BOOL DownloadPrevNext(HWND hWnd);
+    virtual BOOL OnDrawPageEvent(HWND hWnd);
+    virtual BOOL OnUpDownEvent(HWND hWnd, int draw_type);
     void FormatHtml(char **html, int *len, int *needfree);
     void TidyHtml(char* html, int* len);
     void TidyUrl(char* html, int* len);
@@ -70,7 +70,7 @@ protected:
     HANDLE m_hEvent;
     HANDLE m_hMutex;
     std::set<req_handler_t> m_hRequestList;
-    bool m_result;
+    BOOL m_result;
     char m_MainPage[1024];
     char m_ChapterPage[1024];
     TCHAR m_BookName[256];

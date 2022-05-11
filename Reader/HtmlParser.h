@@ -14,11 +14,11 @@ public:
     static HtmlParser* Instance();
     static void ReleaseInstance();
 
-    int HtmlParseByXpath(const char *html, int len, const std::string &xpath, std::vector<std::string> &value, bool *stop, bool clear = false);
+    int HtmlParseByXpath(const char *html, int len, const std::string &xpath, std::vector<std::string> &value, BOOL *stop, BOOL clear = FALSE);
 
     // for multi parser
-    int HtmlParseBegin(const char *html, int len, void **doc, void **ctx, bool* stop);
-    int HtmlParseByXpath(void *doc, void *ctx, const std::string &xpath, std::vector<std::string> &value, bool* stop, bool clear = false);
+    int HtmlParseBegin(const char *html, int len, void **doc, void **ctx, BOOL* stop);
+    int HtmlParseByXpath(void *doc, void *ctx, const std::string &xpath, std::vector<std::string> &value, BOOL* stop, BOOL clear = FALSE);
     int HtmlParseEnd(void *doc, void *ctx);
 
     int FormatHtml(char *html, int len, char **htmlfmt, int *fmtlen);
