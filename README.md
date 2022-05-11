@@ -5,7 +5,7 @@ A win32 txt/epub/online file reader
 版本描述  | 下载地址
 ------------- | -------------
 正式版x64  | [Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)
-正式版win32  | [Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)
+正式版win32  | [Reader_v2.0.0.0.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0.7z)
 无网络版  | [Reader_v2.0.0.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_networkless.7z)
 调试版  | [Reader_v2.0.0.0_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_debug.7z)
 <br/> 
