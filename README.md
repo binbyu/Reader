@@ -11,10 +11,10 @@ Reader 是我个人开发的一款绿色、开源、免费的阅读器软件，�
 ```
 ****
 最新release版本：　`v2.0.0.0`  
-正式版win32:　　　 [Reader_v2.0.0.0.7z]()  
-正式版x64: 　　　　[Reader_v2.0.0.0_x64.7z]()  
-无网络版:　　　　　[Reader_v2.0.0.0_networkless.7z]()  
-调试版:　　　　　　[Reader_v2.0.0.0_debug.7z]()  
+正式版win32:　[Reader_v2.0.0.0.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0.7z)  
+正式版x64:　　[Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)  
+无网络版:　　　[Reader_v2.0.0.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_networkless.7z)  
+调试版:　　　　[Reader_v2.0.0.0_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_debug.7z)  
 ****
 <br/>
 <br/>
