@@ -1,5 +1,16 @@
 # Reader
 A win32 txt/epub/online file reader  
+
+最新release版本：　`v2.0.0.0`
+版本描述  | 下载地址
+------------- | -------------
+正式版x64  | [Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)
+正式版win32  | [Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)
+无网络版  | [Reader_v2.0.0.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_networkless.7z)
+调试版  | [Reader_v2.0.0.0_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_debug.7z)
+<br/> 
+<br/> 
+
 ```
 Reader 是我个人开发的一款绿色、开源、免费的阅读器软件，主要用于小说阅读，为广大网络文学爱好者提供一种方便、快捷舒适的阅读体验。  
 同时为广大软件开发者、爱好者提供学习参考。所有版权归作者所有。  
@@ -9,18 +20,11 @@ Reader 是我个人开发的一款绿色、开源、免费的阅读器软件，�
 2. 本软件严禁用于非法用途。  
 3. 本软件严禁用于商业用途,如有违反保留追究法律责任的权力。（ps:有人居然在某宝出售）  
 ```
-****
-最新release版本：　`v2.0.0.0`  
-正式版win32:　[Reader_v2.0.0.0.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0.7z)  
-正式版x64:　　[Reader_v2.0.0.0_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_x64.7z)  
-无网络版:　　　[Reader_v2.0.0.0_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_networkless.7z)  
-调试版:　　　　[Reader_v2.0.0.0_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0/Reader_v2.0.0.0_debug.7z)  
-****
 <br/>
 <br/>
 <br/>
 
-## v2.0.0.0 2022/02/25 功能更新  
+## v2.0.0.0 2022/05/11 功能更新  
 1.  修复上一个版本gzip的书源网站解析失败的问题  
 2.  修复设置Reader为默认打开方式时，无法打开新的文本问题  
 3.  新增“显示设置”，为所有文本排版布局相关设置。  
