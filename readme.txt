@@ -107,7 +107,7 @@ ________________
 7.  菜单【设置】 > 【在线小说】：
     7.1. 可以搜索阅读在线小说
     7.2. 使用前需要先配置书源，书源配置详见书源配置说明。
-    7.3. github上面有作者配置的书源供参考学习（下载地址：https://github.com/binbyu/Reader/blob/main/bs.json）。
+    7.3. github上面有作者配置的书源供参考学习（下载地址：https://github.com/binbyu/Reader/raw/master/bs.json）。
     7.4. 上面下载地址由于国内网络原因打不开为正常现象。也可以在微信公众号内获取到最新书源配置下载地址。
     7.5. 如果使用代理上网还需要先配置网络代理。
 
@@ -157,7 +157,7 @@ ________________
 
 8. 关于书源
 答：由于书源网站一直在变，无法保证书源配置一直可用。如果有书源更新时，我会尽量第一时间更新到
-https://github.com/binbyu/Reader/blob/main/bs.json
+https://github.com/binbyu/Reader/raw/master/bs.json
 
 
 六、软件策略
