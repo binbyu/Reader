@@ -122,8 +122,8 @@
 			"content_next_url_xpath":	"",
 			"content_next_keyword_xpath":	"",
 			"content_next_keyword":	"",
-			"content_filter_type":	0,
-			"content_filter_keyword":	""
+			"content_filter_type":	2,
+			"content_filter_keyword":	"【告知书友.*"
 		}, {
 			"title":	"书快小说",
 			"host":	"https://www.shukuai.net",
@@ -297,8 +297,8 @@
 			"content_next_url_xpath":	"",
 			"content_next_keyword_xpath":	"",
 			"content_next_keyword":	"",
-			"content_filter_type":	0,
-			"content_filter_keyword":	""
+			"content_filter_type":	2,
+			"content_filter_keyword":	"亲.点击进去.*|手机站全新改版升级.*"
 		}, {
 			"title":	"妙笔阁",
 			"host":	"https://www.imiaobige.com",
@@ -399,5 +399,30 @@
 			"content_next_keyword":	"",
 			"content_filter_type":	1,
 			"content_filter_keyword":	"AD4"
+		}, {
+			"title":	"31小说",
+			"host":	"http://www.31xs.org",
+			"query_url":	"http://www.31xs.org/search.php?keyword=%s",
+			"query_method":	0,
+			"query_params":	"",
+			"query_charset":	1,
+			"book_name_xpath":	"//div[@class='book-box mt15']/table[@class='grid']/tbody[@id='bookcase_list']/tr/td[2]/a",
+			"book_mainpage_xpath":	"//div[@class='book-box mt15']/table[@class='grid']/tbody[@id='bookcase_list']/tr/td[2]/a/@href",
+			"book_author_xpath":	"//div[@class='book-box mt15']/table[@class='grid']/tbody[@id='bookcase_list']/tr/td[4]",
+			"enable_chapter_page":	0,
+			"chapter_page_xpath":	"",
+			"chapter_title_xpath":	"//div[@id='list']/dl/dd/a",
+			"chapter_url_xpath":	"//div[@id='list']/dl/dd/a/@href",
+			"enable_chapter_next":	0,
+			"chapter_next_url_xpath":	"",
+			"chapter_next_keyword_xpath":	"",
+			"chapter_next_keyword":	"",
+			"content_xpath":	"//div[@id='content']",
+			"enable_content_next":	0,
+			"content_next_url_xpath":	"",
+			"content_next_keyword_xpath":	"",
+			"content_next_keyword":	"",
+			"content_filter_type":	2,
+			"content_filter_keyword":	"【.*】"
 		}]
 }
