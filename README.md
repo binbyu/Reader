@@ -1,13 +1,13 @@
 # Reader
 A win32 txt/epub/online file reader  
 
-最新release版本：　`v2.0.0.3`
+最新release版本：　`v2.0.0.4`
 版本描述  | 下载地址
 ------------- | -------------
-正式版x64  | [Reader_v2.0.0.3_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.3/Reader_v2.0.0.3_x64.7z)
-正式版win32  | [Reader_v2.0.0.3.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.3/Reader_v2.0.0.3.7z)
-无网络版  | [Reader_v2.0.0.3_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.3/Reader_v2.0.0.3_networkless.7z)
-调试版  | [Reader_v2.0.0.3_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.3/Reader_v2.0.0.3_debug.7z)
+正式版x64  | [Reader_v2.0.0.4_x64.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.4/Reader_v2.0.0.4_x64.7z)
+正式版win32  | [Reader_v2.0.0.4.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.4/Reader_v2.0.0.4.7z)
+无网络版  | [Reader_v2.0.0.4_networkless.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.4/Reader_v2.0.0.4_networkless.7z)
+调试版  | [Reader_v2.0.0.4_debug.7z](https://github.com/binbyu/Reader/releases/download/v2.0.0.4/Reader_v2.0.0.4_debug.7z)
 <br/> 
 <br/> 
 
@@ -24,6 +24,9 @@ Reader 是我个人开发的一款绿色、开源、免费的阅读器软件，�
 <br/>
 <br/>
 <br/>
+
+## v2.0.0.0 2022/05/11 功能更新  
+1.  修复热键注册失败后，程序卡死问题  
 
 ## v2.0.0.0 2022/05/11 功能更新  
 1.  修复上一个版本gzip的书源网站解析失败的问题  
