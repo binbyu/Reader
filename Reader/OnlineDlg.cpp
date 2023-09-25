@@ -1,4 +1,4 @@
-#ifdef ENABLE_NETWORK
+﻿#ifdef ENABLE_NETWORK
 #include "OnlineDlg.h"
 #include "BooksourceDlg.h"
 #include "resource.h"
@@ -6,7 +6,7 @@
 #include "https.h"
 #include "Utils.h"
 
-extern header_t *_header;
+extern header_t* _header;
 extern HWND _hWnd;
 extern HINSTANCE hInst;
 extern void OnOpenOlBook(HWND, void*);
@@ -14,8 +14,7 @@ extern int MessageBox_(HWND hWnd, UINT textId, UINT captionId, UINT uType);
 extern int MessageBoxFmt_(HWND hWnd, UINT captionId, UINT uType, UINT formatId, ...);
 extern void combine_url(const char* path, const char* url, char* dsturl);
 
-typedef struct req_query_param_t
-{
+typedef struct req_query_param_t {
     HWND hDlg;
     TCHAR text[256];
     int bs_idx;
@@ -25,7 +24,7 @@ typedef struct req_query_param_t
 static BOOL g_Enable = TRUE;
 static req_handler_t g_hRequest = NULL;
 static int g_lastPos = 0;
-static req_query_param_t *g_query_param = NULL;
+static req_query_param_t* g_query_param = NULL;
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 static int OnRequestQuery(http_charset_t charset);
@@ -39,11 +38,11 @@ void OpenOnlineDlg(void)
     DialogBox(hInst, MAKEINTRESOURCE(IDD_ONLINE), _hWnd, OnlineDlgProc);
 }
 
-void DumpParseErrorFile(const char *html, int htmllen)
+void DumpParseErrorFile(const char* html, int htmllen)
 {
 #if TEST_MODEL
     const char* UTF_8_BOM = "\xEF\xBB\xBF";
-    FILE *fp;
+    FILE* fp;
     if (html && htmllen > 0)
     {
         fp = fopen("dump.html", "wb");
@@ -60,14 +59,14 @@ void DumpParseErrorFile(const char *html, int htmllen)
 #if TEST_MODEL
 void TestXpathFromDump(void)
 {
-    FILE *fp;
-    char *html;
+    FILE* fp;
+    char* html;
     int htmllen;
-    void *doc = NULL;
-    void *ctx = NULL;
+    void* doc = NULL;
+    void* ctx = NULL;
     BOOL fkill = FALSE;
-    const char *xpath1 = "//div[@id='list']/dl/dd[position()>12]/a";
-    const char *xpath2 = "//div[@id='list']/dl/dd[position()>12]/a/@href";
+    const char* xpath1 = "//div[@id='list']/dl/dd[position()>12]/a";
+    const char* xpath2 = "//div[@id='list']/dl/dd[position()>12]/a/@href";
     std::vector<std::string> value1, value2;
 
     fp = fopen("dump.html", "rb");
@@ -76,7 +75,7 @@ void TestXpathFromDump(void)
         fseek(fp, 0, SEEK_END);
         htmllen = ftell(fp);
         fseek(fp, 0, SEEK_SET);
-        html = (char *)malloc(htmllen+1);
+        html = (char*)malloc(htmllen + 1);
         fread(html, 1, htmllen, fp);
         fclose(fp);
 
@@ -113,24 +112,28 @@ void ReloadBookSourceCombobox(HWND hDlg, int iPos)
 
 static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    TCHAR path[1024] = { 0 };
+    TCHAR path[1024] = {0};
     HWND hList;
     int iPos;
-    int i,colnum;
+    int i, colnum;
     int idx;
-    ol_book_param_t param = { 0 };
+    ol_book_param_t param = {0};
     HWND hHeader = NULL;
     LVITEM lvi;
 
     switch (message)
     {
     case WM_INITDIALOG:
+    {
         g_hRequest = NULL;
         g_Enable = TRUE;
-        ListView_SetExtendedListViewStyleEx(GetDlgItem(hDlg, IDC_LIST_QUERY), LVS_REPORT|LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_AUTOSIZECOLUMNS|LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
+        HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BOOK));
+        SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        ListView_SetExtendedListViewStyleEx(GetDlgItem(hDlg, IDC_LIST_QUERY), LVS_REPORT | LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_AUTOSIZECOLUMNS | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
         ReloadBookSourceCombobox(hDlg, g_lastPos);
         _end_query(hDlg);
         return (INT_PTR)TRUE;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -180,7 +183,7 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
                     ListView_DeleteAllItems(hList);
                     hHeader = (HWND)SendMessage(hList, LVM_GETHEADER, 0, 0);
                     colnum = (int)SendMessage(hHeader, HDM_GETITEMCOUNT, 0, 0);
-                    for (i=colnum-1; i>=0; i--)
+                    for (i = colnum - 1; i >= 0; i--)
                         SendMessage(hList, LVM_DELETECOLUMN, i, 0);
                     OnRequestCharset();
                 }
@@ -197,13 +200,39 @@ static INT_PTR CALLBACK OnlineDlgProc(HWND hDlg, UINT message, WPARAM wParam, LP
             break;
         }
         break;
+
+    case WM_SIZE:
+    {
+        const int client_width = LOWORD(lParam);
+        const int client_height = HIWORD(lParam);
+
+        const HWND hListView = GetDlgItem(hDlg, IDC_LIST_QUERY);
+        SetWindowPos(hListView, nullptr, 11, 42, client_width - 24, client_height - 88, SWP_NOZORDER);
+
+        const HWND hBsManagerBtn = GetDlgItem(hDlg, IDC_BUTTON_BS_MANAGER);
+        SetWindowPos(hBsManagerBtn, nullptr, 11, client_height - 34, 75, 23, SWP_NOZORDER);
+
+        const HWND hOkBtn = GetDlgItem(hDlg, IDOK);
+        SetWindowPos(hOkBtn, nullptr, client_width - 166, client_height - 34, 75, 23, SWP_NOZORDER);
+
+        const HWND hCancelBtn = GetDlgItem(hDlg, IDCANCEL);
+        SetWindowPos(hCancelBtn, nullptr, client_width - 86, client_height - 34, 75, 23, SWP_NOZORDER);
+        break;
+    }
+    case WM_GETMINMAXINFO: // 设置弹框最小尺寸
+    {
+        MINMAXINFO* pMinMaxInfo = (MINMAXINFO*)lParam;
+        // 指定最小宽度和最小高度
+        pMinMaxInfo->ptMinTrackSize.x = 480; // 最小宽度
+        pMinMaxInfo->ptMinTrackSize.y = 340; // 最小高度
+    }
     default:
         break;
     }
     return (INT_PTR)FALSE;
 }
 
-static unsigned int RequestQueryCompleter(request_result_t *result)
+static unsigned int RequestQueryCompleter(request_result_t* result)
 {
     char* html = NULL;
     int htmllen = 0;
@@ -213,14 +242,14 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
     std::vector<std::string> table_url;
     std::vector<std::string> table_author;
     HWND hList = NULL;
-    LV_COLUMN lvc = { 0 };
-    LVITEM lvitem = { 0 };
-    int i,col;
+    LV_COLUMN lvc = {0};
+    LVITEM lvitem = {0};
+    int i, col;
     void* doc = NULL;
     void* ctx = NULL;
     BOOL cancel = FALSE;
-    TCHAR colname[256] = { 0 };
-    char Url[1024] = { 0 };
+    TCHAR colname[256] = {0};
+    char Url[1024] = {0};
     int needfree = 0;
     HWND hHeader = NULL;
     int colnum = 0;
@@ -357,14 +386,14 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
             SendMessage(hList, LVM_INSERTCOLUMN, col++, (LPARAM)&lvc);
         }
 
-        colnum =ListView_GetItemCount(hList); // rownum
+        colnum = ListView_GetItemCount(hList); // rownum
         for (i = 0; i < (int)table_name.size(); i++)
         {
             col = 0;
             // book source name
             lvitem.mask = LVIF_TEXT | LVIF_PARAM;
             lvitem.cchTextMax = MAX_PATH;
-            lvitem.iItem = i+colnum;
+            lvitem.iItem = i + colnum;
             lvitem.iSubItem = col++;
             lvitem.pszText = _header->book_sources[bs_idx].title;
             lvitem.lParam = bs_idx;
@@ -375,7 +404,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
             memset(&lvitem, 0, sizeof(LVITEM));
             lvitem.mask = LVIF_TEXT;
             lvitem.cchTextMax = MAX_PATH;
-            lvitem.iItem = i+colnum;
+            lvitem.iItem = i + colnum;
             lvitem.iSubItem = col++;
             lvitem.pszText = Utf8ToUtf16(table_name[i].c_str());
             ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
@@ -387,7 +416,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
                 memset(&lvitem, 0, sizeof(LVITEM));
                 lvitem.mask = LVIF_TEXT;
                 lvitem.cchTextMax = MAX_PATH;
-                lvitem.iItem = i+colnum;
+                lvitem.iItem = i + colnum;
                 lvitem.iSubItem = col;
                 lvitem.pszText = Utf8ToUtf16(table_author[i].c_str());
                 ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
@@ -400,7 +429,7 @@ static unsigned int RequestQueryCompleter(request_result_t *result)
             memset(&lvitem, 0, sizeof(LVITEM));
             lvitem.mask = LVIF_TEXT;
             lvitem.cchTextMax = MAX_PATH;
-            lvitem.iItem = i+colnum;
+            lvitem.iItem = i + colnum;
             lvitem.iSubItem = col++;
             lvitem.pszText = Utf8ToUtf16(Url);
             ::SendMessage(hList, LVM_INSERTITEM, lvitem.iItem, (LPARAM)&lvitem);
@@ -424,10 +453,10 @@ static int OnRequestQuery(http_charset_t charset)
 {
     char* query_format;
     char url[1024];
-    char content[1024] = { 0 };
+    char content[1024] = {0};
     char* encode;
     request_t req;
-    char *keyword = NULL;
+    char* keyword = NULL;
     int bs_idx = g_query_param->bs_idx;
 
     if (charset == utf_8)
@@ -466,7 +495,7 @@ static int OnRequestQuery(http_charset_t charset)
     return 0;
 }
 
-static unsigned int RequestCharsetCompleter(request_result_t *result)
+static unsigned int RequestCharsetCompleter(request_result_t* result)
 {
     HWND hDlg = g_query_param->hDlg;
     int bs_idx = g_query_param->bs_idx;
@@ -516,9 +545,9 @@ static int OnRequestCharset(void)
     request_t req;
     char* query_format;
     char url[1024];
-    char content[1024] = { 0 };
+    char content[1024] = {0};
     char* encode;
-    char *keyword = NULL;
+    char* keyword = NULL;
     http_charset_t charset;
     int bs_idx = g_query_param->bs_idx;
 
@@ -566,8 +595,8 @@ static int OnRequestCharset(void)
 
 static void EnableDialog(HWND hDlg, BOOL enable)
 {
-    TCHAR szQuery[256] = { 0 };
-    TCHAR szStopQuery[256] = { 0 };
+    TCHAR szQuery[256] = {0};
+    TCHAR szStopQuery[256] = {0};
     LoadString(hInst, IDS_QUERY, szQuery, 256);
     LoadString(hInst, IDS_STOP_QUERY, szStopQuery, 256);
     EnableWindow(GetDlgItem(hDlg, IDC_COMBO_BS_LIST), enable);
@@ -617,7 +646,7 @@ static BOOL _begin_query(HWND hDlg)
         MessageBox_(hDlg, IDS_SELECT_BOOKSOURCE, IDS_ERROR, MB_ICONERROR | MB_OK);
         goto _failed;
     }
-    
+
     if (g_query_param->bs_idx == _header->book_source_count)
     {
         g_query_param->bs_idx = 0;
