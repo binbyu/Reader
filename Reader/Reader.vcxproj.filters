@@ -93,6 +93,9 @@
     <ClInclude Include="..\opensrc\cjson\cJSON.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MobiBook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Reader.cpp">
@@ -156,6 +159,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\opensrc\cjson\cJSON.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MobiBook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

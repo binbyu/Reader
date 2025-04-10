@@ -42,6 +42,7 @@ typedef struct IUnknown IUnknown;
 #pragma comment(lib, "zlibstatd.lib")
 #endif
 #pragma comment(lib, "libxml2_ad.lib")
+#pragma comment(lib, "libmobid.lib")
 #ifdef ENABLE_NETWORK
 #pragma comment(lib, "libhttps_ad.lib")
 #pragma comment(lib, "wolfssld.lib")
@@ -53,6 +54,7 @@ typedef struct IUnknown IUnknown;
 #pragma comment(lib, "zlibstat.lib")
 #endif
 #pragma comment(lib, "libxml2_a.lib")
+#pragma comment(lib, "libmobi.lib")
 #ifdef ENABLE_NETWORK
 #pragma comment(lib, "libhttps_a.lib")
 #pragma comment(lib, "wolfssl.lib")
