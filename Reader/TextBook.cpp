@@ -1,4 +1,4 @@
-#include "TextBook.h"
+Ôªø#include "TextBook.h"
 #include "types.h"
 #include <regex>
 
@@ -8,13 +8,13 @@ wchar_t TextBook::m_ValidChapter[] =
     _T(' '), _T('\t'),
     _T('0'), _T('1'), _T('2'), _T('3'), _T('4'),
     _T('5'), _T('6'), _T('7'), _T('8'), _T('9'),
-    _T('¡„'), _T('“ª'), _T('∂˛'), _T('»˝'), _T('Àƒ'),
-    _T('ŒÂ'), _T('¡˘'), _T('∆ﬂ'), _T('∞À'), _T('æ≈'),
-    _T(' Æ'), _T('∞Ÿ'), _T('«ß'), _T('ÕÚ'), _T('“⁄'),
-    _T('“º'), _T('∑°'), _T('»˛'), _T('À¡'),
-    _T('ŒÈ'), _T('¬Ω'), _T('∆‚'), _T('∞∆'), _T('æ¡'),
-    _T(' ∞'), _T('∞€'), _T('«™'), _T('»f'), _T('É|'),
-    _T('¡Ω'),
+    _T('Èõ∂'), _T('‰∏Ä'), _T('‰∫å'), _T('‰∏â'), _T('Âõõ'),
+    _T('‰∫î'), _T('ÂÖ≠'), _T('‰∏É'), _T('ÂÖ´'), _T('‰πù'),
+    _T('ÂçÅ'), _T('Áôæ'), _T('ÂçÉ'), _T('‰∏á'), _T('‰∫ø'),
+    _T('Â£π'), _T('Ë¥∞'), _T('ÂèÅ'), _T('ËÇÜ'),
+    _T('‰ºç'), _T('ÈôÜ'), _T('Êüí'), _T('Êçå'), _T('Áéñ'),
+    _T('Êãæ'), _T('‰Ω∞'), _T('‰ªü'), _T('Ëê¨'), _T('ÂÑÑ'),
+    _T('‰∏§'),
     0x3000
 };
 
@@ -188,7 +188,7 @@ BOOL TextBook::ParserChaptersDefault(void)
         idx_2 = -1;
         for (int i = 0; i < line_size; i++)
         {
-            if (text[i] == _T('µ⁄'))
+            if (text[i] == _T('Á¨¨'))
             {
                 idx_1 = i;
             }
@@ -198,20 +198,20 @@ BOOL TextBook::ParserChaptersDefault(void)
                     || text[i + 1] == 0x3000 // Full Angle space
                     || text[i + 1] == 0xA0 // Full Angle space
                     || line_size <= i + 1)
-                    || text[i + 1] == _T('£∫')
+                    || text[i + 1] == _T('Ôºö')
                     || text[i + 1] == _T(':'))
             {
-                if (text[i] == _T('æÌ')
-                    || text[i] == _T('’¬')
-                    || text[i] == _T('≤ø')
-                    || text[i] == _T('Ω⁄'))
+                if (text[i] == _T('Âç∑')
+                    || text[i] == _T('Á´†')
+                    || text[i] == _T('ÈÉ®')
+                    || text[i] == _T('ËäÇ'))
                 {
                     idx_2 = i;
                     bFound = TRUE;
                     break;
                 }
             }
-            if (idx_1 == -1 && line_size > i + 2 && text[i] == _T('–®') && text[i + 1] == _T('◊”')
+            if (idx_1 == -1 && line_size > i + 2 && text[i] == _T('Ê•î') && text[i + 1] == _T('Â≠ê')
                 && ((text[i + 2] == _T(' ')
                 || text[i + 2] == _T('\t'))
                 || text[i + 2] == 0x3000 // Full Angle space
@@ -222,7 +222,7 @@ BOOL TextBook::ParserChaptersDefault(void)
                 bFound = TRUE;
                 break;
             }
-            if (idx_1 == -1 && line_size > i + 2 && text[i] == _T('–Ú') && text[i + 1] == _T('’¬')
+            if (idx_1 == -1 && line_size > i + 2 && text[i] == _T('Â∫è') && text[i + 1] == _T('Á´†')
                 && ((text[i + 2] == _T(' ')
                     || text[i + 2] == _T('\t'))
                     || text[i + 2] == 0x3000 // Full Angle space
@@ -234,7 +234,7 @@ BOOL TextBook::ParserChaptersDefault(void)
                 break;
             }
         }
-        if (bFound && (text[idx_1] == _T('–®') || text[idx_1] == _T('–Ú') || (IsChapter(text + idx_1 + 1, idx_2 - idx_1 - 1))))
+        if (bFound && (text[idx_1] == _T('Ê•î') || text[idx_1] == _T('Â∫è') || (IsChapter(text + idx_1 + 1, idx_2 - idx_1 - 1))))
         {
             title_len = line_size - idx_1 < (MAX_CHAPTER_LENGTH - 1) ? line_size - idx_1 : MAX_CHAPTER_LENGTH - 1;
             memcpy(title, text + idx_1, title_len * sizeof(wchar_t));

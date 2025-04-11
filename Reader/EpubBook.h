@@ -6,32 +6,6 @@
 #include <map>
 #include <vector>
 
-typedef struct file_data_t
-{
-    void *data;
-    int size;
-} file_data_t;
-typedef std::map<std::string, file_data_t> filelist_t;
-
-typedef struct manifest_t
-{
-    std::string id;
-    std::string href;
-    std::string media_type;
-} manifest_t;
-typedef std::map<std::string, manifest_t *> manifests_t;
-
-typedef std::vector<std::string> spines_t;
-
-typedef struct navpoint_t
-{
-    std::string id;
-    std::string src;
-    std::string text;
-    int order;
-} navpoint_t;
-typedef std::map<std::string, navpoint_t *> navpoints_t;
-
 typedef struct epub_t
 {
     std::string path;

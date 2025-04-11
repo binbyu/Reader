@@ -4,6 +4,7 @@
 #include "Reader.h"
 #include "TextBook.h"
 #include "EpubBook.h"
+#include "MobiBook.h"
 #include "OnlineBook.h"
 #include "Keyset.h"
 #include "Editctrl.h"
@@ -2485,7 +2486,7 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);  
     ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("Files (*.txt;*.epub;*.ol)\0*.txt;*.epub;*.ol\0\0");
+    ofn.lpstrFilter = _T("Files (*.txt;*.epub;*.mobi;*.ol)\0*.txt;*.epub;*.mobi;*.ol\0\0");
     ofn.lpstrInitialDir = NULL;
     ofn.lpstrFile = szFileName; 
     ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
@@ -2720,9 +2721,9 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // check is txt file
         ext = PathFindExtension(szFileName);
 #ifdef ENABLE_NETWORK
-        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")))
 #else
-        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")))
 #endif
         {
             continue;
@@ -3091,9 +3092,9 @@ BOOL IsVaildFile(HWND hWnd, TCHAR *filename, int *p_size)
             return FALSE;
         }
     }
-    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".ol")))
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")))
 #else
-    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")))
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")))
 #endif
     {
         if (hWnd)
@@ -3172,6 +3173,12 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
     else if (_tcscmp(ext, _T(".epub")) == 0)
     {
         _Book = new EpubBook;
+        _Book->SetFileName(szFileName);
+        _Book->OpenBook(hWnd);
+    }
+    else if (_tcscmp(ext, _T(".mobi")) == 0)
+    {
+        _Book = new MobiBook;
         _Book->SetFileName(szFileName);
         _Book->OpenBook(hWnd);
     }
