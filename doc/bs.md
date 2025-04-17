@@ -155,7 +155,14 @@
 
 
 ## 10. 书籍配置样例
-> 下载 [bs.json](../bs.json) 文件, (点击raw，然后右键保存即可。如果raw打不开，可以手动拷贝文件内容，保存到本地文件)  
+> 下载bs.json [bs.json](../bs.json) 文件, (点击raw，然后右键保存即可。如果raw打不开，可以手动拷贝文件内容，保存到本地文件) 
+> 下载加速1：https://ghproxy.net/加速：[https://ghproxy.net/https://raw.githubusercontent.com/binbyu/Reader/master/bs.json](https://ghproxy.net/https://raw.githubusercontent.com/binbyu/Reader/master/bs.json) 
+> 下载加速2：https://fastgit.org/加速：[https://raw.fastgit.org/binbyu/Reader/master/bs.json](https://raw.fastgit.org/binbyu/Reader/master/bs.json) 
+> 下载加速3：[https://raw.iqiq.io/binbyu/Reader/master/bs.json](https://raw.iqiq.io/binbyu/Reader/master/bs.json)
+> 下载加速4：[https://raw.kgithub.com/binbyu/Reader/master/bs.json](https://raw.kgithub.com/binbyu/Reader/master/bs.json)
+> 下载加速5：[https://fastly.jsdelivr.net/gh/binbyu/Reader@master/bs.json](https://fastly.jsdelivr.net/gh/binbyu/Reader@master/bs.json)
+> 下载加速6：[https://cdn.staticaly.com/gh/binbyu/Reader/master/bs.json](https://cdn.staticaly.com/gh/binbyu/Reader/master/bs.json)
+> 下载加速7：
 > 然后进入书源配置页面，选择"导入"即可使用  
 > 点击“自动配置”按钮会，会自动下载 bs.json 并解析。由于github网络原因，有时会无法成功下载，为正常现象。  
 
