@@ -63,6 +63,7 @@ HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
 BYTE                _textAlpha              = 0xFF;
 BOOL                _menuInvalid            = FALSE;
+BOOL                _isMenuVisible          = TRUE;
 
 
 LRESULT             OnCreate(HWND);
