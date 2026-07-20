@@ -62,6 +62,7 @@ HHOOK               _hKeyboardHook          = NULL;
 HWND                _hWnd                   = NULL;
 NOTIFYICONDATA      _nid                    = { 0 };
 BYTE                _textAlpha              = 0xFF;
+BOOL                _bHideText              = FALSE;
 BOOL                _menuInvalid            = FALSE;
 
 

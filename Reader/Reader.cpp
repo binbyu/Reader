@@ -1100,6 +1100,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DpiChanged(hWnd, &_header->font, &_header->fs_placement.rcNormalPosition, wParam, (RECT*)lParam);
         }
         break;
+    case WM_MOUSELEAVE:
+        // 鼠标离开无边框窗口时隐藏文字（隐蔽模式）
+        if (_WndInfo.status == ds_borderless)
+        {
+            _bHideText = TRUE;
+            Invalidate(hWnd, TRUE, FALSE);
+        }
+        break;
+    case WM_MOUSEMOVE:
+        // 鼠标回到无边框窗口时恢复文字显示
+        if (_bHideText && _WndInfo.status == ds_borderless)
+        {
+            _bHideText = FALSE;
+            Invalidate(hWnd, TRUE, FALSE);
+            // 重新注册鼠标离开追踪
+            TRACKMOUSEEVENT tme;
+            tme.cbSize = sizeof(TRACKMOUSEEVENT);
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = hWnd;
+            TrackMouseEvent(&tme);
+        }
+        break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
@@ -2185,7 +2207,7 @@ VOID OnDraw(HWND hWnd)
     memdc = CreateCompatibleDC(hdc_screen);
 
     // draw text to dc, DrawPage() will create bitmap
-    if (_Book && !_Book->IsLoading())
+    if (_Book && !_Book->IsLoading() && !_bHideText)
     {
         hdc_text = CreateCompatibleDC(hdc_screen);
         _Book->DrawPage(hWnd, hdc_text, &rc, TRUE);
@@ -2368,6 +2390,13 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
         _WndInfo.bLayered = TRUE;
         _WndInfo.status = ds_borderless;
+
+        // 注册鼠标离开追踪，用于隐蔽模式
+        TRACKMOUSEEVENT tme;
+        tme.cbSize = sizeof(TRACKMOUSEEVENT);
+        tme.dwFlags = TME_LEAVE;
+        tme.hwndTrack = hWnd;
+        TrackMouseEvent(&tme);
     }
     else if (_WndInfo.status == ds_borderless)// show border
     {
@@ -2387,6 +2416,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
         _WndInfo.bLayered = FALSE;
         _WndInfo.status = ds_normal;
+        _bHideText = FALSE;
 
         if (_menuInvalid)
         {
