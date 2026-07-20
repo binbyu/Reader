@@ -3,5 +3,12 @@
 ################################################################################
 
 /.vs/
+/Debug/
+/Release/
+/Reader/Debug/
+/Reader/Release/
 /Reader/x64/Debug
+/Reader/x64/Release
 /x64/Debug
+/x64/Release
+.claude/
