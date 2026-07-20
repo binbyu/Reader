@@ -89,12 +89,14 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;..\opensrc\libmobi\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>zlibstatd.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ALTERNATENAME:_crc32=_crc32@12 /ALTERNATENAME:_uncompress=_uncompress@16 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -109,7 +111,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -117,6 +119,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;..\opensrc\libmobi\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>zlibstat.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ALTERNATENAME:_crc32=_crc32@12 /ALTERNATENAME:_uncompress=_uncompress@16 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -126,15 +130,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\opensrc\zlib\lib\x64;..\opensrc\libxml2\lib\x64;..\opensrc\openssl\lib\x64;..\opensrc\wolfssl\lib\x64;..\opensrc\libhttps\lib\x64;..\opensrc\libmobi\lib\x64%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
