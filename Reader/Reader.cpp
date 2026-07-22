@@ -306,6 +306,73 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+static BOOL IsCursorInsideWindow(HWND hWnd, POINT *cursor)
+{
+    RECT windowRect;
+
+    if (!GetCursorPos(cursor) || !GetWindowRect(hWnd, &windowRect))
+        return FALSE;
+
+    return PtInRect(&windowRect, *cursor);
+}
+
+static void TrackBorderlessMouse(HWND hWnd, BOOL nonClient)
+{
+    TRACKMOUSEEVENT tme = { 0 };
+
+    if (_WndInfo.status != ds_borderless)
+        return;
+
+    tme.cbSize = sizeof(TRACKMOUSEEVENT);
+    tme.dwFlags = TME_LEAVE | (nonClient ? TME_NONCLIENT : 0);
+    tme.hwndTrack = hWnd;
+    TrackMouseEvent(&tme);
+}
+
+static void OnBorderlessMouseMove(HWND hWnd, BOOL nonClient)
+{
+    if (_WndInfo.status != ds_borderless)
+        return;
+
+    if (_bHideText)
+    {
+        _bHideText = FALSE;
+        Invalidate(hWnd, TRUE, FALSE);
+    }
+
+    TrackBorderlessMouse(hWnd, nonClient);
+}
+
+static void OnBorderlessMouseLeave(HWND hWnd)
+{
+    POINT cursor;
+
+    if (_WndInfo.status != ds_borderless || IsCursorInsideWindow(hWnd, &cursor))
+        return;
+
+    if (!_bHideText)
+    {
+        _bHideText = TRUE;
+        Invalidate(hWnd, TRUE, FALSE);
+    }
+}
+
+static void InitializeBorderlessMouseTracking(HWND hWnd)
+{
+    POINT cursor;
+
+    if (!IsCursorInsideWindow(hWnd, &cursor))
+    {
+        _bHideText = TRUE;
+        return;
+    }
+
+    _bHideText = FALSE;
+    LRESULT hit = SendMessage(hWnd, WM_NCHITTEST, 0,
+        MAKELPARAM((SHORT)cursor.x, (SHORT)cursor.y));
+    TrackBorderlessMouse(hWnd, hit != HTCLIENT);
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -1113,27 +1180,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_MOUSELEAVE:
-        // 鼠标离开无边框窗口时隐藏文字（隐蔽模式）
-        if (_WndInfo.status == ds_borderless)
-        {
-            _bHideText = TRUE;
-            Invalidate(hWnd, TRUE, FALSE);
-        }
+    case WM_NCMOUSELEAVE:
+        // 只有鼠标离开完整窗口（包括标题栏和缩放边缘）时才隐藏文字
+        OnBorderlessMouseLeave(hWnd);
         break;
     case WM_MOUSEMOVE:
-        // 鼠标回到无边框窗口时恢复文字显示
-        if (_bHideText && _WndInfo.status == ds_borderless)
-        {
-            _bHideText = FALSE;
-            Invalidate(hWnd, TRUE, FALSE);
-            // 重新注册鼠标离开追踪
-            TRACKMOUSEEVENT tme;
-            tme.cbSize = sizeof(TRACKMOUSEEVENT);
-            tme.dwFlags = TME_LEAVE;
-            tme.hwndTrack = hWnd;
-            TrackMouseEvent(&tme);
-        }
+        OnBorderlessMouseMove(hWnd, FALSE);
         break;
+    case WM_NCMOUSEMOVE:
+        OnBorderlessMouseMove(hWnd, TRUE);
+        return DefWindowProc(hWnd, message, wParam, lParam);
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
@@ -2590,12 +2646,8 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, windowPosFlags);
         CorrectWindowContentRect(hWnd, &rcContent, 0, windowPosFlags);
 
-        // 注册鼠标离开追踪，用于隐蔽模式
-        TRACKMOUSEEVENT tme;
-        tme.cbSize = sizeof(TRACKMOUSEEVENT);
-        tme.dwFlags = TME_LEAVE;
-        tme.hwndTrack = hWnd;
-        TrackMouseEvent(&tme);
+        // 按光标当前所在的客户区或非客户区，注册对应的离开追踪
+        InitializeBorderlessMouseTracking(hWnd);
     }
     else if (_WndInfo.status == ds_borderless)// show border
     {
