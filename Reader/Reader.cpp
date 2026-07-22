@@ -38,6 +38,7 @@ HINSTANCE hInst;                                // current instance
 TCHAR szTitle[MAX_LOADSTRING];                    // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 TCHAR szStatusClass[MAX_LOADSTRING];            // the status window class name
+static HWND _hLocatorWindow = NULL;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -53,6 +54,9 @@ INT_PTR CALLBACK    UpgradeProc(HWND, UINT, WPARAM, LPARAM);
 
 static void _free_resource(HWND hWnd);
 static void _update_data(HWND hWnd, BOOL keep_header, BOOL do_save);
+static BOOL CreateLocatorWindow(HWND hWnd);
+static void UpdateLocatorWindow(HWND hWnd);
+static void ShowLocatorWindow(HWND hWnd, BOOL show);
 
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -590,6 +594,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
         OnCreate(hWnd);
         break;
+    case WM_SHOWWINDOW:
+        ShowLocatorWindow(hWnd, (BOOL)wParam);
+        break;
+    case WM_MOVE:
+        UpdateLocatorWindow(hWnd);
+        break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         // TODO: Add any drawing code here...
@@ -688,6 +698,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnSize(hWnd, message, wParam, lParam);
         GetWindowRect(hWnd, &s_rect);
         ResetAutoPage(hWnd);
+        ShowLocatorWindow(hWnd, wParam != SIZE_MINIMIZED && IsWindowVisible(hWnd));
         break;
     case WM_KEYDOWN:
 #if ENABLE_GLOBAL_KEY
@@ -1098,6 +1109,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(_hTreeMark, TVM_SETITEMHEIGHT, theMetrics.iMenuHeight, NULL);
             DpiChanged(hWnd, &_header->font, &_header->placement.rcNormalPosition, wParam, (RECT*)lParam);
             DpiChanged(hWnd, &_header->font, &_header->fs_placement.rcNormalPosition, wParam, (RECT*)lParam);
+            UpdateLocatorWindow(hWnd);
         }
         break;
     case WM_MOUSELEAVE:
@@ -1846,6 +1858,158 @@ INT_PTR CALLBACK UpgradeProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
 }
 #endif
 
+static LRESULT CALLBACK LocatorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == WM_NCHITTEST)
+        return HTTRANSPARENT;
+    if (message == WM_MOUSEACTIVATE)
+        return MA_NOACTIVATE;
+    return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+static BOOL CreateLocatorWindow(HWND hWnd)
+{
+    static const TCHAR locatorClass[] = _T("ReaderLocatorWindow");
+    WNDCLASSEX wcex = { 0 };
+
+    wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.lpfnWndProc = LocatorWndProc;
+    wcex.hInstance = hInst;
+    wcex.lpszClassName = locatorClass;
+    if (!RegisterClassEx(&wcex) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+        return FALSE;
+
+    _hLocatorWindow = CreateWindowEx(
+        WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+        locatorClass, NULL, WS_POPUP,
+        0, 0, 0, 0, hWnd, NULL, hInst, NULL);
+
+    if (!_hLocatorWindow)
+        return FALSE;
+
+    UpdateLocatorWindow(hWnd);
+    return TRUE;
+}
+
+static void UpdateLocatorWindow(HWND hWnd)
+{
+    const BYTE markerAlpha = 0xa0;
+    const COLORREF markerColorBlack = RGB(0x00, 0x00, 0x00);
+    const COLORREF markerColorWhite = RGB(0xff, 0xff, 0xff);
+    RECT rcOwner;
+    BITMAPINFO bmi = { 0 };
+    BLENDFUNCTION blend = { 0 };
+    HDC hdcScreen = NULL;
+    HDC hdcMarker = NULL;
+    HBITMAP hBitmap = NULL;
+    HBITMAP hOldBitmap = NULL;
+    BYTE *pixels = NULL;
+    POINT ptSrc = { 0, 0 };
+    POINT ptPos;
+    SIZE size;
+    int dotWidth;
+    int dotHeight;
+    int gapX;
+    int gapY;
+    int insetX;
+    int insetY;
+
+    if (!_hLocatorWindow || !IsWindow(hWnd))
+        return;
+
+    dotWidth = GetWidthForDpi(2);
+    dotHeight = GetHeightForDpi(2);
+    gapX = GetWidthForDpi(2);
+    gapY = GetHeightForDpi(2);
+    insetX = _WndInfo.status == ds_borderless ? 1 : 0;
+    insetY = 0;
+    if (dotWidth < 2) dotWidth = 2;
+    if (dotHeight < 2) dotHeight = 2;
+    if (gapX < 1) gapX = 1;
+    if (gapY < 1) gapY = 1;
+
+    size.cx = dotWidth * 4 + gapX * 3;
+    size.cy = dotHeight * 3 + gapY * 2;
+    GetWindowRect(hWnd, &rcOwner);
+    ptPos.x = rcOwner.right - insetX - size.cx;
+    ptPos.y = rcOwner.bottom - insetY - size.cy;
+
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = size.cx;
+    bmi.bmiHeader.biHeight = -size.cy;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    hdcScreen = GetDC(NULL);
+    hdcMarker = CreateCompatibleDC(hdcScreen);
+    hBitmap = CreateDIBSection(hdcMarker, &bmi, DIB_RGB_COLORS, (void**)&pixels, NULL, 0);
+    if (hBitmap && pixels)
+    {
+        hOldBitmap = (HBITMAP)SelectObject(hdcMarker, hBitmap);
+        memset(pixels, 0, size.cx * size.cy * 4);
+
+        for (int row = 0; row < 3; row++)
+        {
+            int startY = row * (dotHeight + gapY);
+
+            for (int dot = 0; dot < 4; dot++)
+            {
+                COLORREF markerColor = dot >= 3 - row ? markerColorWhite : markerColorBlack;
+                int dotX = dot * (dotWidth + gapX);
+                for (int y = 0; y < dotHeight; y++)
+                {
+                    for (int x = 0; x < dotWidth; x++)
+                    {
+                        BYTE *pixel = pixels + ((startY + y) * size.cx + dotX + x) * 4;
+                        pixel[0] = (BYTE)(GetBValue(markerColor) * markerAlpha / 255);
+                        pixel[1] = (BYTE)(GetGValue(markerColor) * markerAlpha / 255);
+                        pixel[2] = (BYTE)(GetRValue(markerColor) * markerAlpha / 255);
+                        pixel[3] = markerAlpha;
+                    }
+                }
+            }
+        }
+
+        blend.BlendOp = AC_SRC_OVER;
+        blend.SourceConstantAlpha = 0xff;
+        blend.AlphaFormat = AC_SRC_ALPHA;
+        UpdateLayeredWindow(_hLocatorWindow, hdcScreen, &ptPos, &size,
+            hdcMarker, &ptSrc, 0, &blend, ULW_ALPHA);
+        SelectObject(hdcMarker, hOldBitmap);
+    }
+
+    if (hBitmap) DeleteObject(hBitmap);
+    if (hdcMarker) DeleteDC(hdcMarker);
+    if (hdcScreen) ReleaseDC(NULL, hdcScreen);
+}
+
+static void ShowLocatorWindow(HWND hWnd, BOOL show)
+{
+    RECT rcOwner;
+    RECT rcLocator;
+
+    if (!_hLocatorWindow)
+        return;
+
+    if (show && !IsIconic(hWnd))
+    {
+        UpdateLocatorWindow(hWnd);
+        GetWindowRect(hWnd, &rcOwner);
+        GetWindowRect(_hLocatorWindow, &rcLocator);
+        SetWindowPos(_hLocatorWindow, HWND_TOP,
+            rcOwner.right - (rcLocator.right - rcLocator.left)
+                - (_WndInfo.status == ds_borderless ? 1 : 0),
+            rcOwner.bottom - (rcLocator.bottom - rcLocator.top),
+            0, 0,
+            SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
+    }
+    else
+    {
+        ShowWindow(_hLocatorWindow, SW_HIDE);
+    }
+}
+
 LRESULT OnCreate(HWND hWnd)
 {
     LPWSTR* argv;
@@ -1914,6 +2078,7 @@ LRESULT OnCreate(HWND hWnd)
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
         SetMenu(hWnd, NULL);
     }
+    CreateLocatorWindow(hWnd);
     return 0;
 }
 
@@ -2464,6 +2629,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     SendMessage(hWnd, WM_SETREDRAW, TRUE, 0); // lock redraw
     // repaint for alpha
     Invalidate(hWnd, FALSE, FALSE);
+    ShowLocatorWindow(hWnd, TRUE);
     return 0;
 }
 
@@ -2529,6 +2695,7 @@ LRESULT OnFullScreen(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     SendMessage(hWnd, WM_SETREDRAW, TRUE, 0); // lock redraw
     // repaint for alpha
     Invalidate(hWnd, FALSE, FALSE);
+    ShowLocatorWindow(hWnd, TRUE);
 
     return 0;
 }
@@ -3445,6 +3612,11 @@ void Exit(void)
 
 static void _free_resource(HWND hWnd)
 {
+    if (_hLocatorWindow)
+    {
+        DestroyWindow(_hLocatorWindow);
+        _hLocatorWindow = NULL;
+    }
     // stop loading
     StopLoadingImage(hWnd);
     if (_loading)
