@@ -2393,7 +2393,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     Book *pBook = NULL;
     WNDCLASSEX wcex;
     static HICON hIconSm = NULL;
-    const UINT windowPosFlags = SWP_NOREDRAW;
+    const UINT windowPosFlags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW | SWP_FRAMECHANGED;
 
     if (hIconSm == NULL)
     {
