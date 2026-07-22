@@ -2355,13 +2355,45 @@ LRESULT OnHideWin(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+static void CorrectWindowContentRect(HWND hWnd, const RECT *target, int excludedBottom, UINT flags)
+{
+    RECT actualContent;
+    RECT actualWindow;
+
+    for (int i = 0; i < 3; i++)
+    {
+        GetClientRect(hWnd, &actualContent);
+        actualContent.bottom -= excludedBottom;
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&actualContent.left));
+        ClientToScreen(hWnd, reinterpret_cast<POINT*>(&actualContent.right));
+
+        int offsetX = target->left - actualContent.left;
+        int offsetY = target->top - actualContent.top;
+        int offsetWidth = (target->right - target->left) - (actualContent.right - actualContent.left);
+        int offsetHeight = (target->bottom - target->top) - (actualContent.bottom - actualContent.top);
+
+        if (offsetX == 0 && offsetY == 0 && offsetWidth == 0 && offsetHeight == 0)
+            break;
+
+        GetWindowRect(hWnd, &actualWindow);
+        SetWindowPos(hWnd, NULL,
+            actualWindow.left + offsetX,
+            actualWindow.top + offsetY,
+            actualWindow.right - actualWindow.left + offsetWidth,
+            actualWindow.bottom - actualWindow.top + offsetHeight,
+            flags);
+    }
+}
+
 LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT rcWin;
+    RECT rcContent;
     RECT rcStatus;
     Book *pBook = NULL;
     WNDCLASSEX wcex;
     static HICON hIconSm = NULL;
+    const UINT windowPosFlags = SWP_NOREDRAW;
 
     if (hIconSm == NULL)
     {
@@ -2375,6 +2407,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     GetClientRectExceptStatusBar(hWnd, &rcWin);
     ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rcWin.left));
     ClientToScreen(hWnd, reinterpret_cast<POINT*>(&rcWin.right));
+    rcContent = rcWin;
 
     SendMessage(hWnd, WM_SETREDRAW, FALSE, 0); // lock redraw
     pBook = _Book;_Book = NULL; // lock onsize
@@ -2387,9 +2420,10 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, _header->exstyle);
         ShowWindow(_WndInfo.hStatusBar, SW_HIDE);
         SetMenu(hWnd, NULL);
-        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
         _WndInfo.bLayered = TRUE;
         _WndInfo.status = ds_borderless;
+        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, windowPosFlags);
+        CorrectWindowContentRect(hWnd, &rcContent, 0, windowPosFlags);
 
         // 注册鼠标离开追踪，用于隐蔽模式
         TRACKMOUSEEVENT tme;
@@ -2404,7 +2438,7 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         _header->exstyle = (DWORD)GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_WINDOWEDGE | WS_EX_ACCEPTFILES | WS_EX_LAYERED;
 
         GetWindowRect(_WndInfo.hStatusBar, &rcStatus);
-        GetWindowRect(hWnd, &rcWin);
+        rcWin = rcContent;
         rcWin.bottom += rcStatus.bottom - rcStatus.top;
         AdjustWindowRectEx(&rcWin, _header->style, TRUE, _header->exstyle);
 
@@ -2413,9 +2447,10 @@ LRESULT OnHideBorder(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SendMessage(hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSm); // fixed bug
         ShowWindow(_WndInfo.hStatusBar, SW_SHOW);
         SetMenu(hWnd, _WndInfo.hMenu);
-        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, /*SWP_DRAWFRAME*/SWP_NOREDRAW);
         _WndInfo.bLayered = FALSE;
         _WndInfo.status = ds_normal;
+        SetWindowPos(hWnd, NULL, rcWin.left, rcWin.top, rcWin.right-rcWin.left, rcWin.bottom-rcWin.top, windowPosFlags);
+        CorrectWindowContentRect(hWnd, &rcContent, rcStatus.bottom - rcStatus.top, windowPosFlags);
         _bHideText = FALSE;
 
         if (_menuInvalid)
