@@ -29,7 +29,7 @@
 #pragma comment(lib, "Comctl32.lib")
 #pragma comment(lib, "shell32.lib")
 
-#define MIN_ALPHA_VALUE             0x64
+#define MIN_ALPHA_VALUE             0x01
 
 #define MAX_LOADSTRING              256
 
