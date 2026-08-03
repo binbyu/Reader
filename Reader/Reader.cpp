@@ -458,6 +458,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             break;
+        case IDM_HIDE_MENU:
+            // Toggle menu visibility
+            _isMenuVisible = !_isMenuVisible;
+
+            if (_isMenuVisible) {
+                SetMenu(_hWnd, _WndInfo.hMenu);
+            }
+            else {
+                SetMenu(_hWnd, NULL);
+            }
+            break;
         default:
             ResumeAutoPage(hWnd);
             return DefWindowProc(hWnd, message, wParam, lParam);
@@ -726,6 +737,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     UnhookWindowsHookEx(_hMouseHook);
                     _hMouseHook = NULL;
                 }
+            }
+        }
+        // F2 key to toggle menu
+        else if (wParam == VK_F2) {
+            _isMenuVisible = !_isMenuVisible;
+
+            if (_isMenuVisible) {
+                SetMenu(_hWnd, _WndInfo.hMenu);
+            }
+            else {
+                SetMenu(_hWnd, NULL);
             }
         }
 #ifdef ENABLE_NETWORK
