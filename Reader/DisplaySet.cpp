@@ -603,9 +603,9 @@ static void _update_bg_rgb(HWND hDlg)
 
 static void _update_preview(HDC hDC, RECT *p_rc)
 {
-    const TCHAR* TEXT_CPT1 = _T("标题预览");
+    const TCHAR* TEXT_CPT1 = _T("鏍囬棰勮");
     const TCHAR* TEXT_CPT2 = _T("Title preview");
-    const TCHAR* TEXT1 = _T("正文预览\r\n");
+    const TCHAR* TEXT1 = _T("姝ｆ枃棰勮\r\n");
     const TCHAR* TEXT2 = _T("Text preview");
 
     HDC memdc;
