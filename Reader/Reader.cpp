@@ -12,6 +12,8 @@
 #include "DPIAwareness.h"
 #include "barcode.h"
 #include "OnlineDlg.h"
+#include "WebDlg.h"
+#include "WebBook.h"
 #include "DisplaySet.h"
 #if ENABLE_TAG
 #include "tagset.h"
@@ -375,6 +377,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #ifdef ENABLE_NETWORK
         case IDM_ONLINE:
             OpenOnlineDlg();
+            break;
+        case IDM_WEB:
+            OpenWebDlg();
             break;
 #endif
 #if ENABLE_TAG
@@ -2521,7 +2526,7 @@ LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);  
     ofn.hwndOwner = hWnd;  
-    ofn.lpstrFilter = _T("Files (*.txt;*.epub;*.mobi;*.ol)\0*.txt;*.epub;*.mobi;*.ol\0\0");
+    ofn.lpstrFilter = _T("Files (*.txt;*.epub;*.mobi;*.ol;*.web)\0*.txt;*.epub;*.mobi;*.ol;*.web\0\0");
     ofn.lpstrInitialDir = NULL;
     ofn.lpstrFile = szFileName; 
     ofn.nMaxFile = sizeof(szFileName)/sizeof(*szFileName);  
@@ -2756,7 +2761,7 @@ LRESULT OnDropFiles(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // check is txt file
         ext = PathFindExtension(szFileName);
 #ifdef ENABLE_NETWORK
-        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")))
+        if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")) && _tcscmp(ext, _T(".web")))
 #else
         if (ext && _tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")))
 #endif
@@ -2920,7 +2925,7 @@ LRESULT OnOpenBookResult(HWND hWnd, BOOL result)
     {
         StopLoadingImage(hWnd);
         _tcscpy(fileName, _Book->GetFileName());
-        type = _Book->GetBookType() == book_online ? MB_RETRYCANCEL : MB_OK;
+        type = (_Book->GetBookType() == book_online || _Book->GetBookType() == book_web) ? MB_RETRYCANCEL : MB_OK;
         delete _Book;
         _Book = NULL;
         if (IDRETRY == MessageBox_(hWnd, IDS_OPEN_FILE_FAILED, IDS_ERROR, type | MB_ICONERROR))
@@ -3127,7 +3132,7 @@ BOOL IsVaildFile(HWND hWnd, TCHAR *filename, int *p_size)
             return FALSE;
         }
     }
-    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")))
+    if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")) && _tcscmp(ext, _T(".ol")) && _tcscmp(ext, _T(".web")))
 #else
     if (_tcscmp(ext, _T(".txt")) && _tcscmp(ext, _T(".epub")) && _tcscmp(ext, _T(".mobi")))
 #endif
@@ -3229,6 +3234,12 @@ void OnOpenBook(HWND hWnd, TCHAR *filename, BOOL forced)
             arg->book = NULL;
         }
         _Book = new OnlineBook;
+        _Book->SetFileName(szFileName);
+        _Book->OpenBook(NULL, size, hWnd);
+    }
+    else if (_tcscmp(ext, _T(".web")) == 0)
+    {
+        _Book = new WebBook;
         _Book->SetFileName(szFileName);
         _Book->OpenBook(NULL, size, hWnd);
     }
@@ -3627,6 +3638,7 @@ void RemoveMenus(HWND hWnd, BOOL redraw)
     hMenu = GetMenu(hWnd);
 
 #ifndef ENABLE_NETWORK
+    RemoveMenuById(hMenu, FALSE, IDM_WEB);      // 必须在 IDM_ONLINE 之前（TRUE 会连带删除后面一项）
     RemoveMenuById(hMenu, TRUE, IDM_PROXY);
     RemoveMenuById(hMenu, TRUE, IDM_ONLINE);
 #endif
