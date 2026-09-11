@@ -191,6 +191,8 @@
     <ClInclude Include="types.h" />
     <ClInclude Include="Upgrade.h" />
     <ClInclude Include="Utils.h" />
+    <ClInclude Include="WebBook.h" />
+    <ClInclude Include="WebDlg.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\opensrc\cjson\cJSON.c" />
@@ -216,6 +218,8 @@
     <ClCompile Include="TextBook.cpp" />
     <ClCompile Include="Upgrade.cpp" />
     <ClCompile Include="Utils.cpp" />
+    <ClCompile Include="WebBook.cpp" />
+    <ClCompile Include="WebDlg.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Reader_zh-cn.rc" />
