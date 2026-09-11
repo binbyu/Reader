@@ -331,7 +331,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     if (WM_TASKBAR_CREATED == message)
     {
-        ShowSysTray(hWnd, TRUE);
+        // Explorer may recreate taskbar buttons for visible top-level windows.
+        // Reapply the user's taskbar preference before restoring any tray icon.
+        ShowInTaskbar(hWnd, !_header->hide_taskbar);
+        if (_header->show_systray)
+        {
+            // Explorer discarded the old icon, so force it to be added again.
+            _nid.uFlags = 0;
+            ShowSysTray(hWnd, TRUE);
+        }
     }
     switch (message)
     {
@@ -1481,14 +1489,7 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         WheelSpeedInit(hDlg);
         // init window style
         SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, _header->show_systray ? BST_CHECKED : BST_UNCHECKED, NULL);
-        if (_header->hide_taskbar)
-        {
-            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, BST_CHECKED, NULL);
-            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
-            EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), FALSE);
-        }
-        else
-            SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, BST_UNCHECKED, NULL);
+        SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_SETCHECK, _header->hide_taskbar ? BST_CHECKED : BST_UNCHECKED, NULL);
         SendMessage(GetDlgItem(hDlg, IDC_CHECK_LRHIDE), BM_SETCHECK, _header->disable_lrhide ? BST_UNCHECKED : BST_CHECKED, NULL);
         SendMessage(GetDlgItem(hDlg, IDC_CHECK_ESCHIDE), BM_SETCHECK, _header->disable_eschide ? BST_UNCHECKED : BST_CHECKED, NULL);
         if ((_header->autopage_mode & 0x0f) == apm_page)
@@ -1576,17 +1577,6 @@ INT_PTR CALLBACK Setting(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             return (INT_PTR)TRUE;
             break;
         case IDC_CHECK_TASKBAR:
-            res = SendMessage(GetDlgItem(hDlg, IDC_CHECK_TASKBAR), BM_GETCHECK, 0, NULL);
-            if (res == BST_CHECKED)
-            {
-                SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRAY), BM_SETCHECK, BST_CHECKED, NULL);
-                EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), FALSE);
-            }
-            else
-            {
-                EnableWindow(GetDlgItem(hDlg, IDC_CHECK_TRAY), TRUE);
-            }
-            break;
         case IDC_CHECK_TRAY:
             break;
         default:

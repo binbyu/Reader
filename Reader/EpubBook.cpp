@@ -705,7 +705,10 @@ BOOL EpubBook::ParserOps(file_data_t *fdata, wchar_t **text, int *len, wchar_t *
     }
     
     xmlKeepBlanksDefault(1);
-    doc = xmlReadMemory((const char *)format_str, size, NULL, NULL, XML_PARSE_RECOVER/* | XML_PARSE_NOBLANKS*/);
+    // htmlDocDumpMemoryFormat may serialize characters such as curly quotes as
+    // HTML named entities. Reparse the formatted document as HTML so those
+    // entities survive instead of being discarded by the XML parser.
+    doc = htmlReadMemory((const char *)format_str, size, NULL, NULL, HTML_PARSE_RECOVER);
     xmlFree(format_str);
     if (!doc)
         goto end;

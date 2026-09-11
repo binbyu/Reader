@@ -1397,7 +1397,7 @@ BOOL OnlineBook::ParseOlHeader(ol_header_t* header)
         item.size = cinfo->size;
         item.title = (TCHAR*)(buf + cinfo->title_offset);
         item.url = buf + cinfo->url_offset;
-        item.title_len = cinfo->title_offset/2;
+        item.title_len = (int)item.title.size();
         m_Chapters.push_back(item);
     }
 

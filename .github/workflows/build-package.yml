@@ -1,0 +1,48 @@
+name: Build Reader package
+
+on:
+  push:
+    branches:
+      - codex/fix-security-and-stability
+  workflow_dispatch:
+
+jobs:
+  build-x64:
+    runs-on: windows-2022
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build x64 Release
+        shell: pwsh
+        run: >-
+          msbuild Reader.sln /m /t:Rebuild
+          /p:Configuration=Release
+          /p:Platform=x64
+          /p:PlatformToolset=v143
+          /p:WindowsTargetPlatformVersion=10.0
+
+      - name: Package Reader
+        id: package
+        shell: pwsh
+        run: |
+          $shortSha = '${{ github.sha }}'.Substring(0, 7)
+          $packageName = "Reader_custom_x64_$shortSha"
+          $packageDir = Join-Path $env:RUNNER_TEMP $packageName
+          New-Item -ItemType Directory -Force $packageDir | Out-Null
+          Copy-Item -LiteralPath 'x64\Release\Reader.exe' -Destination $packageDir
+          Copy-Item -LiteralPath 'readme.txt' -Destination $packageDir
+          New-Item -ItemType Directory -Force 'dist' | Out-Null
+          & '.\tool\7z.exe' a "dist\$packageName.7z" "$packageDir\Reader.exe" "$packageDir\readme.txt"
+          "name=$packageName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: dist/*.7z
+          if-no-files-found: error

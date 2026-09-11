@@ -860,8 +860,11 @@ int Page::ParagraphToLines(HDC hdc, int start, int length, int width, int height
     _continue:
         if (is_blank(m_Text[i]))
         {
-            // for indent, ignore the blank chars which at the beginning of a paragraph.
-            if (LINE_INDENT && char_start == i && !is_title && is_new_paragraph && line_start == start)
+            // Normalize the leading whitespace of a paragraph. LINE_INDENT
+            // controls the layout offset instead of preserving whitespace from
+            // the source text, so disabling it produces a genuinely flush-left
+            // paragraph.
+            if (char_start == i && !is_title && is_new_paragraph && line_start == start)
             {
                 char_start = i + 1;
                 word_start = i + 1;

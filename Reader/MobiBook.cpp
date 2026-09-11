@@ -637,11 +637,12 @@ BOOL MobiBook::ParserOps(file_data_t *fdata, wchar_t **text, int *len, wchar_t *
     }
     
     xmlKeepBlanksDefault(1);
-    doc = xmlReadMemory((const char *)format_str, size, NULL, NULL, XML_PARSE_RECOVER | XML_PARSE_HUGE /*| XML_PARSE_NOBLANKS */ ); //XML_PARSE_HUGE 大文件支持
+    // htmlDocDumpMemoryFormat can emit HTML named entities. The XML parser only
+    // understands XML's predefined entities and would silently lose others.
+    doc = htmlReadMemory((const char *)format_str, size, NULL, NULL, HTML_PARSE_RECOVER);
     xmlFree(format_str);
     if (!doc)
         goto end;
-    xmlDocDumpFormatMemory(doc, &format_str, &size, 1);
 #endif
     
     xpathctx = xmlXPathNewContext(doc);
