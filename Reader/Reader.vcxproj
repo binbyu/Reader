@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -194,6 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\opensrc\cjson\cJSON.c" />
+    <ClCompile Include="zlib_cdecl_bridge.c" />
     <ClCompile Include="Advset.cpp" />
     <ClCompile Include="Book.cpp" />
     <ClCompile Include="BooksourceDlg.cpp" />
@@ -230,6 +231,25 @@
   <ItemGroup>
     <None Include="picker.cur" />
   </ItemGroup>
+  <!--
+    Fixes required to build the published sources with a current toolset:
+    1) all sources are UTF-8 without BOM and contain Chinese comments; without
+       /source-charset:utf-8 a GBK (cp936) compiler swallows the line following
+       such a comment and MobiBook.h loses the manifests/spines/navpoints
+       members of mobi_t.
+    2) opensrc/libmobi/libmobi*.lib was built with /MD (it carries
+       /DEFAULTLIB:MSVCRT), while this project uses /MT; ignoring that default
+       library keeps the static CRT and avoids
+       "msvcrt.lib(chandler4gs.obj) : error LNK2001: __except_handler4_common".
+  -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <IgnoreSpecificDefaultLibraries>MSVCRT;MSVCRTD;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
