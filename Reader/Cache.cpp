@@ -302,22 +302,24 @@ void Cache::default_header(header_t* header)
     static HFONT hFont = NULL;
     static LOGFONT lf;
     int i;
-    const int PointSize = 14;
+    const int PointSize = 15;   // xiao-san (15pt)
     int nHeight;
     if (!hFont)
     {
         nHeight = -MulDiv(PointSize, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72);
+        // "\u5FAE\u8F6F\u96C5\u9ED1" = Microsoft YaHei, written with escapes so
+        // this file stays pure ASCII (no source-charset pitfalls).
         hFont = CreateFont(nHeight, 0, 0, 0,
-            FW_LIGHT, FALSE, FALSE, FALSE,
+            FW_NORMAL, FALSE, FALSE, FALSE,
             ANSI_CHARSET, OUT_STROKE_PRECIS,
             CLIP_STROKE_PRECIS, PROOF_QUALITY,
-            VARIABLE_PITCH | FF_SWISS, _T("Segoe UI Light"));
+            VARIABLE_PITCH | FF_SWISS, _T("\u5FAE\u8F6F\u96C5\u9ED1"));
         GetObject(hFont, sizeof(lf), &lf);
     }
     memcpy(&header->font, &lf, sizeof(lf));
-    header->font_color = 0x00;      // black
+    header->font_color = 0x00FFFFFF;      // white
     memcpy(&header->font_title, &lf, sizeof(lf));
-    header->font_color_title = 0x00;  // black
+    header->font_color_title = 0x00FFFFFF;  // white
     header->use_same_font = 1;
 
     // default style
@@ -364,7 +366,7 @@ void Cache::default_header(header_t* header)
 #endif
 
     // default bk color
-    header->bg_color = 0x00ffffff;  // White
+    header->bg_color = 0x00121212;  // #121212
     header->alpha = 0xff;
 
     header->char_gap = 0;
