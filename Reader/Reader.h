@@ -78,6 +78,7 @@ LRESULT             OnSize(HWND, UINT, WPARAM, LPARAM);
 // WM_KEYWORD begin
 LRESULT             OnHideWin(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnHideBorder(HWND, UINT, WPARAM, LPARAM);
+LRESULT             OnTransBG(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnFullScreen(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnTopmost(HWND, UINT, WPARAM, LPARAM);
 LRESULT             OnOpenFile(HWND, UINT, WPARAM, LPARAM);

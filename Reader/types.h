@@ -63,6 +63,12 @@
 
 
 #define ID_HOTKEY_SHOW_HIDE_WINDOW  100
+
+#define ID_HOTKEY_SHOW_HIDE_WINDOW2 200    // RegisterHotKey id: boss key 2
+#define ID_HOTKEY_SHOW_HIDE_WINDOW3 201    // RegisterHotKey id: boss key 3
+#define ID_HOTKEY_SHOW_HIDE_WINDOW4 202    // RegisterHotKey id: boss key 4
+#define MAX_BOSS_KEY                4      // boss key count
+
 #define IDT_TIMER_PAGE              102
 #ifdef ENABLE_NETWORK
 #define IDT_TIMER_UPGRADE           103
@@ -203,6 +209,7 @@ typedef struct header_t
     int use_same_font;
     u32 bg_color;
     BYTE alpha;
+    int transparent_bg;   // 1 = background fully transparent, text stays opaque
     int char_gap;
     int line_gap;
     int paragraph_gap;

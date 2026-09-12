@@ -600,6 +600,7 @@ class json_header_t
     cJSON* line_indent;
     cJSON* blank_lines;
     cJSON* chapter_page;
+    cJSON* transparent_bg;
     cJSON* ingore_version;
     cJSON* checkver_time;
     cJSON* global_key;
@@ -656,6 +657,7 @@ public:
         line_indent = cJSON_AddNumberToObject(parent, "line_indent", data->line_indent);
         blank_lines = cJSON_AddNumberToObject(parent, "blank_lines", data->blank_lines);
         chapter_page = cJSON_AddNumberToObject(parent, "chapter_page", data->chapter_page);
+        transparent_bg = cJSON_AddNumberToObject(parent, "transparent_bg", data->transparent_bg);
         ingore_version = cJSON_AddStringToObject(parent, "ingore_version", Utf16ToUtf8(data->ingore_version));
         checkver_time = cJSON_AddULongToObject(parent, "checkver_time", data->checkver_time);
 
@@ -779,6 +781,7 @@ public:
         line_indent = cJSON_GetObjectItem(parent, "line_indent");
         blank_lines = cJSON_GetObjectItem(parent, "blank_lines");
         chapter_page = cJSON_GetObjectItem(parent, "chapter_page");
+        transparent_bg = cJSON_GetObjectItem(parent, "transparent_bg");
         ingore_version = cJSON_GetObjectItem(parent, "ingore_version");
         checkver_time = cJSON_GetObjectItem(parent, "checkver_time");
 
@@ -966,6 +969,8 @@ public:
             data->blank_lines = blank_lines->valueint;
         if (chapter_page)
             data->chapter_page = chapter_page->valueint;
+        if (transparent_bg)
+            data->transparent_bg = transparent_bg->valueint;
         if (ingore_version)
             wcscpy(data->ingore_version, Utf8ToUtf16(ingore_version->valuestring));
         if (checkver_time)

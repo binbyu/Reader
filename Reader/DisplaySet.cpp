@@ -23,6 +23,7 @@ typedef struct display_set_data_t
     int word_wrap;
     int line_indent;
     int blank_lines;
+    int transparent_bg;
     int chapter_page;
     int is_save;
 } display_set_data_t;
@@ -80,6 +81,7 @@ static void _update_preview(HDC hDC, RECT *rc);
     (d)->word_wrap = (s)->word_wrap; \
     (d)->line_indent = (s)->line_indent; \
     (d)->blank_lines = (s)->blank_lines; \
+    (d)->transparent_bg = (s)->transparent_bg; \
     (d)->chapter_page = (s)->chapter_page;
 
 void OpenDisplaySetDlg(void)
@@ -224,6 +226,10 @@ static INT_PTR CALLBACK DisplaySetDlgProc(HWND hDlg, UINT message, WPARAM wParam
             res = (int)SendMessage(GetDlgItem(hDlg, IDC_CHECK_BLANKLINES), BM_GETCHECK, 0, NULL);
             _display.blank_lines = BST_CHECKED == res ? 1 : 0;
             break;
+        case IDC_CHECK_TRANS_BG:
+            res = (int)SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRANS_BG), BM_GETCHECK, 0, NULL);
+            _display.transparent_bg = BST_CHECKED == res ? 1 : 0;
+            break;
         case IDC_CHECK_CHAPTER_PAGE:
             res = (int)SendMessage(GetDlgItem(hDlg, IDC_CHECK_CHAPTER_PAGE), BM_GETCHECK, 0, NULL);
             _display.chapter_page = BST_CHECKED == res ? 1 : 0;
@@ -315,6 +321,7 @@ static void _init_layout_set(HWND hDlg)
     SendMessage(GetDlgItem(hDlg, IDC_CHECK_WORD_WRAP), BM_SETCHECK, _display.word_wrap ? BST_CHECKED : BST_UNCHECKED, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_CHECK_INDENT), BM_SETCHECK, _display.line_indent ? BST_CHECKED : BST_UNCHECKED, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_CHECK_BLANKLINES), BM_SETCHECK, _display.blank_lines ? BST_CHECKED : BST_UNCHECKED, NULL);
+    SendMessage(GetDlgItem(hDlg, IDC_CHECK_TRANS_BG), BM_SETCHECK, _display.transparent_bg ? BST_CHECKED : BST_UNCHECKED, NULL);
     SendMessage(GetDlgItem(hDlg, IDC_CHECK_CHAPTER_PAGE), BM_SETCHECK, _display.chapter_page ? BST_CHECKED : BST_UNCHECKED, NULL);
 }
 

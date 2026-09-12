@@ -19,6 +19,7 @@ extern LRESULT OnChapterUp(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnChapterDown(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnFontZoomIn(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT OnFontZoomOut(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT OnTransBG(HWND, UINT, WPARAM, LPARAM);
 extern int MessageBoxFmt_(HWND hWnd, UINT captionId, UINT uType, UINT formatId, ...);
 
 extern HINSTANCE hInst;
@@ -34,6 +35,9 @@ static BOOL _unregister_hotkey(HWND hWnd, DWORD kid);
 keydata_t g_Keysets[KI_MAXCOUNT] = 
 {
     { MAKELONG(KT_HOTKEY, KI_HIDE),             IDHK_SHWIN, 0, 0, MAKEWORD('H', HOTKEYF_ALT),                      IDC_HK_HIDE,        IDC_CHECK_HIDE,        OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE2),            ID_HOTKEY_SHOW_HIDE_WINDOW2, 0, 0, MAKEWORD('H', HOTKEYF_CONTROL|HOTKEYF_ALT),   IDC_HK_HIDE2,       IDC_CHECK_HIDE2,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE3),            ID_HOTKEY_SHOW_HIDE_WINDOW3, 0, 0, MAKEWORD('H', HOTKEYF_CONTROL|HOTKEYF_SHIFT), IDC_HK_HIDE3,       IDC_CHECK_HIDE3,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE4),            ID_HOTKEY_SHOW_HIDE_WINDOW4, 0, 0, MAKEWORD('Q', HOTKEYF_ALT),                   IDC_HK_HIDE4,       IDC_CHECK_HIDE4,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
     { MAKELONG(KT_SHORTCUTKEY, KI_BORDER),      0,          0, 0, MAKEWORD(VK_F12, 0),                             IDC_HK_BORDER,      IDC_CHECK_BORDER,      OnHideBorder,  IDS_HIDE_SHOW_BORDER },
     { MAKELONG(KT_SHORTCUTKEY, KI_FULLSCREEN),  0,          0, 0, MAKEWORD(VK_F11, 0),                             IDC_HK_FULLSCREEN,  IDC_CHECK_FULLSCREEN,  OnFullScreen,  IDS_FULLSRCEEN },
     { MAKELONG(KT_SHORTCUTKEY, KI_TOP),         0,          0, 0, MAKEWORD('T', HOTKEYF_CONTROL),                  IDC_HK_TOP,         IDC_CHECK_TOP,         OnTopmost,     IDS_TOPMOST },
@@ -50,7 +54,8 @@ keydata_t g_Keysets[KI_MAXCOUNT] =
     { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERUP),   0,          0, 0, MAKEWORD(VK_LEFT, HOTKEYF_EXT|HOTKEYF_CONTROL),  IDC_HK_CHAPTERUP,   IDC_CHECK_CHAPTERUP,   OnChapterUp,   IDS_CHAPTER_UP },
     { MAKELONG(KT_SHORTCUTKEY, KI_CHAPTERDOWN), 0,          0, 0, MAKEWORD(VK_RIGHT, HOTKEYF_EXT|HOTKEYF_CONTROL), IDC_HK_CHAPTERDOWN, IDC_CHECK_CHAPTERDOWN, OnChapterDown, IDS_CHAPTER_DOWN },
     { MAKELONG(KT_SHORTCUTKEY, KI_FONTZOOMIN),  0,          0, 0, MAKEWORD(VK_OEM_PLUS, HOTKEYF_CONTROL),          IDC_HK_FONTZOOMIN,  IDC_CHECK_FONTZOOMIN,  OnFontZoomIn,  IDS_FONT_ZOOMIN },
-    { MAKELONG(KT_SHORTCUTKEY, KI_FONTZOOMOUT), 0,          0, 0, MAKEWORD(VK_OEM_MINUS, HOTKEYF_CONTROL),         IDC_HK_FONTZOOMOUT, IDC_CHECK_FONTZOOMOUT, OnFontZoomOut, IDS_FONT_ZOOMOUT }
+    { MAKELONG(KT_SHORTCUTKEY, KI_FONTZOOMOUT), 0,          0, 0, MAKEWORD(VK_OEM_MINUS, HOTKEYF_CONTROL),         IDC_HK_FONTZOOMOUT, IDC_CHECK_FONTZOOMOUT, OnFontZoomOut, IDS_FONT_ZOOMOUT },
+    { MAKELONG(KT_SHORTCUTKEY, KI_TRANS),       0,          0, 0, MAKEWORD(VK_F9, 0),                             IDC_HK_TRANS,       IDC_CHECK_TRANS,       OnTransBG,     IDS_TRANS_TOGGLE }
 };
 
 
@@ -65,31 +70,69 @@ void KS_Init(HWND hWnd, keyset_t *keyset)
     SetGlobalKey(hWnd);
 }
 
+// The config slot of an entry is the keyid stored in key (HIWORD), NOT its array
+// index in g_Keysets.  This decouples the table layout from the persisted config:
+// a new key can be inserted anywhere in g_Keysets without moving the slot of any
+// existing key, so configs written by older versions keep their meaning
+// (keyset[] is serialized positionally into JSON).
+static int _keyset_slot(const keydata_t *kd)
+{
+    int kid = (int)HIWORD(kd->key);
+
+    return (kid >= 0 && kid < MAX_KEYSET_COUNT) ? kid : -1;
+}
+
+// Which keys are enabled out of the box.  Everything else starts disabled and
+// is opt-in from the key settings dialog.
+static BOOL _default_enable(int kid)
+{
+    switch (kid)
+    {
+    case KI_HIDE:       // boss key 1 (Alt+H)
+    case KI_BORDER:     // hide/show border (F12)
+    case KI_PAGEUP:     // previous page (Left)
+    case KI_PAGEDOWN:   // next page (Right)
+    case KI_LINEUP:     // line up (Up)
+    case KI_LINEDOWN:   // line down (Down)
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 void KS_UpdateKeyset(keyset_t *keyset)
 {
-    int i;
+    int i, kid;
 
     if (!keyset)
         return;
 
-    for (i=KI_HIDE; i<KI_MAXCOUNT && i<MAX_KEYSET_COUNT; i++)
+    for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
-        g_Keysets[i].pvalue =  &(keyset[i].value);
-        g_Keysets[i].is_disable = &(keyset[i].is_disable);
+        kid = _keyset_slot(&g_Keysets[i]);
+        if (kid < 0)
+            continue;
+
+        g_Keysets[i].pvalue     = &(keyset[kid].value);
+        g_Keysets[i].is_disable = &(keyset[kid].is_disable);
     }
 }
 
 void KS_GetDefaultKeyset(keyset_t *keyset)
 {
-    int i;
+    int i, kid;
 
     if (!keyset)
         return;
 
-    for (i=KI_HIDE; i<KI_MAXCOUNT && i<MAX_KEYSET_COUNT; i++)
+    for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
-        keyset[i].value = g_Keysets[i].defval;
-        keyset[i].is_disable = 0;
+        kid = _keyset_slot(&g_Keysets[i]);
+        if (kid < 0)
+            continue;
+
+        keyset[kid].value = g_Keysets[i].defval;
+        keyset[kid].is_disable = _default_enable(kid) ? 0 : 1;
     }
 }
 
@@ -101,6 +144,8 @@ void KS_OpenDlg(void)
 INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int i,j;
+    int kid = 0;
+    BOOL enable = FALSE;
     LRESULT res;
     DWORD tempkeys[KI_MAXCOUNT] = {0};
     int tempable[KI_MAXCOUNT] = {0};
@@ -228,11 +273,18 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             return (INT_PTR)TRUE;
             break;
         case IDC_BUTTON_DEFAULT:
+            // Keep in sync with KS_GetDefaultKeyset: restore the default values and
+            // check/enable only the keys that are enabled by default.
             for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
             {
+                kid = _keyset_slot(&g_Keysets[i]);
+                if (kid < 0)
+                    continue;
+
+                enable = _default_enable(kid);
                 SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_SETHOTKEY, g_Keysets[i].defval, 0);
-                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, BST_CHECKED, NULL);
-                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), TRUE);
+                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, enable ? BST_CHECKED : BST_UNCHECKED, NULL);
+                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), enable);
             }
             break;
         default:
@@ -380,21 +432,23 @@ static BOOL _unregister_hotkey(HWND hWnd, DWORD kid)
 
 BOOL KS_RegisterAllHotKey(HWND hWnd)
 {
-    int i;
+    int i, fail = 0;
     TCHAR desc[256] = { 0 };
 
     for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
         if (LOWORD(g_Keysets[i].key) == KT_HOTKEY)
         {
+            if (g_Keysets[i].is_disable && *(g_Keysets[i].is_disable))
+                continue;
             LoadString(hInst, g_Keysets[i].desc, desc, 256);
             if (!_register_hotkey(hWnd, g_Keysets[i].key_id, *(g_Keysets[i].pvalue), desc))
             {
-                return FALSE;
+                fail++;   // do not abort: other hot keys must still register
             }
         }
     }
-    return TRUE;
+    return (fail == 0);
 }
 
 BOOL KS_UnRegisterAllHotKey(HWND hWnd)
