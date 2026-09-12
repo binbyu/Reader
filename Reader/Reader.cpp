@@ -1830,6 +1830,12 @@ LRESULT OnCreate(HWND hWnd)
     _WndInfo.bTopMost = (_header->exstyle & WS_EX_TOPMOST) == WS_EX_TOPMOST;
     _WndInfo.status = (_header->style & WS_MINIMIZEBOX) == 0 ? ds_fullscreen : (((_header->style & WS_CAPTION) == 0) ? ds_borderless : ds_normal);
 
+    // Borderless mode removes the menu bar, so the "hide/show border" key is the only
+    // way back to it.  Never run without that escape hatch (e.g. after hand-editing the
+    // config), otherwise the menu would be unreachable for good.
+    if (_WndInfo.status == ds_borderless && _header->keyset[KI_BORDER].is_disable)
+        _header->keyset[KI_BORDER].is_disable = 0;
+
     _WndInfo.hMenu = GetMenu(hWnd);
     // create status bar
     _WndInfo.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
@@ -2191,6 +2197,13 @@ VOID OnDraw(HWND hWnd)
     {
         alpha = _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha;
     }
+    else if (_header->transparent_bg)
+    {
+        // Transparent background: alpha 0 makes the desktop show through and
+        // UpdateLayeredWindow turns those pixels click-through.  The text is
+        // composited separately with _textAlpha, so it stays opaque.
+        alpha = 0;
+    }
 
     // load bg image
     image = LoadBGImage(w, h, alpha);
@@ -2502,6 +2515,15 @@ LRESULT OnTopmost(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     SetWindowPos(hWnd, _WndInfo.bTopMost ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
     _WndInfo.bTopMost = !_WndInfo.bTopMost;
+    return 0;
+}
+
+// Toggle the transparent-background flag.  The visual effect only shows in
+// borderless mode (F12), matching the display-settings checkbox behaviour.
+LRESULT OnTransBG(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    _header->transparent_bg = !_header->transparent_bg;
+    Invalidate(hWnd, TRUE, FALSE);
     return 0;
 }
 

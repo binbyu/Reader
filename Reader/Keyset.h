@@ -29,6 +29,10 @@ typedef enum keyid_t
     KI_CHAPTERDOWN,
     KI_FONTZOOMIN,
     KI_FONTZOOMOUT,
+    KI_HIDE2,       // boss key 2 (config slot comes from keyid, so its position here keeps old configs valid)
+    KI_HIDE3,       // boss key 3
+    KI_HIDE4,       // boss key 4
+    KI_TRANS,       // toggle transparent background (config slot comes from keyid, so appending keeps old configs valid)
     KI_MAXCOUNT
 } keyid_t;
 
