@@ -1,210 +1,391 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="renderer">
+      <UniqueIdentifier>{1d6f2b23-3454-466d-86a8-b3b2e7e5de46}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="layout">
+      <UniqueIdentifier>{b2e72201-abc5-4b4d-bd67-2059050ab761}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files">
+    <Filter Include="books">
+      <UniqueIdentifier>{86019670-73ca-428d-8234-3b3154a02fc6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{89c914f0-acb0-4e6e-ae2f-b505d25d450d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{1956155f-262d-462d-b86d-09d708e16409}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui\wnds">
+      <UniqueIdentifier>{7343b678-443c-4b55-bc94-3a3ed3dc803d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui\ctrls">
+      <UniqueIdentifier>{e41b6537-da17-478e-be7f-fdd36a36f035}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="files">
+      <UniqueIdentifier>{6a9f4c3d-2b1e-4f7a-8b9c-0e1d2c3b4a5f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform">
+      <UniqueIdentifier>{bce84ec3-7bb4-4a50-96ad-68cd874497f5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="renderer\IRenderer.h">
+      <Filter>renderer</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="renderer\RendererBase.h">
+      <Filter>renderer</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="renderer\RendererD2D.h">
+      <Filter>renderer</Filter>
     </ClInclude>
-    <ClInclude Include="Reader.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="renderer\RendererGDIPlus.h">
+      <Filter>renderer</Filter>
     </ClInclude>
-    <ClInclude Include="Advset.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="layout\ILayout.h">
+      <Filter>layout</Filter>
     </ClInclude>
-    <ClInclude Include="barcode.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="layout\LayoutText.h">
+      <Filter>layout</Filter>
     </ClInclude>
-    <ClInclude Include="Book.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="books\BookBase.h">
+      <Filter>books</Filter>
     </ClInclude>
-    <ClInclude Include="BooksourceDlg.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="books\BookText.h">
+      <Filter>books</Filter>
     </ClInclude>
-    <ClInclude Include="Cache.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="books\IBook.h">
+      <Filter>books</Filter>
     </ClInclude>
-    <ClInclude Include="DisplaySet.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="utils\Utils.h">
+      <Filter>utils</Filter>
     </ClInclude>
-    <ClInclude Include="DPIAwareness.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="utils\Logger.h">
+      <Filter>utils</Filter>
     </ClInclude>
-    <ClInclude Include="dump.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="utils\DpiAwareness.h">
+      <Filter>utils</Filter>
     </ClInclude>
-    <ClInclude Include="Editctrl.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="utils\JsonSerialize.h">
+      <Filter>utils</Filter>
     </ClInclude>
-    <ClInclude Include="EpubBook.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\AboutDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="HtmlParser.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\MainWin.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Jsondata.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\FollowDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Keyset.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\RewardDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="OnlineBook.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\BasicSettingDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="OnlineDlg.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\AdvanceSettingDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Page.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\BookSourceMgrDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="tagset.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\DisplaySettingDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="TextBook.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\JumpProgressDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="types.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\KeySettingDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Upgrade.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\NetworkSettingDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Utils.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\SourceSearchDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="WebBook.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\TagItemDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="WebDlg.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ui\UpgradeDlg.h">
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="..\opensrc\cjson\cJSON.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="common\barcode.h">
+      <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="MobiBook.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="common\common.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_Path.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_Serialize.hpp">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\HtmlParser.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\RequestQueue.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="books\BookOnline.h">
+      <Filter>books</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_XPath.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ctrls\ListView.h">
+      <Filter>ui\ctrls</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\wnds\IWnd.h">
+      <Filter>ui\wnds</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\wnds\Dialog.h">
+      <Filter>ui\wnds</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\TagMgrDlg.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\OnlineSearchDlg.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\SimpleSearchDlg.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\wnds\Window.h">
+      <Filter>ui\wnds</Filter>
+    </ClInclude>
+    <ClInclude Include="files\IFile.h">
+      <Filter>files</Filter>
+    </ClInclude>
+    <ClInclude Include="files\OLFile.h">
+      <Filter>files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\EditController.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="layout\LayoutBase.h">
+      <Filter>layout</Filter>
+    </ClInclude>
+    <ClInclude Include="books\BookEpub.h">
+      <Filter>books</Filter>
+    </ClInclude>
+    <ClInclude Include="books\BookMobi.h">
+      <Filter>books</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\SingleApp.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="common\BookSession.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\Settings.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\WebDlg.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="books\BookWeb.h">
+      <Filter>books</Filter>
+    </ClInclude>
+    <ClInclude Include="files\WebFile.h">
+      <Filter>files</Filter>
+    </ClInclude>
+    <ClInclude Include="common\types.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\framework.h">
+      <Filter>platform</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\resource.h">
+      <Filter>platform</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\targetver.h">
+      <Filter>platform</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Reader.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="renderer\RendererBase.cpp">
+      <Filter>renderer</Filter>
     </ClCompile>
-    <ClCompile Include="Advset.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="renderer\RendererD2D.cpp">
+      <Filter>renderer</Filter>
     </ClCompile>
-    <ClCompile Include="Book.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="renderer\RendererGDIPlus.cpp">
+      <Filter>renderer</Filter>
     </ClCompile>
-    <ClCompile Include="BooksourceDlg.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="layout\LayoutText.cpp">
+      <Filter>layout</Filter>
     </ClCompile>
-    <ClCompile Include="Cache.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="books\BookBase.cpp">
+      <Filter>books</Filter>
     </ClCompile>
-    <ClCompile Include="DisplaySet.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="books\BookText.cpp">
+      <Filter>books</Filter>
     </ClCompile>
-    <ClCompile Include="DPIAwareness.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="utils\Utils.cpp">
+      <Filter>utils</Filter>
     </ClCompile>
-    <ClCompile Include="dump.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="utils\Logger.cpp">
+      <Filter>utils</Filter>
     </ClCompile>
-    <ClCompile Include="Editctrl.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="utils\DpiAwareness.cpp">
+      <Filter>utils</Filter>
     </ClCompile>
-    <ClCompile Include="EpubBook.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="utils\JsonSerialize.cpp">
+      <Filter>utils</Filter>
     </ClCompile>
-    <ClCompile Include="HtmlParser.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\MainWin.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Jsondata.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\AboutDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Keyset.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\RewardDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="OnlineBook.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\FollowDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="OnlineDlg.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\BasicSettingDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Page.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\AdvanceSettingDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="tagset.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\BookSourceMgrDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="TextBook.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\DisplaySettingDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Upgrade.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\JumpProgressDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Utils.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\KeySettingDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="WebBook.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\NetworkSettingDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="WebDlg.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\SourceSearchDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="..\opensrc\cjson\cJSON.c">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\TagItemDlg.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="MobiBook.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ui\UpgradeDlg.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="common\barcode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="common\main.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\HtmlParser.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\RequestQueue.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON_Path.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON_XPath.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="books\BookOnline.cpp">
+      <Filter>books</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TagMgrDlg.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\SimpleSearchDlg.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\OnlineSearchDlg.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ctrls\ListView.cpp">
+      <Filter>ui\ctrls</Filter>
+    </ClCompile>
+    <ClCompile Include="files\OLFile.cpp">
+      <Filter>files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\EditController.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="layout\LayoutBase.cpp">
+      <Filter>layout</Filter>
+    </ClCompile>
+    <ClCompile Include="books\BookEpub.cpp">
+      <Filter>books</Filter>
+    </ClCompile>
+    <ClCompile Include="books\BookMobi.cpp">
+      <Filter>books</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdparty\miniz\miniz.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\SingleApp.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="common\BookSession.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\Settings.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\WebDlg.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="books\BookWeb.cpp">
+      <Filter>books</Filter>
+    </ClCompile>
+    <ClCompile Include="files\WebFile.cpp">
+      <Filter>files</Filter>
+    </ClCompile>
+    <ClCompile Include="files\IFile.cpp">
+      <Filter>files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Reader_zh-cn.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="small.ico">
-      <Filter>Resource Files</Filter>
+    <Image Include="res\book.ico">
+      <Filter>res</Filter>
     </Image>
-    <Image Include="Reader.ico">
-      <Filter>Resource Files</Filter>
+    <Image Include="res\loading.gif">
+      <Filter>res</Filter>
     </Image>
-    <Image Include="picker.bmp">
-      <Filter>Resource Files</Filter>
+    <Image Include="res\new.png">
+      <Filter>res</Filter>
     </Image>
-    <Image Include="loading.gif">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="book.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="new.png">
-      <Filter>Resource Files</Filter>
+    <Image Include="res\picker.bmp">
+      <Filter>res</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="picker.cur">
-      <Filter>Resource Files</Filter>
+    <None Include="res\picker.cur">
+      <Filter>res</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Reader.rc">
+      <Filter>res</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
