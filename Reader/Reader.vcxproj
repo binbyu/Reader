@@ -19,37 +19,35 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <VCProjectVersion>16.0</VCProjectVersion>
+    <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{832e1e94-d931-43aa-984e-2b0f0ef52571}</ProjectGuid>
+    <ProjectGuid>{11dc4651-e121-4fb0-9f68-e25a52620d5a}</ProjectGuid>
     <RootNamespace>Reader</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141_xp</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141_xp</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -70,34 +68,37 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LinkIncremental>true</LinkIncremental>
+    <IntDir>temp\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LinkIncremental>false</LinkIncremental>
+    <IntDir>temp\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntDir>temp\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IntDir>temp\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_WIN32_WINNT=0x0501;WINVER=0x0501;_CRT_SECURE_NO_WARNINGS;LIBXML_STATIC;LIBCONV_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;books;common;platform;files;layout;renderer;ui;ui\ctrls;ui\wnds;utils;..\3rdparty\cjson\inc;..\3rdparty\libconv\inc;..\3rdparty\libhttps\inc;..\3rdparty\libmobi\inc;..\3rdparty\libxml2\inc;..\3rdparty\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;..\opensrc\libmobi\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\3rdparty\libconv\lib;..\3rdparty\libhttps\lib\x86;..\3rdparty\libmobi\lib;..\3rdparty\libxml2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>delayimp.lib;gdiplus.lib;shlwapi.lib;Version.lib;comctl32.lib;Msimg32.lib;windowscodecs.lib;Crypt32.lib;Ws2_32.lib;Iphlpapi.lib;libconvd.lib;https_ad.lib;libmobid.lib;libxml2_ad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <Manifest />
+    <Manifest />
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <AdditionalManifestFiles>app.x86.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -106,38 +107,43 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_WIN32_WINNT=0x0501;WINVER=0x0501;_CRT_SECURE_NO_WARNINGS;LIBXML_STATIC;LIBCONV_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;books;common;platform;files;layout;renderer;ui;ui\ctrls;ui\wnds;utils;..\3rdparty\cjson\inc;..\3rdparty\libconv\inc;..\3rdparty\libhttps\inc;..\3rdparty\libmobi\inc;..\3rdparty\libxml2\inc;..\3rdparty\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat />
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib;..\opensrc\libxml2\lib;..\opensrc\openssl\lib;..\opensrc\wolfssl\lib;..\opensrc\libhttps\lib;..\opensrc\libmobi\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\3rdparty\libconv\lib;..\3rdparty\libhttps\lib\x86;..\3rdparty\libmobi\lib;..\3rdparty\libxml2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>delayimp.lib;gdiplus.lib;shlwapi.lib;Version.lib;comctl32.lib;Msimg32.lib;windowscodecs.lib;Crypt32.lib;Ws2_32.lib;Iphlpapi.lib;libconv.lib;https_a.lib;libmobi.lib;libxml2_a.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <AdditionalManifestFiles>app.x86.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;LIBXML_STATIC;LIBCONV_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;books;common;platform;files;layout;renderer;ui;ui\ctrls;ui\wnds;utils;..\3rdparty\cjson\inc;..\3rdparty\libconv\inc;..\3rdparty\libhttps\inc;..\3rdparty\libmobi\inc;..\3rdparty\libxml2\inc;..\3rdparty\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib\x64;..\opensrc\libxml2\lib\x64;..\opensrc\openssl\lib\x64;..\opensrc\wolfssl\lib\x64;..\opensrc\libhttps\lib\x64;..\opensrc\libmobi\lib\x64%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\3rdparty\libconv\lib\x64;..\3rdparty\libhttps\lib\x64;..\3rdparty\libmobi\lib\x64;..\3rdparty\libxml2\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>delayimp.lib;gdiplus.lib;shlwapi.lib;Version.lib;comctl32.lib;Msimg32.lib;windowscodecs.lib;Crypt32.lib;Ws2_32.lib;Iphlpapi.lib;libconvd.lib;https_ad.lib;libmobid.lib;libxml2_ad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <Manifest />
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <AdditionalManifestFiles>app.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -146,114 +152,150 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NON_CONFORMING_SWPRINTFS;CJSON_HIDE_SYMBOLS;ZLIB_WINAPI;LIBXML_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;LIBXML_STATIC;LIBCONV_STATIC;LIBHTTPS_STATIC;ENABLE_NETWORK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\opensrc\cjson;..\opensrc\zlib\inc;..\opensrc\libxml2\inc;..\opensrc\libhttps\inc;..\opensrc\miniz;..\opensrc\libmobi\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;books;common;platform;files;layout;renderer;ui;ui\ctrls;ui\wnds;utils;..\3rdparty\cjson\inc;..\3rdparty\libconv\inc;..\3rdparty\libhttps\inc;..\3rdparty\libmobi\inc;..\3rdparty\libxml2\inc;..\3rdparty\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <Optimization>MaxSpeed</Optimization>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\opensrc\zlib\lib\x64;..\opensrc\libxml2\lib\x64;..\opensrc\openssl\lib\x64;..\opensrc\wolfssl\lib\x64;..\opensrc\libhttps\lib\x64;..\opensrc\libmobi\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\3rdparty\libconv\lib\x64;..\3rdparty\libhttps\lib\x64;..\3rdparty\libmobi\lib\x64;..\3rdparty\libxml2\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>delayimp.lib;gdiplus.lib;shlwapi.lib;Version.lib;comctl32.lib;Msimg32.lib;windowscodecs.lib;Crypt32.lib;Ws2_32.lib;Iphlpapi.lib;libconv.lib;https_a.lib;libmobi.lib;libxml2_a.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <AdditionalManifestFiles>app.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\opensrc\cjson\cJSON.h" />
-    <ClInclude Include="Advset.h" />
-    <ClInclude Include="barcode.h" />
-    <ClInclude Include="Book.h" />
-    <ClInclude Include="BooksourceDlg.h" />
-    <ClInclude Include="Cache.h" />
-    <ClInclude Include="DisplaySet.h" />
-    <ClInclude Include="DPIAwareness.h" />
-    <ClInclude Include="dump.h" />
-    <ClInclude Include="Editctrl.h" />
-    <ClInclude Include="EpubBook.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="HtmlParser.h" />
-    <ClInclude Include="Jsondata.h" />
-    <ClInclude Include="Keyset.h" />
-    <ClInclude Include="MobiBook.h" />
-    <ClInclude Include="OnlineBook.h" />
-    <ClInclude Include="OnlineDlg.h" />
-    <ClInclude Include="Page.h" />
-    <ClInclude Include="Reader.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="tagset.h" />
-    <ClInclude Include="targetver.h" />
-    <ClInclude Include="TextBook.h" />
-    <ClInclude Include="types.h" />
-    <ClInclude Include="Upgrade.h" />
-    <ClInclude Include="Utils.h" />
-    <ClInclude Include="WebBook.h" />
-    <ClInclude Include="WebDlg.h" />
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON.h" />
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_Path.h" />
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_Serialize.hpp" />
+    <ClInclude Include="..\3rdparty\cjson\inc\cJSON_XPath.h" />
+    <ClInclude Include="books\BookBase.h" />
+    <ClInclude Include="books\BookEpub.h" />
+    <ClInclude Include="books\BookMobi.h" />
+    <ClInclude Include="books\BookOnline.h" />
+    <ClInclude Include="books\BookText.h" />
+    <ClInclude Include="books\BookWeb.h" />
+    <ClInclude Include="books\IBook.h" />
+    <ClInclude Include="common\BookSession.h" />
+    <ClInclude Include="common\barcode.h" />
+    <ClInclude Include="common\common.h" />
+    <ClInclude Include="common\types.h" />
+    <ClInclude Include="layout\ILayout.h" />
+    <ClInclude Include="layout\LayoutBase.h" />
+    <ClInclude Include="layout\LayoutText.h" />
+    <ClInclude Include="platform\framework.h" />
+    <ClInclude Include="platform\resource.h" />
+    <ClInclude Include="platform\targetver.h" />
+    <ClInclude Include="renderer\IRenderer.h" />
+    <ClInclude Include="renderer\RendererBase.h" />
+    <ClInclude Include="renderer\RendererD2D.h" />
+    <ClInclude Include="renderer\RendererGDIPlus.h" />
+    <ClInclude Include="ui\AboutDlg.h" />
+    <ClInclude Include="ui\AdvanceSettingDlg.h" />
+    <ClInclude Include="ui\BasicSettingDlg.h" />
+    <ClInclude Include="ui\BookSourceMgrDlg.h" />
+    <ClInclude Include="ui\ctrls\ListView.h" />
+    <ClInclude Include="ui\DisplaySettingDlg.h" />
+    <ClInclude Include="ui\EditController.h" />
+    <ClInclude Include="ui\FollowDlg.h" />
+    <ClInclude Include="ui\JumpProgressDlg.h" />
+    <ClInclude Include="ui\KeySettingDlg.h" />
+    <ClInclude Include="ui\MainWin.h" />
+    <ClInclude Include="ui\NetworkSettingDlg.h" />
+    <ClInclude Include="ui\OnlineSearchDlg.h" />
+    <ClInclude Include="ui\SimpleSearchDlg.h" />
+    <ClInclude Include="ui\SourceSearchDlg.h" />
+    <ClInclude Include="ui\RewardDlg.h" />
+    <ClInclude Include="ui\TagItemDlg.h" />
+    <ClInclude Include="ui\TagMgrDlg.h" />
+    <ClInclude Include="ui\UpgradeDlg.h" />
+    <ClInclude Include="ui\WebDlg.h" />
+    <ClInclude Include="ui\wnds\Dialog.h" />
+    <ClInclude Include="ui\wnds\IWnd.h" />
+    <ClInclude Include="ui\wnds\Window.h" />
+    <ClInclude Include="files\IFile.h" />
+    <ClInclude Include="files\OLFile.h" />
+    <ClInclude Include="files\WebFile.h" />
+    <ClInclude Include="utils\DpiAwareness.h" />
+    <ClInclude Include="utils\HtmlParser.h" />
+    <ClInclude Include="utils\JsonSerialize.h" />
+    <ClInclude Include="utils\Logger.h" />
+    <ClInclude Include="utils\RequestQueue.h" />
+    <ClInclude Include="utils\Settings.h" />
+    <ClInclude Include="utils\SingleApp.h" />
+    <ClInclude Include="utils\Utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\opensrc\cjson\cJSON.c" />
-    <ClCompile Include="zlib_cdecl_bridge.c" />
-    <ClCompile Include="Advset.cpp" />
-    <ClCompile Include="Book.cpp" />
-    <ClCompile Include="BooksourceDlg.cpp" />
-    <ClCompile Include="Cache.cpp" />
-    <ClCompile Include="DisplaySet.cpp" />
-    <ClCompile Include="DPIAwareness.cpp" />
-    <ClCompile Include="dump.cpp" />
-    <ClCompile Include="Editctrl.cpp" />
-    <ClCompile Include="EpubBook.cpp" />
-    <ClCompile Include="HtmlParser.cpp" />
-    <ClCompile Include="Jsondata.cpp" />
-    <ClCompile Include="Keyset.cpp" />
-    <ClCompile Include="MobiBook.cpp" />
-    <ClCompile Include="OnlineBook.cpp" />
-    <ClCompile Include="OnlineDlg.cpp" />
-    <ClCompile Include="Page.cpp" />
-    <ClCompile Include="Reader.cpp" />
-    <ClCompile Include="tagset.cpp" />
-    <ClCompile Include="TextBook.cpp" />
-    <ClCompile Include="Upgrade.cpp" />
-    <ClCompile Include="Utils.cpp" />
-    <ClCompile Include="WebBook.cpp" />
-    <ClCompile Include="WebDlg.cpp" />
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON.c" />
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON_Path.c" />
+    <ClCompile Include="..\3rdparty\cjson\src\cJSON_XPath.c" />
+    <ClCompile Include="..\3rdparty\miniz\miniz.c" />
+    <ClCompile Include="books\BookBase.cpp" />
+    <ClCompile Include="books\BookEpub.cpp" />
+    <ClCompile Include="books\BookMobi.cpp" />
+    <ClCompile Include="books\BookOnline.cpp" />
+    <ClCompile Include="books\BookText.cpp" />
+    <ClCompile Include="books\BookWeb.cpp" />
+    <ClCompile Include="common\BookSession.cpp" />
+    <ClCompile Include="files\IFile.cpp" />
+    <ClCompile Include="layout\LayoutBase.cpp" />
+    <ClCompile Include="layout\LayoutText.cpp" />
+    <ClCompile Include="renderer\RendererBase.cpp" />
+    <ClCompile Include="renderer\RendererD2D.cpp" />
+    <ClCompile Include="renderer\RendererGDIPlus.cpp" />
+    <ClCompile Include="common\barcode.cpp" />
+    <ClCompile Include="common\main.cpp" />
+    <ClCompile Include="ui\AboutDlg.cpp" />
+    <ClCompile Include="ui\AdvanceSettingDlg.cpp" />
+    <ClCompile Include="ui\BasicSettingDlg.cpp" />
+    <ClCompile Include="ui\BookSourceMgrDlg.cpp" />
+    <ClCompile Include="ui\ctrls\ListView.cpp" />
+    <ClCompile Include="ui\DisplaySettingDlg.cpp" />
+    <ClCompile Include="ui\EditController.cpp" />
+    <ClCompile Include="ui\FollowDlg.cpp" />
+    <ClCompile Include="ui\JumpProgressDlg.cpp" />
+    <ClCompile Include="ui\KeySettingDlg.cpp" />
+    <ClCompile Include="ui\MainWin.cpp" />
+    <ClCompile Include="ui\NetworkSettingDlg.cpp" />
+    <ClCompile Include="ui\OnlineSearchDlg.cpp" />
+    <ClCompile Include="ui\SimpleSearchDlg.cpp" />
+    <ClCompile Include="ui\SourceSearchDlg.cpp" />
+    <ClCompile Include="ui\RewardDlg.cpp" />
+    <ClCompile Include="ui\TagItemDlg.cpp" />
+    <ClCompile Include="ui\TagMgrDlg.cpp" />
+    <ClCompile Include="ui\UpgradeDlg.cpp" />
+    <ClCompile Include="ui\WebDlg.cpp" />
+    <ClCompile Include="files\OLFile.cpp" />
+    <ClCompile Include="files\WebFile.cpp" />
+    <ClCompile Include="utils\DpiAwareness.cpp" />
+    <ClCompile Include="utils\HtmlParser.cpp" />
+    <ClCompile Include="utils\JsonSerialize.cpp" />
+    <ClCompile Include="utils\Logger.cpp" />
+    <ClCompile Include="utils\RequestQueue.cpp" />
+    <ClCompile Include="utils\Settings.cpp" />
+    <ClCompile Include="utils\SingleApp.cpp" />
+    <ClCompile Include="utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Reader_zh-cn.rc" />
+    <Image Include="res\book.ico" />
+    <Image Include="res\loading.gif" />
+    <Image Include="res\new.png" />
+    <Image Include="res\picker.bmp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="book.ico" />
-    <Image Include="loading.gif" />
-    <Image Include="new.png" />
-    <Image Include="picker.bmp" />
-    <Image Include="Reader.ico" />
-    <Image Include="small.ico" />
+    <None Include="res\picker.cur" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="picker.cur" />
+    <ResourceCompile Include="Reader.rc" />
   </ItemGroup>
-  <!--
-    Fixes required to build the published sources with a current toolset:
-    1) all sources are UTF-8 without BOM and contain Chinese comments; without
-       /source-charset:utf-8 a GBK (cp936) compiler swallows the line following
-       such a comment and MobiBook.h loses the manifests/spines/navpoints
-       members of mobi_t.
-    2) opensrc/libmobi/libmobi*.lib was built with /MD (it carries
-       /DEFAULTLIB:MSVCRT), while this project uses /MT; ignoring that default
-       library keeps the static CRT and avoids
-       "msvcrt.lib(chandler4gs.obj) : error LNK2001: __except_handler4_common".
-  -->
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
-    </ClCompile>
-    <Link>
-      <IgnoreSpecificDefaultLibraries>MSVCRT;MSVCRTD;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-    </Link>
-  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
