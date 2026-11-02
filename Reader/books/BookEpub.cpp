@@ -582,13 +582,13 @@ bool BookEpub::parseChapters(Files& files)
     return true;
 }
 
-bool BookEpub::parseOps(const FileData& file, wchar_t **text, int *len, wchar_t **title, int *tlen, bool needTitle)
+bool BookEpub::parseOps(FileData& file, wchar_t **text, int *len, wchar_t **title, int *tlen, bool needTitle)
 {
     if (m_abort) return false;
     if (!file.data || file.size <= 0 || !text || !len) return false;
     if (needTitle && (!title || !tlen)) return false;
 
-#if 0
+#if 1
     std::string formated;
     if (!HtmlParser::instance().formatHtml(file.data, file.size, formated)) return false;
 

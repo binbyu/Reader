@@ -23,7 +23,7 @@ CJSON_DEFINE_TYPE(WindowInfo, mode, placement, borderlessRect, style, exStyle, h
 CJSON_DEFINE_TYPE(TextInfo, unified, textFont, textColor, titleFont, titleColor)
 CJSON_DEFINE_TYPE(BackgroundInfo, color, enableImage, fileName, mode)
 CJSON_DEFINE_TYPE(NetworkInfo, enableProxy, port, addr, user, pass, adapterName)
-CJSON_DEFINE_TYPE(PagingInfo, mouseMode, scrollMode, preserveLines, autoMode, intervalMode, intervalValue)
+CJSON_DEFINE_TYPE(PagingInfo, mouseMode, scrollMode, preserveLines, scrollSpeed, autoMode, intervalMode, intervalValue)
 CJSON_DEFINE_TYPE(KeyItem, type, id, value, enable)
 CJSON_DEFINE_TYPE(KeysetInfo, enableMouseLRHide, enableEscHide, mouseBackAction, keys)
 CJSON_DEFINE_TYPE(LayoutConfig, borderL, borderT, borderR, borderB, charGap, lineGap, paragraphGap, indent, noBlansLine, wordWrap, splitChapter)

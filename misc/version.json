@@ -11,8 +11,13 @@
 			"force":	false
 		}, {
 			"version":	"3.0.0.0",
-			"downloadurl":	"https://pan.baidu.com/s/1MjCGCxqDanysnpWoVaBcTg?pwd=sunj",
-			"description":	"# v2.0.0.0 2026/10/30\r\n---------------------------------------\r\n更新说明：\r\n\r\n1. 项目重构，所有代码全部重写，基本都是古法手搓代码。原 2.x 版本移动到 v2.x 分支。\r\n2. 支持 Direct2D 绘图，对于老版本 Windows 系统自动降级为 GDI+。\r\n3. 配置文件由原来的 .cache.dat（密文）改成了 .settings.json（明文）。所以原来的配置和阅读进度等将丢失。原来的书源可以先导出再导入新版本Reader。\r\n4. v3.0版本支持原来的.ol文件，支持导入v2.x版本的书源。但是v3.0版本导出的书源不能导入v2.x版本\r\n5. 内置 libhttps 重构，bug 修复与功能更新。\r\n6. 新增 编码自动检测。修复老版本 gbk 编码的 txt 在非简体中文的系统上面乱码问题。\r\n7. 新增 在线小说-简易模式，无需书源直接贴入小说目录页地址。自动提取所有链接。（效果一般，仅支持没有章节与文本分页的小说地址）\r\n8. 新增 mobi 格式支持。初版作者：[@thomascatlee](https://github.com/thomascatlee) 。重构时我做了一些修改。\r\n9. 新增 web 阅读功能。主要用于通过局域网里的 legado (开源阅读) web 服务读书。初版作者：[@NanoKimi](https://github.com/NanoKimi) 。重构时我做了一些修改。\r\n10. 其他界面也有一些调整，不一一列举。\r\n11. 修复了很多 BUG，也完善了一些功能。另外可能引入更多的 BUG。新版本由于个人精力有限，没有全量测试。\r\n12. [@revelation370](https://github.com/revelation370) 提供了一个 Reader 的配套找书中心。看上去很不错。我还没有来得及试用。有兴趣的[详见](https://github.com/binbyu/Reader/issues/283)\r\n13. 最后感谢大家对 Reader 的喜爱。感谢各位 github 友人提供的思路和代码。",
+			"downloadurl":	"https://pan.baidu.com/s/1qSVwE9HVxpceTEGlcP2kVQ?pwd=1234",
+			"description":	"# v3.0.0.0 2026/10/30\r\n---------------------------------------\r\n更新说明：\r\n\r\n1. 项目重构，所有代码全部重写，基本都是古法手搓代码。原 2.x 版本移动到 v2.x 分支。\r\n2. 支持 Direct2D 绘图，对于老版本 Windows 系统自动降级为 GDI+。\r\n3. 配置文件由原来的 .cache.dat（密文）改成了 .settings.json（明文）。所以原来的配置和阅读进度等将丢失。原来的书源可以先导出再导入新版本Reader。\r\n4. v3.0版本支持原来的.ol文件，支持导入v2.x版本的书源。但是v3.0版本导出的书源不能导入v2.x版本\r\n5. 内置 libhttps 重构，bug 修复与功能更新。\r\n6. 新增 编码自动检测。修复老版本 gbk 编码的 txt 在非简体中文的系统上面乱码问题。\r\n7. 新增 在线小说-简易模式，无需书源直接贴入小说目录页地址。自动提取所有链接。（效果一般，仅支持没有章节与文本分页的小说地址）\r\n8. 新增 mobi 格式支持。初版作者：[@thomascatlee](https://github.com/thomascatlee) 。重构时我做了一些修改。\r\n9. 新增 web 阅读功能。主要用于通过局域网里的 legado (开源阅读) web 服务读书。初版作者：[@NanoKimi](https://github.com/NanoKimi) 。重构时我做了一些修改。\r\n10. 其他界面也有一些调整，不一一列举。\r\n11. 修复了很多 BUG，也完善了一些功能。另外可能引入更多的 BUG。新版本由于个人精力有限，没有全量测试。\r\n12. [@revelation370](https://github.com/revelation370) 提供了一个 Reader 的配套找书中心。看上去很不错。我还没有来得及试用。有兴趣的[详见](https://github.com/binbyu/Reader/issues/283)\r\n13. 最后感谢大家对 Reader 的喜爱。感谢各位 github 友人提供的思路和代码。",
+			"force":	false
+		}, {
+			"version":	"3.1.0.0",
+			"downloadurl":	"https://pan.baidu.com/s/1qSVwE9HVxpceTEGlcP2kVQ?pwd=1234",
+			"description":	"# v3.1.0.0 2026/11/02\r\n---------------------------------------\r\n更新说明：\r\n\r\n1. 开启epub 文本格式化（epub文件打开速度会明显变慢），用于修复部分epub文件无法正常分段显示的问题。\r\n2. 修复D2D 部分字体无法正确识别问题。\r\n3. 文本对齐方式默认改成左对齐, 原为居中对齐。（设置>显示设置）\r\n4. 修复“保留上页行数”、“鼠标滚轮模式”设置无效问题。\r\n5. 支持原v2.0版本的“文本滚动速度”。",
 			"force":	false
 		}]
 }

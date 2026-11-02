@@ -28,6 +28,7 @@ LRESULT BasicSettingDlg::onInitDialog()
 
     // page settings
     SetDlgItemInt(m_hWnd, IDC_EDIT_PRESERVELINES, data.paging.preserveLines, FALSE);
+    SetDlgItemInt(m_hWnd, IDC_EDIT_SCROLLSPEED, data.paging.scrollSpeed, FALSE);
 
     if (MousePageMode::DISABLED == data.paging.mouseMode)
         CheckRadioButton(m_hWnd, IDC_RADIO_MODE1, IDC_RADIO_MODE3, IDC_RADIO_MODE1);
@@ -65,6 +66,8 @@ LRESULT BasicSettingDlg::onEndDialog(INT_PTR nResult)
         auto& data = Settings::instance().data();
         // page settings
         data.paging.preserveLines = GetDlgItemInt(m_hWnd, IDC_EDIT_PRESERVELINES, NULL, FALSE);
+        data.paging.scrollSpeed = GetDlgItemInt(m_hWnd, IDC_EDIT_SCROLLSPEED, NULL, FALSE);
+        if (data.paging.scrollSpeed < 1) data.paging.scrollSpeed = 1;
         data.paging.scrollMode = (ScrollMode)SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_SCROLLMODE), CB_GETCURSEL, 0, NULL);
         if (IsDlgButtonChecked(m_hWnd, IDC_RADIO_MODE1))
             data.paging.mouseMode = MousePageMode::DISABLED;

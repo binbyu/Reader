@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by D:\work\gitee\reader\Reader\Reader.rc
+// Used by D:\work\github\Reader_dev\Reader\Reader.rc
 //
 #define IDC_SAVE                        3
 #define IDS_APP_TITLE                   103
@@ -367,6 +367,7 @@
 #define IDC_CHECK_INDENT                1130
 #define IDC_COMBO_LISTPAGE              1130
 #define IDC_EDIT_SCROLLLINES            1130
+#define IDC_EDIT_SCROLLSPEED            1130
 #define IDC_EDIT_LISTPAGE               1131
 #define IDC_CHECK_BLANKLINES            1131
 #define IDC_COMBO_CHARSET               1132

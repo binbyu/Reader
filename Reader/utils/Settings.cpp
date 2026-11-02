@@ -228,6 +228,7 @@ void Settings::defaultData(Data& data)
     data.paging.mouseMode = MousePageMode::CLICK_ANYWHERE;
     data.paging.scrollMode = ScrollMode::LINE;
     data.paging.preserveLines = 0;
+    data.paging.scrollSpeed = 1;
     data.paging.autoMode = AutoPageMode::PAGE_FLIP;
     data.paging.intervalMode = AutoPageIntervalMode::FIXED_TIME;
     data.paging.intervalValue = 5000;
@@ -252,7 +253,7 @@ void Settings::defaultData(Data& data)
     data.layout.noBlansLine = true;
     data.layout.wordWrap = false;
     data.layout.splitChapter = false;
-    data.layout.alignment = LayoutConfig::CENTER;
+    data.layout.alignment = LayoutConfig::LEFT;
 
     data.chapterRule.rule = ChapterRule::Rule::DEFAULT;
     data.chapterRule.keyword = L"";

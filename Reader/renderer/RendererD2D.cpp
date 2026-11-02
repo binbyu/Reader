@@ -1197,62 +1197,54 @@ bool RendererD2D::createTextResources()
             TextResource& tr = m_trs[i];
 
             FLOAT fontSize = static_cast<FLOAT>(std::abs(s.font.lfHeight));
-            if (fontSize <= 0)
-                fontSize = 12.0f;
 
-            HRESULT hr = ContextD2D::instance()->DWriteFactory()->CreateTextFormat(
-                s.font.lfFaceName,
-                nullptr,
-                getDWriteFontWeight(s.font.lfWeight),
-                getDWriteFontStyle(s.font.lfItalic),
-                DWRITE_FONT_STRETCH_NORMAL,
-                fontSize,
-                L"", // locale
-                &tr.textFormat
-            );
+            IDWriteGdiInterop* gdiInterop = nullptr;
+            IDWriteFont* font = nullptr;
+            IDWriteFontFamily* fontFamily = nullptr;
+            IDWriteLocalizedStrings* familyNames = nullptr;
+            IDWriteFontCollection* collection = nullptr;
 
-            if (FAILED(hr) || !tr.textFormat)
+            HRESULT hr = ContextD2D::instance()->DWriteFactory()->GetGdiInterop(&gdiInterop);
+            if (SUCCEEDED(hr)) hr = gdiInterop->CreateFontFromLOGFONT(&s.font, &font);
+            if (SUCCEEDED(hr)) hr = font->GetFontFamily(&fontFamily);
+            if (SUCCEEDED(hr)) hr = fontFamily->GetFamilyNames(&familyNames);
+            if (SUCCEEDED(hr)) hr = fontFamily->GetFontCollection(&collection);
+            if (SUCCEEDED(hr))
             {
-                return false;
+                UINT32 nameLength = 0;
+                hr = familyNames->GetStringLength(0, &nameLength);
+                if (SUCCEEDED(hr))
+                {
+                    std::vector<wchar_t> familyName(nameLength + 1);
+                    hr = familyNames->GetString(0, familyName.data(), nameLength + 1);
+                    if (SUCCEEDED(hr))
+                    {
+                        hr = ContextD2D::instance()->DWriteFactory()->CreateTextFormat(
+                            familyName.data(),
+                            collection,
+                            font->GetWeight(),
+                            font->GetStyle(),
+                            font->GetStretch(),
+                            fontSize,
+                            L"", // locale
+                            &tr.textFormat
+                        );
+                    }
+                }
             }
+            if (SUCCEEDED(hr)) font->CreateFontFace(&tr.fontFace);
+
+            SAFE_RELEASE(collection);
+            SAFE_RELEASE(familyNames);
+            SAFE_RELEASE(fontFamily);
+            SAFE_RELEASE(font);
+            SAFE_RELEASE(gdiInterop);
+
+            if (FAILED(hr) || !tr.textFormat) return false;
 
             tr.textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             tr.textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
             tr.textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
-
-            { // FontFace
-                IDWriteFontCollection *collection = nullptr;
-                tr.textFormat->GetFontCollection(&collection);
-                if (!collection)
-                {
-                    ContextD2D::instance()->DWriteFactory()->GetSystemFontCollection(&collection);
-                }
-
-                if (collection)
-                {
-                    UINT32 index = 0;
-                    BOOL exists = FALSE;
-                    if (SUCCEEDED(collection->FindFamilyName(s.font.lfFaceName, &index, &exists)) && exists)
-                    {
-                        IDWriteFontFamily *fontFamily = nullptr;
-                        if (SUCCEEDED(collection->GetFontFamily(index, &fontFamily)))
-                        {
-                            IDWriteFont *font = nullptr;
-                            if (SUCCEEDED(fontFamily->GetFirstMatchingFont(
-                                    tr.textFormat->GetFontWeight(),
-                                    tr.textFormat->GetFontStretch(),
-                                    tr.textFormat->GetFontStyle(),
-                                    &font)))
-                            {
-                                font->CreateFontFace(&tr.fontFace);
-                                font->Release();
-                            }
-                            fontFamily->Release();
-                        }
-                    }
-                    collection->Release();
-                }
-            }
 
             D2D1_COLOR_F textColor = colorRefToD2D(s.textColor, GetAValue(s.textColor));
             hr = m_pRenderTarget->CreateSolidColorBrush(textColor, &tr.textBrush);
@@ -1343,22 +1335,4 @@ D2D1_COLOR_F RendererD2D::colorRefToD2D(COLORREF color, BYTE alpha)
         GetBValue(color) / 255.0f,
         alpha / 255.0f
     );
-}
-
-DWRITE_FONT_WEIGHT RendererD2D::getDWriteFontWeight(LONG lfWeight)
-{
-    if (lfWeight >= FW_HEAVY) return DWRITE_FONT_WEIGHT_ULTRA_BLACK;
-    if (lfWeight >= FW_EXTRABOLD) return DWRITE_FONT_WEIGHT_EXTRA_BOLD;
-    if (lfWeight >= FW_BOLD) return DWRITE_FONT_WEIGHT_BOLD;
-    if (lfWeight >= FW_SEMIBOLD) return DWRITE_FONT_WEIGHT_SEMI_BOLD;
-    if (lfWeight >= FW_MEDIUM) return DWRITE_FONT_WEIGHT_MEDIUM;
-    if (lfWeight >= FW_NORMAL) return DWRITE_FONT_WEIGHT_NORMAL;
-    if (lfWeight >= FW_LIGHT) return DWRITE_FONT_WEIGHT_LIGHT;
-    if (lfWeight >= FW_EXTRALIGHT) return DWRITE_FONT_WEIGHT_EXTRA_LIGHT;
-    return DWRITE_FONT_WEIGHT_THIN;
-}
-
-DWRITE_FONT_STYLE RendererD2D::getDWriteFontStyle(BYTE lfItalic)
-{
-    return lfItalic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
 }

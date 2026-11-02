@@ -122,8 +122,6 @@ private:
 
 private:
     D2D1_COLOR_F colorRefToD2D(COLORREF color, BYTE alpha = 255);
-    DWRITE_FONT_WEIGHT getDWriteFontWeight(LONG lfWeight);
-    DWRITE_FONT_STYLE getDWriteFontStyle(BYTE lfItalic);
 
 private:
     ID2D1RenderTarget* m_pRenderTarget = nullptr;

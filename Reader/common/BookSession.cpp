@@ -436,39 +436,89 @@ void BookSession::seekChapter(int index)
 void BookSession::nextLine(int n)
 {
     if (fetchChapter(NEXT_LINE, -1, n)) return;
+    if (!m_book) return;
+    if (n <= 0) n = 1;
 
-    if (n > 0)
+    if (n < (int)m_pageInfo.lines.size())
     {
-        if (n < (int)m_pageInfo.lines.size())
-        {
-            seek(m_pageInfo.lines[n].start);
-        }
-        else
-        {
-            nextPage();
-        }
+        seek(m_pageInfo.lines[n].start);
+    }
+    else
+    {
+        nextPage();
     }
 }
 
 void BookSession::prevLine(int n)
 {
     if (fetchChapter(PREV_LINE, -1, n)) return;
+    if (!m_book || !m_layout) return;
+    if (n <= 0) n = 1;
 
-    if (m_layout && m_book) seek(m_layout->findPrevLineIndex(m_book->index(), n, m_width));
+    if (n == 1)
+    {
+        // stable line up
+        seek(m_layout->findPrevLineIndex(m_book->index(), n, m_width));
+    }
+    else
+    {
+        // unstable
+        int lineCount = (int)m_pageInfo.lines.size();
+        if (n < lineCount)
+        {
+            int seekPos = m_layout->findPrevPageIndex(m_pageInfo.lines[lineCount - n].start, m_width, m_height);
+            if (seekPos < m_book->index())
+            {
+                seek(seekPos);
+            }
+            else
+            {
+                prevPage();
+            }
+        }
+        else
+        {
+            prevPage();
+        }
+    }
 }
 
 void BookSession::nextPage()
 {
     if (fetchChapter(NEXT_PAGE)) return;
+    if (!m_book) return;
 
-    if (m_book) seek(m_book->index() + pageLength());
+    int seekPos = m_book->index() + pageLength();
+    int preserveLines = Settings::instance().data().paging.preserveLines;
+    int lineCount = (int)m_pageInfo.lines.size();
+    if (preserveLines > 0 && lineCount > 1)
+    {
+        if (lineCount > preserveLines) seekPos = m_pageInfo.lines[lineCount - preserveLines].start;
+        else                           seekPos = m_pageInfo.lines[1].start;
+    }
+    seek(seekPos);
 }
 
 void BookSession::prevPage()
 {
     if (fetchChapter(PREV_PAGE)) return;
+    if (!m_book || !m_layout) return;
 
-    if (m_layout && m_book) seek(m_layout->findPrevPageIndex(m_book->index(), m_width, m_height));
+    int endPos = m_book->index();
+    int preserveLines = Settings::instance().data().paging.preserveLines;
+    int lineCount = (int)m_pageInfo.lines.size();
+    if (preserveLines > 0 && lineCount > 1)
+    {
+        if (lineCount > preserveLines) endPos = m_pageInfo.lines[preserveLines].start;
+        else                           endPos = m_pageInfo.lines[lineCount - 1].start;
+    }
+    int currentIndex = m_book->index();
+    int seekPos = m_layout->findPrevPageIndex(endPos, m_width, m_height);
+    if (seekPos >= currentIndex)
+    {
+        seekPos = m_layout->findPrevPageIndex(currentIndex, m_width, m_height);
+    }
+    if (seekPos < currentIndex) seek(seekPos);
 }
 
 void BookSession::nextChapter()

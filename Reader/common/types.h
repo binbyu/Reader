@@ -396,6 +396,7 @@ struct PagingInfo
     MousePageMode mouseMode;
     ScrollMode scrollMode;
     int preserveLines;
+    int scrollSpeed;
     // auto page
     AutoPageMode autoMode;
     AutoPageIntervalMode intervalMode;

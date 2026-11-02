@@ -67,7 +67,7 @@ protected:
     virtual bool parseNcx(Files& files);
     virtual bool parseCover(Files& files);
     virtual bool parseChapters(Files& files);
-    virtual bool parseOps(const FileData& file, wchar_t **text, int *len, wchar_t **title, int *tlen, bool needTitle);
+    virtual bool parseOps(FileData& file, wchar_t **text, int *len, wchar_t **title, int *tlen, bool needTitle);
     virtual bool splitHtmlByNavpoints(Files& files);
 
 protected:

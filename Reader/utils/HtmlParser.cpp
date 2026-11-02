@@ -242,8 +242,8 @@ void HtmlParser::tidyHtml(char* html, int& len)
         }
         html[dst++] = html[src++];
     }
+    if (dst < len) html[dst] = '\0';
     len = dst;
-    html[len] = '\0';
 }
 
 bool HtmlParser::parseXml(const char* xml, int len, const std::string& xpath_, std::vector<std::string>& value, bool noBlanks)

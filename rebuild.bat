@@ -36,8 +36,26 @@ if "%ret%" == "1" goto _err
 call:func_get_version x64\Release
 if "%vers%" == "" goto _err
 call:func_copy_to_publish x64\Release %vers% 1
-call:func_packet %vers% networkless
+call:func_packet %vers% x64_networkless
 call:func_cleanup x64\Release 1
+
+:: build networkless x86
+call:func_build Release x86 1
+if "%ret%" == "1" goto _err
+call:func_get_version Release
+if "%vers%" == "" goto _err
+call:func_copy_to_publish Release %vers%
+call:func_packet %vers% x86_networkless
+call:func_cleanup Release 1
+
+:: build Debug x86(support winxp)
+call:func_build Debug x86
+if "%ret%" == "1" goto _err
+call:func_get_version Debug
+if "%vers%" == "" goto _err
+call:func_copy_to_publish Debug %vers%
+call:func_packet %vers% x86_debug
+call:func_cleanup Debug 1
 
 :: build Release x86(support winxp)
 call:func_build Release x86
@@ -45,7 +63,7 @@ if "%ret%" == "1" goto _err
 call:func_get_version Release
 if "%vers%" == "" goto _err
 call:func_copy_to_publish Release %vers%
-call:func_packet %vers% x86_winxp
+call:func_packet %vers% x86
 call:func_cleanup Release 1
 
 :: build Debug x64
@@ -54,7 +72,7 @@ if "%ret%" == "1" goto _err
 call:func_get_version x64\Debug
 if "%vers%" == "" goto _err
 call:func_copy_to_publish x64\Debug %vers%
-call:func_packet %vers% debug
+call:func_packet %vers% x64_debug
 call:func_cleanup x64\Debug 1
 
 :: build Release x64
@@ -63,7 +81,7 @@ if "%ret%" == "1" goto _err
 call:func_get_version x64\Release
 if "%vers%" == "" goto _err
 call:func_copy_to_publish x64\Release %vers%
-call:func_packet %vers%
+call:func_packet %vers% x64
 call:func_cleanup x64\Release 1
 call:func_cleanup x64 1
 

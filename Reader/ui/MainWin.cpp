@@ -815,7 +815,8 @@ LRESULT MainWin::onMouseWheel(UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            onLineUp(message, wParam, lParam);
+            if (m_data.paging.scrollMode == ScrollMode::PAGE) onPageUp(message, wParam, lParam);
+            else onLineUp(message, wParam, lParam);
         }
         return TRUE;
     }
@@ -853,7 +854,8 @@ LRESULT MainWin::onMouseWheel(UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            onLineDown(message, wParam, lParam);
+            if (m_data.paging.scrollMode == ScrollMode::PAGE) onPageDown(message, wParam, lParam);
+            else onLineDown(message, wParam, lParam);
         }
         return TRUE;
     }
@@ -1673,13 +1675,13 @@ LRESULT MainWin::onPageDown(UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT MainWin::onLineUp(UINT message, WPARAM wParam, LPARAM lParam)
 {
-    m_session->prevLine();
+    m_session->prevLine(m_data.paging.scrollSpeed);
     return TRUE;
 }
 
 LRESULT MainWin::onLineDown(UINT message, WPARAM wParam, LPARAM lParam)
 {
-    m_session->nextLine();
+    m_session->nextLine(m_data.paging.scrollSpeed);
     return TRUE;
 }
 
