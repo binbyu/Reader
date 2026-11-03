@@ -57,14 +57,14 @@ typedef std::vector<TextStyle> TextStyles;
 
 /////////////////////////////////////////////
 // layout
+enum Alignment
+{
+    LEFT,
+    CENTER
+};
+
 struct LayoutConfig
 {
-    enum Alignment
-    {
-        LEFT,
-        CENTER
-    };
-
     int  borderL;
     int  borderT;
     int  borderR;

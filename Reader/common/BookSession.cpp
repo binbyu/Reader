@@ -239,7 +239,7 @@ void BookSession::clear()
 
 void BookSession::refreshChapter()
 {
-    if (m_book && m_book->isRefreshSupport())
+    if (m_book && m_book->isRefreshSupport() && isValid())
     {
         setState(BookState::LOADING);
         m_book->refreshChapter([this](BookErrno err){
@@ -256,7 +256,7 @@ void BookSession::refreshChapter()
 
 void BookSession::refreshContent()
 {
-    if (m_book && m_book->isRefreshSupport())
+    if (m_book && m_book->isRefreshSupport() && isValid())
     {
         setState(BookState::LOADING);
         m_book->refreshContent(m_book->curChapterIndex(), [this](BookErrno err){
@@ -386,12 +386,12 @@ void BookSession::seek(int index)
 
 void BookSession::seek(float prog)
 {
-    if (m_book) seek((int)(prog / 100.0f * m_book->length()));
+    if (m_book && isValid()) seek((int)(prog / 100.0f * m_book->length()));
 }
 
 void BookSession::seek(bool forward, const wchar_t* keyword)
 {
-    if (m_book && keyword && *keyword)
+    if (m_book && keyword && *keyword && isValid())
     {
         size_t len = wcslen(keyword);
         size_t cmpsize = len * sizeof(wchar_t);
@@ -421,22 +421,17 @@ void BookSession::seek(bool forward, const wchar_t* keyword)
 
 void BookSession::seekChapter(int index)
 {
+    if (!m_book || !isValid()) return;
     if (fetchChapter(SEEK_CHAPTER, index)) return;
 
-    if (m_book)
-    {
-        auto* c = m_book->chapter(index);
-        if (c)
-        {
-            seek(c->index);
-        }
-    }
+    auto* c = m_book->chapter(index);
+    if (c) seek(c->index);
 }
 
 void BookSession::nextLine(int n)
 {
+    if (!m_book || !isValid()) return;
     if (fetchChapter(NEXT_LINE, -1, n)) return;
-    if (!m_book) return;
     if (n <= 0) n = 1;
 
     if (n < (int)m_pageInfo.lines.size())
@@ -451,8 +446,8 @@ void BookSession::nextLine(int n)
 
 void BookSession::prevLine(int n)
 {
+    if (!m_book || !m_layout || !isValid()) return;
     if (fetchChapter(PREV_LINE, -1, n)) return;
-    if (!m_book || !m_layout) return;
     if (n <= 0) n = 1;
 
     if (n == 1)
@@ -485,8 +480,8 @@ void BookSession::prevLine(int n)
 
 void BookSession::nextPage()
 {
+    if (!m_book || !isValid()) return;
     if (fetchChapter(NEXT_PAGE)) return;
-    if (!m_book) return;
 
     int seekPos = m_book->index() + pageLength();
     int preserveLines = Settings::instance().data().paging.preserveLines;
@@ -501,8 +496,8 @@ void BookSession::nextPage()
 
 void BookSession::prevPage()
 {
+    if (!m_book || !m_layout || !isValid()) return;
     if (fetchChapter(PREV_PAGE)) return;
-    if (!m_book || !m_layout) return;
 
     int endPos = m_book->index();
     int preserveLines = Settings::instance().data().paging.preserveLines;
@@ -523,34 +518,32 @@ void BookSession::prevPage()
 
 void BookSession::nextChapter()
 {
-    if (m_book)
+    if (!m_book || !isValid()) return;
+
+    int idx = m_book->curChapterIndex();
+    int cnt = m_book->chapterCount();
+    if (idx + 1 < cnt)
     {
-        int idx = m_book->curChapterIndex();
-        int cnt = m_book->chapterCount();
-        if (idx + 1 < cnt)
-        {
-            seekChapter(idx + 1);
-        }
+        seekChapter(idx + 1);
     }
 }
 
 void BookSession::prevChapter()
 {
-    if (m_book)
+    if (!m_book || !isValid()) return;
+
+    int idx = m_book->curChapterIndex();
+    auto* c = m_book->chapter(idx);
+    if (!c) return;
+    if (c->index < m_book->index())
     {
-        int idx = m_book->curChapterIndex();
-        auto* c = m_book->chapter(idx);
-        if (!c) return;
-        if (c->index < m_book->index())
-        {
-            seek(c->index);
-            return;
-        }
-        if (idx > 0)
-        {
-            seekChapter(idx - 1);
-            return;
-        }
+        seek(c->index);
+        return;
+    }
+    if (idx > 0)
+    {
+        seekChapter(idx - 1);
+        return;
     }
 }
 
@@ -566,7 +559,7 @@ const Marks& BookSession::marks()
 
 void BookSession::addMark(int index)
 {
-    if (m_bookInfo)
+    if (m_bookInfo && isValid())
     {
         auto& marks = m_bookInfo->marks;
         auto it = std::lower_bound(marks.begin(), marks.end(), m_bookInfo->index);
@@ -679,8 +672,22 @@ const TextStyles& BookSession::styles() const
 
 LRESULT BookSession::onEvent(WPARAM wParam, LPARAM lParam)
 {
-    if (m_book) return m_book->onEvent(wParam, lParam);
-    return -1;
+    if (!m_book) return -1;
+
+    int index = m_bookInfo ? m_bookInfo->index : 0;
+    LRESULT result = m_book->onEvent(wParam, lParam);
+    if (m_bookInfo && m_bookInfo->index != index)
+    {
+        if (isValid() && m_layout && m_width > 0 && m_height > 0)
+        {
+            m_pageInfo = m_layout->layout(m_book->index(), m_width, m_height);
+        }
+        else
+        {
+            m_pageInfo.clear();
+        }
+    }
+    return result;
 }
 
 LRESULT BookSession::onTimer(WPARAM wParam, LPARAM lParam)

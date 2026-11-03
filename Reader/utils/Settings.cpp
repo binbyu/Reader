@@ -253,7 +253,7 @@ void Settings::defaultData(Data& data)
     data.layout.noBlansLine = true;
     data.layout.wordWrap = false;
     data.layout.splitChapter = false;
-    data.layout.alignment = LayoutConfig::LEFT;
+    data.layout.alignment = Alignment::LEFT;
 
     data.chapterRule.rule = ChapterRule::Rule::DEFAULT;
     data.chapterRule.keyword = L"";

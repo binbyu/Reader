@@ -471,7 +471,7 @@ bool DisplaySettingDlg::loadData()
     m_layout.noBlansLine = IsDlgButtonChecked(m_hWnd, IDC_CHECK_BLANKLINES) == BST_CHECKED;
     m_layout.wordWrap = IsDlgButtonChecked(m_hWnd, IDC_CHECK_WORDWRAP) == BST_CHECKED;
     m_layout.splitChapter = IsDlgButtonChecked(m_hWnd, IDC_CHECK_SPLITCHAPTER) == BST_CHECKED;
-    m_layout.alignment = (LayoutConfig::Alignment)SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_ALIGNMENT), CB_GETCURSEL, 0, NULL);
+    m_layout.alignment = (Alignment)SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_ALIGNMENT), CB_GETCURSEL, 0, NULL);
 
     m_styles.unified = IsDlgButtonChecked(m_hWnd, IDC_CHECK_SAMETEXTSTYLE) == BST_CHECKED;
     m_styles.viewFont = IsDlgButtonChecked(m_hWnd, IDC_CHECK_MENU_FONT) == BST_CHECKED;

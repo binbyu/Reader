@@ -106,7 +106,7 @@ DONE:
         const LineInfo& last = pageInfo.lines.back();
         pageInfo.length = last.start + last.length - pageInfo.start;
     }
-    if (m_config.alignment == LayoutConfig::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
+    if (m_config.alignment == Alignment::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
     return pageInfo.start;
 }
 
@@ -269,7 +269,7 @@ DONE:
         const LineInfo& last = pageInfo.lines.back();
         pageInfo.length = last.start + last.length - pageInfo.start;
     }
-    if (m_config.alignment == LayoutConfig::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
+    if (m_config.alignment == Alignment::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
     return pageInfo;
 }
 

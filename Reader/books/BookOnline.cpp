@@ -352,6 +352,11 @@ void BookOnline::checkUpdate(AsyncCallback cb)
         if (cb) cb(err);
         return;
     }
+    if (!m_bs)
+    {
+        if (cb) cb(err);
+        return;
+    }
 
     uint64_t curnTime = time(NULL);
     if (curnTime <= m_updateTime || curnTime - m_updateTime < 4 * 3600)
@@ -432,13 +437,16 @@ BookErrno BookOnline::parseFile(const char* buffer, size_t size)
     }
 
     auto& sources = Settings::instance().data().sources;
-    auto it = std::find_if(sources.begin(), sources.end(), [file](const BookSource& bs) { return bs.host == std::string(file->host()); });
-    if (it != sources.end()) m_bs = new BookSource(*it);
-    if (!m_bs && !file->header()->notBooksrc)
+    if (!file->header()->notBooksrc)
     {
-        delete file;
-        lgerror("Book source not found.");
-        return BookErrno::BOOKSOURCE_NOT_FOUND;
+        auto it = std::find_if(sources.begin(), sources.end(), [file](const BookSource& bs) { return bs.host == std::string(file->host()); });
+        if (it != sources.end()) m_bs = new BookSource(*it);
+        if (!m_bs)
+        {
+            delete file;
+            lgerror("Book source not found.");
+            return BookErrno::BOOKSOURCE_NOT_FOUND;
+        }
     }
 
     m_bookName   = file->bookName();
