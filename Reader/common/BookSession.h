@@ -83,6 +83,7 @@ public:
 
     LRESULT           onEvent(WPARAM wParam, LPARAM lParam);
     LRESULT           onTimer(WPARAM wParam, LPARAM lParam);
+    LRESULT           onFetchComplete(WPARAM wParam, LPARAM lParam);
 
 private:
     void              addBookItem(const std::wstring& fileName);

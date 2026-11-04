@@ -24,5 +24,10 @@
 			"downloadurl":	"https://pan.baidu.com/s/1qSVwE9HVxpceTEGlcP2kVQ?pwd=1234",
 			"description":	"# v3.1.1.0 2026/11/03\r\n---------------------------------------\r\n更新说明：\r\n\r\n1. 修复在线小说翻行时异常回退进度的bug",
 			"force":	false
+		}, {
+			"version":	"3.1.2.0",
+			"downloadurl":	"https://pan.baidu.com/s/1qSVwE9HVxpceTEGlcP2kVQ?pwd=1234",
+			"description":	"# v3.1.2.0 2026/11/04\r\n---------------------------------------\r\n更新说明：\r\n\r\n1. 修复特殊场景下翻页可能遇到空白，且无法继续翻页的问题。\r\n2. 修改epub文本格式化算法，让epub支持格式化的同时也可以急速打开。",
+			"force":	false
 		}]
 }

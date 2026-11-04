@@ -71,10 +71,11 @@
 #define WM_NEWVERSION               (WM_USER_BEGIN + 18)
 #define WM_BOOKSTATECHANGED         (WM_USER_BEGIN + 19)
 #define WM_BOOKEVENT                (WM_USER_BEGIN + 20)
-#define WM_REDRAW                   (WM_USER_BEGIN + 21)
-#define WM_UPDATEBOOKS              (WM_USER_BEGIN + 22)
-#define WM_UPDATECHAPTERS           (WM_USER_BEGIN + 23)
-#define WM_UPDATEMARKS              (WM_USER_BEGIN + 24)
+#define WM_BOOKFETCHCOMPLETE        (WM_USER_BEGIN + 21)
+#define WM_REDRAW                   (WM_USER_BEGIN + 22)
+#define WM_UPDATEBOOKS              (WM_USER_BEGIN + 23)
+#define WM_UPDATECHAPTERS           (WM_USER_BEGIN + 24)
+#define WM_UPDATEMARKS              (WM_USER_BEGIN + 25)
 #define WM_USER_END                 (WM_USER_BEGIN + 0xff)
 
 // custom menu ids

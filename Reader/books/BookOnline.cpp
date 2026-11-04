@@ -666,10 +666,9 @@ bool BookOnline::parseContent(int chapterIdx, AsyncCallback cb)
         htmlLen = conv_to_utf8(result->body, result->bodylen, &html);
         if (!html) { err = BookErrno::TOO_LARGE; goto FAIL; }
 
-        HtmlParser::instance().tidyHtml(html, htmlLen);
         if (!HtmlParser::instance().parseHtmlBegin(html, htmlLen, ctx)) { err = BookErrno::XPATH_FAIL; goto FAIL; }
-        if (this_->m_bs) HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentXpath, contents);
-        else HtmlParser::instance().parseHtmlNext(ctx, DEFAULT_CONTENT_XPATH, contents);
+        if (this_->m_bs) HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentXpath, contents, true);
+        else HtmlParser::instance().parseHtmlNext(ctx, DEFAULT_CONTENT_XPATH, contents, true);
         if (this_->m_bs && this_->m_bs->enableContentNext)
         {
             HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentNextUrlXpath, contentNextUrls);

@@ -235,6 +235,9 @@ LRESULT MainWin::handleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     case WM_BOOKEVENT:
         result = onBookEvent(message, wParam, lParam);
         break;
+    case WM_BOOKFETCHCOMPLETE:
+        result = onBookFetchComplete(message, wParam, lParam);
+        break;
     case WM_REDRAW:
         result = onRedraw(message, wParam, lParam);
         break;
@@ -1373,6 +1376,12 @@ LRESULT MainWin::onBookStateChanged(UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT MainWin::onBookEvent(UINT message, WPARAM wParam, LPARAM lParam)
 {
     m_session->onEvent(wParam, lParam);
+    return TRUE;
+}
+
+LRESULT MainWin::onBookFetchComplete(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    m_session->onFetchComplete(wParam, lParam);
     return TRUE;
 }
 

@@ -437,8 +437,7 @@ LRESULT SimpleSearchDlg::onReqCompleter(WPARAM wParam, LPARAM lParam)
 
         std::vector<std::string> contents;
 
-        HtmlParser::instance().tidyHtml(html, htmlLen);
-        HtmlParser::instance().parseHtml(html, htmlLen, DEFAULT_CONTENT_XPATH, contents);
+        HtmlParser::instance().parseHtml(html, htmlLen, DEFAULT_CONTENT_XPATH, contents, true);
         conv_free(html);
 
         if (contents.empty())

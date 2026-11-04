@@ -63,6 +63,7 @@ protected:
     LRESULT onNewVersion(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onBookStateChanged(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onBookEvent(UINT message, WPARAM wParam, LPARAM lParam);
+    LRESULT onBookFetchComplete(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onRedraw(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onUpdateBooks(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onUpdateChapters(UINT message, WPARAM wParam, LPARAM lParam);

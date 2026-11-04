@@ -27,29 +27,26 @@ public:
     static HtmlParser& instance();
 
     // html
-    bool parseHtml(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, bool noBlanks = false);
+    bool parseHtml(const char* html, int len, const std::string& xpath, std::vector<std::string>& value, bool formatText = false);
     bool parseHtmlBegin(const char* html, int len, ParserContext& ctx);
-    bool parseHtmlNext(ParserContext& ctx, const std::string& xpath, std::vector<std::string>& value, bool noBlanks = false);
+    bool parseHtmlNext(ParserContext& ctx, const std::string& xpath, std::vector<std::string>& value, bool formatText = false);
     bool parseHtmlNext(ParserContext& ctx, const std::string& xpath, NodeCallback cb);
     bool parseHtmlEnd(ParserContext& ctx);
-    bool formatHtml(const char* html, int len, std::string& formated);
-    void tidyHtml(char* html, int& len);
 
     // xml
-    bool parseXml(const char* xml, int len, const std::string& xpath, std::vector<std::string>& value, bool noBlanks = false);
+    bool parseXml(const char* xml, int len, const std::string& xpath, std::vector<std::string>& value);
     bool parseXmlBegin(const char* xml, int len, ParserContext& ctx);
-    bool parseXmlNext(ParserContext& ctx, const std::string& xpath, std::vector<std::string>& value, bool noBlanks = false);
+    bool parseXmlNext(ParserContext& ctx, const std::string& xpath, std::vector<std::string>& value);
     bool parseXmlNext(ParserContext& ctx, const std::string& xpath, NodeCallback cb);
     bool parseXmlEnd(ParserContext& ctx);
-    bool formatXml(const char* xml, int len, std::string& formated);
 
 private:
-    bool parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const std::string& xpath, std::vector<std::string>& value, bool noBlanks);
+    bool parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const std::string& xpath, std::vector<std::string>& value, bool formatText = false);
     bool parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const std::string& xpath, NodeCallback cb);
     bool parseJsonByXPath(cJSON* json, const std::string& xpath, std::vector<std::string>& value);
     bool parseJsonByJsonPath(cJSON* json, const std::string& jpath, std::vector<std::string>& value);
-    std::string removeBlanks(const char* src);
     void extractStringValues(cJSON* json, std::vector<std::string>& value);
+    void extractNodeText(const xmlNode *node, std::string &out);
 
     bool parseConcat(const std::string& expression, std::string& nodeXPath, std::string& prefix, std::string& suffix);
     void applyConcat(std::vector<std::string>& values, const std::string& prefix, const std::string& suffix);

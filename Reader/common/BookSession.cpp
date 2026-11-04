@@ -168,14 +168,14 @@ void BookSession::open(const std::wstring& fileName, bool forced)
             }
             // for online/web book, fetch failed but still can opened
             setError(err);
-            setState(BookState::UNREADY);
             m_layout->setSource(m_book);
+            setState(BookState::UNREADY);
             PostMessageW(m_hWnd, WM_UPDATECHAPTERS, 0, NULL);
             PostMessageW(m_hWnd, WM_UPDATEMARKS, 0, NULL);
             return;
         }
-        setState(BookState::OPENED);
         m_layout->setSource(m_book);
+        setState(BookState::OPENED);
         PostMessageW(m_hWnd, WM_UPDATECHAPTERS, 0, NULL);
         PostMessageW(m_hWnd, WM_UPDATEMARKS, 0, NULL);
     });
@@ -696,6 +696,24 @@ LRESULT BookSession::onTimer(WPARAM wParam, LPARAM lParam)
     return -1;
 }
 
+LRESULT BookSession::onFetchComplete(WPARAM wParam, LPARAM lParam)
+{
+    FetchType type = (FetchType)wParam;
+    int idxOrN = (int)lParam;
+
+    // restore paging
+    switch (type)
+    {
+    case SEEK_CHAPTER: seekChapter(idxOrN); break;
+    case PREV_PAGE:    prevPage();          break;
+    case PREV_LINE:    prevLine(idxOrN);    break;
+    case NEXT_PAGE:    nextPage();          break;
+    case NEXT_LINE:    nextLine(idxOrN);    break;
+    default: break;
+    }
+    return TRUE;
+}
+
 void BookSession::addBookItem(const std::wstring& fileName)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -860,16 +878,9 @@ bool BookSession::fetchChapter(FetchType type, int chapterIdx, int n)
 
             setState(BookState::OPENED);
 
-            // restore paging
-            switch (type)
-            {
-            case SEEK_CHAPTER: seekChapter(targetIdx); break;
-            case PREV_PAGE:    prevPage();  break;
-            case PREV_LINE:    prevLine(n); break;
-            case NEXT_PAGE:    nextPage();  break;
-            case NEXT_LINE:    nextLine(n); break;
-            default: break;
-            }
+            // restore paging (sync to UI thread)
+            int idxOrN = SEEK_CHAPTER == type ? targetIdx : n;
+            PostMessageW(m_hWnd, WM_BOOKFETCHCOMPLETE, (WPARAM)type, (LPARAM)idxOrN);
         });
     }
 

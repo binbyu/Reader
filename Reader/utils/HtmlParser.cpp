@@ -26,7 +26,7 @@ HtmlParser& HtmlParser::instance()
     return instance;
 }
 
-bool HtmlParser::parseHtml(const char* html, int len, const std::string& xpath_, std::vector<std::string>& value, bool noBlanks)
+bool HtmlParser::parseHtml(const char* html, int len, const std::string& xpath_, std::vector<std::string>& value, bool formatText)
 {
     std::string xpath, prefix, suffix;
     bool hasConcat = parseConcat(xpath_, xpath, prefix, suffix);
@@ -61,7 +61,7 @@ bool HtmlParser::parseHtml(const char* html, int len, const std::string& xpath_,
         return false;
     }
 
-    ret = parseHtmlByXPath(doc, ctx, xpath, value, noBlanks);
+    ret = parseHtmlByXPath(doc, ctx, xpath, value, formatText);
     xmlXPathFreeContext(ctx);
     xmlFreeDoc(doc);
     if (ret && hasConcat) applyConcat(value, prefix, suffix);
@@ -94,7 +94,7 @@ bool HtmlParser::parseHtmlBegin(const char* html, int len, ParserContext& ctx)
     return true;
 }
 
-bool HtmlParser::parseHtmlNext(ParserContext& ctx, const std::string& xpath_, std::vector<std::string>& value, bool noBlanks)
+bool HtmlParser::parseHtmlNext(ParserContext& ctx, const std::string& xpath_, std::vector<std::string>& value, bool formatText)
 {
     std::string xpath, prefix, suffix;
     bool hasConcat = parseConcat(xpath_, xpath, prefix, suffix);
@@ -118,7 +118,7 @@ bool HtmlParser::parseHtmlNext(ParserContext& ctx, const std::string& xpath_, st
     }
     else if (ctx.doc && ctx.ctx)
     {
-        ret = parseHtmlByXPath(ctx.doc, ctx.ctx, xpath, value, noBlanks);
+        ret = parseHtmlByXPath(ctx.doc, ctx.ctx, xpath, value, formatText);
         if (ret && hasConcat) applyConcat(value, prefix, suffix);
         return ret;
     }
@@ -155,98 +155,7 @@ bool HtmlParser::parseHtmlEnd(ParserContext& ctx)
     return true;
 }
 
-bool HtmlParser::formatHtml(const char* html, int len, std::string& formated)
-{
-    xmlKeepBlanksDefault(0);
-    xmlIndentTreeOutput = 0;
-
-    xmlDocPtr doc = htmlReadMemory(html, len, NULL, "UTF-8", HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS | HTML_PARSE_NONET);
-    if (!doc)
-    {
-        xmlKeepBlanksDefault(1);
-        xmlIndentTreeOutput = 0;
-        return false;
-    }
-
-    xmlChar* formatStr = nullptr;
-    int formatLen = 0;
-    htmlDocDumpMemoryFormat(doc, &formatStr, &formatLen, 1);
-    xmlFreeDoc(doc);
-
-    if (!formatStr)
-    {
-        xmlKeepBlanksDefault(1);
-        xmlIndentTreeOutput = 0;
-        return false;
-    }
-
-    xmlKeepBlanksDefault(1);
-    xmlIndentTreeOutput = 0;
-
-    formated.assign((const char*)formatStr);
-    xmlFree(formatStr);
-    return true;
-}
-
-void HtmlParser::tidyHtml(char* html, int& len)
-{
-    if (!html || len <= 0) return;
-
-    int src = 0;
-    int dst = 0;
-
-    while (src < len)
-    {
-        if (html[src] == '<' && (src + 3 < len))
-        {
-            // <br> or <BR>
-            if ((html[src + 1] == 'b' || html[src + 1] == 'B') &&
-                (html[src + 2] == 'r' || html[src + 2] == 'R'))
-            {
-                // <br>
-                if (html[src + 3] == '>')
-                {
-                    html[dst++] = '\n';
-                    src += 4;
-                    continue;
-                }
-                // <br/>
-                if (src + 4 < len && html[src + 3] == '/' && html[src + 4] == '>')
-                {
-                    html[dst++] = '\n';
-                    src += 5;
-                    continue;
-                }
-                // <br /> or <br  >
-                int temp = src + 3;
-                while (temp < len && (html[temp] == ' ' || html[temp] == '\t')) {
-                    temp++;
-                }
-                if (temp < len && (html[temp] == '>' || (html[temp] == '/' && temp + 1 < len && html[temp + 1] == '>')))
-                {
-                    html[dst++] = '\n';
-                    src = (html[temp] == '/') ? temp + 2 : temp + 1;
-                    continue;
-                }
-            }
-            // </br>
-            else if (src + 4 < len && html[src + 1] == '/' &&
-                    (html[src + 2] == 'b' || html[src + 2] == 'B') &&
-                    (html[src + 3] == 'r' || html[src + 3] == 'R') &&
-                    html[src + 4] == '>')
-            {
-                html[dst++] = '\n';
-                src += 5;
-                continue;
-            }
-        }
-        html[dst++] = html[src++];
-    }
-    if (dst < len) html[dst] = '\0';
-    len = dst;
-}
-
-bool HtmlParser::parseXml(const char* xml, int len, const std::string& xpath_, std::vector<std::string>& value, bool noBlanks)
+bool HtmlParser::parseXml(const char* xml, int len, const std::string& xpath_, std::vector<std::string>& value)
 {
     xmlDocPtr doc = nullptr;
 
@@ -267,7 +176,7 @@ bool HtmlParser::parseXml(const char* xml, int len, const std::string& xpath_, s
         return false;
     }
 
-    bool ret = parseHtmlByXPath(doc, ctx, xpath, value, noBlanks);
+    bool ret = parseHtmlByXPath(doc, ctx, xpath, value);
     xmlXPathFreeContext(ctx);
     xmlFreeDoc(doc);
     if (ret && hasConcat) applyConcat(value, prefix, suffix);
@@ -294,7 +203,7 @@ bool HtmlParser::parseXmlBegin(const char* xml, int len, ParserContext& ctx)
     return true;
 }
 
-bool HtmlParser::parseXmlNext(ParserContext& ctx, const std::string& xpath_, std::vector<std::string>& value, bool noBlanks)
+bool HtmlParser::parseXmlNext(ParserContext& ctx, const std::string& xpath_, std::vector<std::string>& value)
 {
     std::string xpath, prefix, suffix;
     bool hasConcat = parseConcat(xpath_, xpath, prefix, suffix);
@@ -302,7 +211,7 @@ bool HtmlParser::parseXmlNext(ParserContext& ctx, const std::string& xpath_, std
 
     if (ctx.doc && ctx.ctx)
     {
-        bool ret = parseHtmlByXPath(ctx.doc, ctx.ctx, xpath, value, noBlanks);
+        bool ret = parseHtmlByXPath(ctx.doc, ctx.ctx, xpath, value);
         if (ret && hasConcat) applyConcat(value, prefix, suffix);
         return ret;
     }
@@ -320,35 +229,7 @@ bool HtmlParser::parseXmlEnd(ParserContext& ctx)
     return parseHtmlEnd(ctx);
 }
 
-bool HtmlParser::formatXml(const char* xml, int len, std::string& formated)
-{
-    xmlKeepBlanksDefault(0);
-
-    xmlDocPtr doc = xmlReadMemory(xml, len, nullptr, nullptr, /*XML_PARSE_RECOVER*/HTML_PARSE_RECOVER | XML_PARSE_NOBLANKS | XML_PARSE_NONET);
-    if (!doc)
-    {
-        xmlKeepBlanksDefault(1);
-        return false;
-    }
-
-    xmlChar* formatStr = nullptr;
-    int formatLen = 0;
-    xmlDocDumpFormatMemory(doc, &formatStr, &formatLen, 1);
-    xmlFreeDoc(doc);
-
-    if (!formatStr)
-    {
-        xmlKeepBlanksDefault(1);
-        return false;
-    }
-
-    xmlKeepBlanksDefault(1);
-    formated.assign((const char*)formatStr);
-    xmlFree(formatStr);
-    return true;
-}
-
-bool HtmlParser::parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const std::string& xpath, std::vector<std::string>& value, bool noBlanks)
+bool HtmlParser::parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const std::string& xpath, std::vector<std::string>& value, bool formatText)
 {
     value.clear();
     xmlXPathObjectPtr xpathObj = xmlXPathEvalExpression(BAD_CAST xpath.c_str(), ctx);
@@ -363,22 +244,27 @@ bool HtmlParser::parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const s
         return true;
     }
 
-    xmlChar* keyword = nullptr;
     xmlNodeSetPtr nodeset = xpathObj->nodesetval;
     for (int i = 0; i < nodeset->nodeNr; i++)
     {
-        keyword = xmlNodeGetContent(nodeset->nodeTab[i]);
-        if (keyword)
+        std::string text;
+        if (formatText && nodeset->nodeTab[i]->type == XML_ELEMENT_NODE)
         {
-            if (noBlanks)
+            extractNodeText(nodeset->nodeTab[i]->children, text);
+        }
+        else
+        {
+            xmlChar* keyword = xmlNodeGetContent(nodeset->nodeTab[i]);
+            if (keyword)
             {
-                value.push_back(removeBlanks((const char*)keyword));
+                text = (const char*)keyword;
+                xmlFree(keyword);
             }
-            else
-            {
-                value.push_back((const char*)keyword);
-            }
-            xmlFree(keyword);
+        }
+
+        if (!text.empty())
+        {
+            value.push_back(std::move(text));
         }
     }
     xmlXPathFreeObject(xpathObj);
@@ -399,7 +285,6 @@ bool HtmlParser::parseHtmlByXPath(xmlDocPtr doc, xmlXPathContextPtr ctx, const s
         return true;
     }
 
-    xmlChar* keyword = nullptr;
     xmlNodeSetPtr nodeset = xpathObj->nodesetval;
     for (int i = 0; i < nodeset->nodeNr; i++)
     {
@@ -433,20 +318,6 @@ bool HtmlParser::parseJsonByJsonPath(cJSON* json, const std::string& jpath, std:
     }
     cJSONPath_FreeResults(result);
     return count >= 0;
-}
-
-std::string HtmlParser::removeBlanks(const char* src)
-{
-    std::string dst;
-    while (*src)
-    {
-        if (!Utils::isBlank(*src))
-        {
-            dst.push_back(*src);
-        }
-        src++;
-    }
-    return dst;
 }
 
 void HtmlParser::extractStringValues(cJSON* json, std::vector<std::string>& value)
@@ -495,6 +366,49 @@ void HtmlParser::extractStringValues(cJSON* json, std::vector<std::string>& valu
         {
             extractStringValues(child, value);
             child = child->next;
+        }
+    }
+}
+
+void HtmlParser::extractNodeText(const xmlNode *node, std::string &out)
+{
+    auto isBlockElement = [](const xmlNode *n) -> bool {
+        if (!n || !n->name) return false;
+        const htmlElemDesc *desc = htmlTagLookup(n->name);
+        if (desc) return desc->isinline == 0;
+
+        const char *name = (const char *)n->name;
+        return _stricmp(name, "section") == 0 ||
+               _stricmp(name, "article") == 0 ||
+               _stricmp(name, "aside")   == 0 ||
+               _stricmp(name, "header")  == 0 ||
+               _stricmp(name, "footer")  == 0 ||
+               _stricmp(name, "main")    == 0 ||
+               _stricmp(name, "figure")  == 0 ||
+               _stricmp(name, "nav")     == 0;
+    };
+
+    for (const xmlNode *cur = node; cur != nullptr; cur = cur->next)
+    {
+        if (cur->type == XML_TEXT_NODE || cur->type == XML_CDATA_SECTION_NODE)
+        {
+            if (cur->content) out.append((const char *)cur->content);
+        }
+        else if (cur->type == XML_ELEMENT_NODE)
+        {
+            const char *name = (const char *)cur->name;
+            if (!name) continue;
+            if (_stricmp(name, "script") == 0 || _stricmp(name, "style") == 0) continue;
+            if (_stricmp(name, "br") == 0)
+            {
+                out.push_back('\n');
+                continue;
+            }
+
+            bool isBlock = isBlockElement(cur);
+            if (isBlock && !out.empty() && out.back() != '\n') out.push_back('\n');
+            if (cur->children) extractNodeText(cur->children, out);
+            if (isBlock && !out.empty() && out.back() != '\n') out.push_back('\n');
         }
     }
 }

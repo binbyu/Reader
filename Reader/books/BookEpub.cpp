@@ -588,90 +588,28 @@ bool BookEpub::parseOps(FileData& file, wchar_t **text, int *len, wchar_t **titl
     if (!file.data || file.size <= 0 || !text || !len) return false;
     if (needTitle && (!title || !tlen)) return false;
 
-#if 1
-    std::string formated;
-    if (!HtmlParser::instance().formatHtml(file.data, file.size, formated)) return false;
-
     ParserContext ctx = {0};
     std::vector<std::string> value;
-    if (!HtmlParser::instance().parseHtmlBegin(formated.c_str(), (int)formated.size(), ctx)) return false;
+    if (!HtmlParser::instance().parseHtmlBegin(file.data, file.size, ctx)) return false;
 
-    // parse title
     if (needTitle)
     {
         HtmlParser::instance().parseHtmlNext(ctx, "//*[local-name()='title']", value);
         if (!value.empty())
         {
-            const auto& front = value.front();
-            if (!decodeText(front.c_str(), (int)front.size(), title, tlen))
-            {
-                HtmlParser::instance().parseHtmlEnd(ctx);
-                return false;
-            }
+            decodeText(value.front().c_str(), (int)value.front().size(), title, tlen);
         }
     }
 
-    // parse body
-    HtmlParser::instance().parseHtmlNext(ctx, "//*[local-name()='body']", value);
+    HtmlParser::instance().parseHtmlNext(ctx, "//*[local-name()='body']", value, true);
+    if (value.empty())
+    {
+        HtmlParser::instance().parseHtmlNext(ctx, "/*", value, true);
+    }
     HtmlParser::instance().parseHtmlEnd(ctx);
 
-    if (value.empty()) return false;
-    const auto& front = value.front();
-    if (!decodeText(front.c_str(), (int)front.size(), text, len)) return false;
-
-    return true;
-#else // Not use format, to fast parse epub file
-    xmlDocPtr doc = htmlReadMemory(file.data, file.size, nullptr, nullptr, HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET);
-    if (!doc) return false;
-
-    xmlXPathContextPtr xpathCtx = xmlXPathNewContext(doc);
-    if (!xpathCtx)
-    {
-        xmlFreeDoc(doc);
-        return false;
-    }
-
-    // parse title
-    if (needTitle)
-    {
-        xmlXPathObjectPtr xpathObj = xmlXPathEvalExpression(BAD_CAST "//*[local-name()='title']", xpathCtx);
-        if (xpathObj)
-        {
-            if (!xmlXPathNodeSetIsEmpty(xpathObj->nodesetval))
-            {
-                xmlChar* content = xmlNodeGetContent(xpathObj->nodesetval->nodeTab[0]);
-                if (content)
-                {
-                    decodeText((const char*)content, (int)xmlStrlen(content), title, tlen);
-                    xmlFree(content);
-                }
-            }
-            xmlXPathFreeObject(xpathObj);
-        }
-    }
-
-    // parse body
-    bool ret = false;
-    xmlXPathObjectPtr xpathObj = xmlXPathEvalExpression(BAD_CAST "//*[local-name()='body']", xpathCtx);
-    if (xpathObj)
-    {
-        if (!xmlXPathNodeSetIsEmpty(xpathObj->nodesetval))
-        {
-            xmlChar* content = xmlNodeGetContent(xpathObj->nodesetval->nodeTab[0]);
-            if (content)
-            {
-                ret = decodeText((const char*)content, (int)xmlStrlen(content), text, len);
-                xmlFree(content);
-            }
-        }
-        xmlXPathFreeObject(xpathObj);
-    }
-
-    xmlXPathFreeContext(xpathCtx);
-    xmlFreeDoc(doc);
-
-    return ret;
-#endif
+    if (value.empty() || value.front().empty()) return false;
+    return decodeText(value.front().c_str(), (int)value.front().size(), text, len);
 }
 
 bool BookEpub::splitHtmlByNavpoints(Files& files)

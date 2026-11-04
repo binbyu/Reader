@@ -53,6 +53,7 @@ int LayoutText::findPrevPageIndex(int end, int width, int height)
     int prefixBlankLen;
     int suffixBlankLen;
     bool isBlankLine;
+    int pageStart = pageInfo.start;
 
     int start = m_source->hasCover() ? 1 : 0;
     while (index > start)
@@ -63,9 +64,21 @@ int LayoutText::findPrevPageIndex(int end, int width, int height)
         {
             break;
         }
-        index -= lineLen + crlfLen;
+
+        const int step = lineLen + crlfLen;
+        if (step <= 0) break;
+
+        index -= step;
         if (m_config.noBlansLine && isBlankLine)
         {
+            if (!pageInfo.lines.empty())
+            {
+                pageInfo.lines.front().start -= step;
+                pageInfo.lines.front().length += step;
+            }
+            pageStart = index;
+            if (index > 0 && ((m_config.splitChapter && m_source->isChapterStart(index)) || !m_source->isChapterContinuous(false, index)))
+                break;
             continue;
         }
 
@@ -76,6 +89,7 @@ int LayoutText::findPrevPageIndex(int end, int width, int height)
         if (lines.empty())
         {
             ASSERT(0);
+            pageStart = index;
             continue;
         }
         lines.back().length += crlfLen;
@@ -96,6 +110,7 @@ int LayoutText::findPrevPageIndex(int end, int width, int height)
 
         if (index > 0 && ((m_config.splitChapter && m_source->isChapterStart(index)) || !m_source->isChapterContinuous(false, index)))
             break;
+        pageStart = index;
     }
 
 DONE:
@@ -105,6 +120,11 @@ DONE:
         pageInfo.start = first.start;
         const LineInfo& last = pageInfo.lines.back();
         pageInfo.length = last.start + last.length - pageInfo.start;
+    }
+    else
+    {
+        pageInfo.start = pageStart;
+        pageInfo.length = end - pageInfo.start;
     }
     if (m_config.alignment == Alignment::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
     return pageInfo.start;
@@ -144,9 +164,15 @@ int LayoutText::findPrevLineIndex(int end, int n, int width)
         {
             break;
         }
-        index -= lineLen + crlfLen;
+
+        const int step = lineLen + crlfLen;
+        if (step <= 0) break;
+
+        index -= step;
         if (m_config.noBlansLine && isBlankLine)
         {
+            if (index > 0 && ((m_config.splitChapter && m_source->isChapterStart(index)) || !m_source->isChapterContinuous(false, index)))
+                break;
             continue;
         }
 
@@ -212,6 +238,7 @@ PageInfo LayoutText::layout(int start, int width, int height)
     int index = start;
     int usedH = 0;
     int maxLineW = 0;
+    int leadingBlankLen = 0;
 
     int searchLen;
     int lineLen;
@@ -228,9 +255,23 @@ PageInfo LayoutText::layout(int start, int width, int height)
         {
             break;
         }
+
+        const int step = lineLen + crlfLen;
+        if (step <= 0) break;
+
         if (m_config.noBlansLine && isBlankLine)
         {
-            index += lineLen + crlfLen;
+            index += step;
+            if (!pageInfo.lines.empty())
+            {
+                pageInfo.lines.back().length += step;
+            }
+            else
+            {
+                leadingBlankLen += step;
+            }
+            if ((m_config.splitChapter && m_source->isChapterStart(index)) || !m_source->isChapterContinuous(true, index))
+                break;
             continue;
         }
 
@@ -241,11 +282,17 @@ PageInfo LayoutText::layout(int start, int width, int height)
         if (lines.empty())
         {
             ASSERT(0);
-            index += lineLen + crlfLen;
+            index += step;
             continue;
         }
         lines.back().length += crlfLen;
         if (crlfLen == 0) lines.back().gap = m_config.lineGap;
+        if (leadingBlankLen > 0)
+        {
+            lines.front().start -= leadingBlankLen;
+            lines.front().length += leadingBlankLen;
+            leadingBlankLen = 0;
+        }
 
         for (const LineInfo& line : lines)
         {
@@ -257,7 +304,7 @@ PageInfo LayoutText::layout(int start, int width, int height)
             maxLineW = max(maxLineW, line.x + line.w);
         }
 
-        index += lineLen + crlfLen;
+        index += step;
 
         if ((m_config.splitChapter && m_source->isChapterStart(index)) || !m_source->isChapterContinuous(true, index))
             break;
@@ -268,6 +315,10 @@ DONE:
     {
         const LineInfo& last = pageInfo.lines.back();
         pageInfo.length = last.start + last.length - pageInfo.start;
+    }
+    else
+    {
+        pageInfo.length = index - start;
     }
     if (m_config.alignment == Alignment::CENTER) pageInfo.x += (readerW - maxLineW) / 2;
     return pageInfo;
@@ -593,8 +644,19 @@ void LayoutText::validateLines(const wchar_t* text, int start, int length, int r
             lastIndex = ch.index;
         }
 
-        for (int i = lastIndex + 1; i < lineEnd; ++i)
-            ASSERT(Utils::isBlank(text[i]));
+        for (int i = line.start; i < line.start + line.length; ++i)
+        {
+            bool used = false;
+            for (size_t j=0; j<line.chars.size(); j++)
+            {
+                if (i == line.chars[j].index)
+                {
+                    used = true;
+                    break;
+                }
+            }
+            if (!used) ASSERT(Utils::isBlank(text[i]));
+        }
 
         ASSERT(contentW == line.w);
         ASSERT(contentW <= renderW - line.x);
