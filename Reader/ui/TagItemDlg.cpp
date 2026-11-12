@@ -1,14 +1,15 @@
-#if ENABLE_TAG
 #include "TagItemDlg.h"
+#if ENABLE_TAG
 #include "resource.h"
 #include "DisplaySettingDlg.h"
+#include "IRenderer.h"
 
 TagItemDlg::TagItemDlg(HINSTANCE hInstance, HWND hParent)
     : Dialog(hInstance, hParent, IDD_TAGITEM)
     , m_index(-1)
 {
     m_item.enable = true;
-    Setting::instance().defaultFont(m_item.font);
+    Settings::instance().defaultFont(m_item.font);
     m_item.textColor = DEFAULT_TEXT_COLOR;
     m_item.backgroundColor = DEFAULT_TEXTBG_COLOR;
 }
@@ -20,7 +21,7 @@ TagItemDlg::~TagItemDlg()
 void TagItemDlg::SetTagIndex(int index)
 {
     m_index = index;
-    const auto& tags = Setting::instance().data().tags;
+    const auto& tags = Settings::instance().data().tags;
     if (m_index >= 0 && m_index < (int)tags.size())
     {
         m_item = tags[m_index];
@@ -56,16 +57,16 @@ LRESULT TagItemDlg::onSaveButtonClick()
         return TRUE;
     }
 
-    auto& tags = Setting::instance().data().tags;
+    auto& tags = Settings::instance().data().tags;
     if (m_index >= 0 && m_index < (int)tags.size()) // edit
     {
         tags[m_index] = m_item;
-        Setting::instance().save();
+        Settings::instance().save();
     }
     else // add
     {
         tags.push_back(m_item);
-        Setting::instance().save();
+        Settings::instance().save();
     }
 
     EndDialog(m_hWnd, IDOK);
@@ -107,7 +108,7 @@ LRESULT TagItemDlg::onUpdatePreview(HDC hdc, RECT rect)
     SelectObject(hMemdc, hBitmap);
     FillRect(hMemdc, &rect, GetSysColorBrush(COLOR_BTNFACE));
 
-    IRenderer::instance()->beginPaint(m_hWnd, hMemdc, rect, { ts }, true);
+    IRenderer::instance()->beginPaint(m_hWnd, hMemdc, rect, { ts }, false, true);
 
     IMeasurer* measurer = IRenderer::instance()->measurer();
     auto tmTile = measurer->measureText(m_item.keyword.c_str(), (int)m_item.keyword.size(), rect.right - rect.left, 0);
@@ -133,7 +134,7 @@ void TagItemDlg::updatePreview()
 
 bool TagItemDlg::isExist()
 {
-    const auto& tags = Setting::instance().data().tags;
+    const auto& tags = Settings::instance().data().tags;
     for (int i = 0; i < (int)tags.size();i++)
     {
         if (i != m_index && tags[i].keyword == m_item.keyword)

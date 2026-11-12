@@ -3,6 +3,7 @@
 #include "resource.h"
 #include "DpiAwareness.h"
 #include "Utils.h"
+#include <map>
 
 DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
     : Dialog(hInstance, hParent, IDD_DISPLAYSETTING)
@@ -30,8 +31,22 @@ bool DisplaySettingDlg::isChanged() const
 
 LRESULT DisplaySettingDlg::onInitDialog()
 {
+    // renderer settings
+    std::map<RendererType, const wchar_t*> rendererNames = { { D2D, L"Direct2D" }, { GDIPLUS, L"GDI+" }, { GDI, L"GDI" } };
+    auto supports = IRenderer::supports();
+    IRenderer* renderer = IRenderer::instance();
+    int selected = -1;
+    for (auto i : supports)
+    {
+        LRESULT index = SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_RENDER), CB_ADDSTRING, 0, (LPARAM)rendererNames[i]);
+        if (index == CB_ERR || index == CB_ERRSPACE) continue;
+        if (renderer && renderer->type() == i) selected = (int)index;
+        SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_RENDER), CB_SETITEMDATA, (WPARAM)index, (LPARAM)i);
+    }
+    SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_RENDER), CB_SETCURSEL, selected, NULL);
+    CheckDlgButton(m_hWnd, IDC_CHECK_CLEARTYPE, Settings::instance().data().clearType ? BST_CHECKED : BST_UNCHECKED);
+
     // font settings
-    auto &data = Settings::instance().data();
     CheckDlgButton(m_hWnd, IDC_CHECK_SAMETEXTSTYLE, m_styles.unified ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(m_hWnd, IDC_CHECK_MENU_FONT, m_styles.viewFont ? BST_CHECKED : BST_UNCHECKED);
     EnableWindow(GetDlgItem(m_hWnd, IDC_BUTTON_CHAPTER_FONT), !m_styles.unified);
@@ -190,6 +205,45 @@ LRESULT DisplaySettingDlg::onBackgroundAlphaChanged()
     return TRUE;
 }
 
+LRESULT DisplaySettingDlg::onRendererTypeChanged()
+{
+    HWND hRenderCombo = GetDlgItem(m_hWnd, IDC_COMBO_RENDER);
+    int index = (int)SendMessage(hRenderCombo, CB_GETCURSEL, 0, NULL);
+    if (index != CB_ERR && index != CB_ERRSPACE)
+    {
+        RendererType type = (RendererType)SendMessage(hRenderCombo, CB_GETITEMDATA, (WPARAM)index, 0);
+        IRenderer::switchto(type);
+        SendMessage(m_hParentWnd, WM_RENDERERCHANGED, 0, NULL);
+        if (IRenderer::instance()->type() != type)
+        {
+            messageBox(L"Unsupport", L"Tips", MB_OK | MB_ICONERROR);
+            // restore combo current select
+            IRenderer* renderer = IRenderer::instance();
+            int itemCount = (int)SendMessage(hRenderCombo, CB_GETCOUNT, 0, 0);
+            for (int i = 0; renderer && i < itemCount; ++i)
+            {
+                LRESULT itemType = SendMessage(hRenderCombo, CB_GETITEMDATA, (WPARAM)i, 0);
+                if (itemType != CB_ERR && (RendererType)itemType == renderer->type())
+                {
+                    SendMessage(hRenderCombo, CB_SETCURSEL, (WPARAM)i, 0);
+                    break;
+                }
+            }
+        }
+        updatePreview();
+    }
+    return TRUE;
+}
+
+LRESULT DisplaySettingDlg::onClearTypeChanged()
+{
+    Settings::instance().data().clearType = IsDlgButtonChecked(m_hWnd, IDC_CHECK_CLEARTYPE) == BST_CHECKED;
+    Settings::instance().save();
+    SendMessage(m_hParentWnd, WM_RENDERERCHANGED, 0, NULL);
+    updatePreview();
+    return TRUE;
+}
+
 LRESULT DisplaySettingDlg::onTextAlphaChanged()
 {
     if (m_ignoreAlphaEditChange)
@@ -212,19 +266,26 @@ LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
     SelectObject(hMemdc, hBitmap);
     FillRect(hMemdc, &rect, GetSysColorBrush(COLOR_BTNFACE));
 
-    const wchar_t* TITLE1 = L"\u6807\u9898\u9884\u89c8";
-    const wchar_t* TITLE2 = L"Title preview";
-    const wchar_t* TEXT1  = L"\u6b63\u6587\u9884\u89c8\r\n";
-    const wchar_t* TEXT2  = L"Text preview";
+    const wchar_t* TITLE1   = L"\u6807\u9898\u9884\u89c8";
+    const wchar_t* TITLE2   = L"Title preview";
+    const wchar_t* SEPARATE = L" ";
+    const wchar_t* TEXT1    = L"\u6b63\u6587\u9884\u89c8";
+    const wchar_t* TEXT2    = L"Text preview";
 
     TextStyles textStyles(2);
     textStyles[0] = TextStyle(m_styles.textFont, m_textAlpha << 24 | m_styles.textColor);
     textStyles[1] = TextStyle(m_styles.titleFont, m_textAlpha << 24 | m_styles.titleColor);
 
-    IRenderer::instance()->beginPaint(m_hWnd, hMemdc, rect, textStyles, true);
-    if (m_background.enableImage)
+    Image* image1 = nullptr;
+    if (m_background.enableImage && !m_background.fileName.empty())
     {
-        Image* image1 = IRenderer::instance()->loadImageFromPath(m_background.fileName.c_str());
+        image1 = IRenderer::instance()->loadImageFromPath(m_background.fileName.c_str());
+    }
+    bool clearType = (m_alpha == 0xff) && (!image1 || !image1->hasAlpha());
+
+    IRenderer::instance()->beginPaint(m_hWnd, hMemdc, rect, textStyles, clearType, true);
+    if (image1)
+    {
         Image* image2 = IRenderer::instance()->createImageFromBGImage(image1, m_alpha, rect.right - rect.left, rect.bottom - rect.top, m_background.mode);
         delete image1;
         IRenderer::instance()->drawImage(image2, rect);
@@ -235,52 +296,46 @@ LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
         IRenderer::instance()->fillRect(m_alpha << 24 | m_background.color, rect);
     }
 
-    int borderL = m_layout.borderL;
-    int borderT = m_layout.borderT;
-    int borderR = m_layout.borderR;
-    int borderB = m_layout.borderB;
-    int charGap = m_layout.charGap;
-    int lineGap = m_layout.lineGap;
-    int paragraphGap = m_layout.paragraphGap;
-    DpiAwareness::instance().logicalToPhysical(borderL, borderL);
-    DpiAwareness::instance().logicalToPhysical(borderT, borderT);
-    DpiAwareness::instance().logicalToPhysical(borderR, borderR);
-    DpiAwareness::instance().logicalToPhysical(borderB, borderB);
-    DpiAwareness::instance().logicalToPhysical(charGap, charGap);
-    DpiAwareness::instance().logicalToPhysical(lineGap, lineGap);
-    DpiAwareness::instance().logicalToPhysical(paragraphGap, paragraphGap);
+    LayoutConfig lay = m_layout;
+    DpiAwareness::instance().toPhysical(lay);
 
-    int maxWidth = rect.right - rect.left - borderL - borderR;
-    int maxHeight = rect.bottom - rect.top - borderT - borderB;
+    int maxWidth = rect.right - rect.left - lay.borderL - lay.borderR;
+    int maxHeight = rect.bottom - rect.top - lay.borderT - lay.borderB;
     IMeasurer* measurer = IRenderer::instance()->measurer();
-    auto tmTile1 = measurer->measureText(TITLE1, -1, maxWidth, m_styles.unified ? 0 : 1);
-    auto tmTile2 = measurer->measureText(TITLE2, -1, maxWidth, m_styles.unified ? 0 : 1);
+    auto tmTitle1 = measurer->measureText(TITLE1, -1, maxWidth, m_styles.unified ? 0 : 1);
+    auto tmTitle2 = measurer->measureText(TITLE2, -1, maxWidth, m_styles.unified ? 0 : 1);
+    auto tmSeparate = measurer->measureText(SEPARATE, -1, maxWidth, 0);
     auto tmText1 = measurer->measureText(TEXT1, -1, maxWidth, 0);
     auto tmText2 = measurer->measureText(TEXT2, -1, maxWidth, 0);
-    int totalHeight = tmTile1.height + tmTile2.height + tmText1.height + tmText2.height + lineGap * 3;
+    int totalHeight = tmTitle1.height + tmTitle2.height + tmSeparate.height + tmText1.height + tmText2.height + lay.lineGap * 4;
 
-    RECT rcDraw1, rcDraw2, rcDraw3, rcDraw4;
-    rcDraw1.left = (rect.right - rect.left - tmTile1.width) / 2;
-    rcDraw1.right = rcDraw1.left + tmTile1.width;
+    RECT rcDraw1, rcDraw2, rcDraw3, rcDraw4, rcDraw5;
+    rcDraw1.left = (rect.right - rect.left - tmTitle1.width) / 2;
+    rcDraw1.right = rcDraw1.left + tmTitle1.width;
     rcDraw1.top = m_layout.borderT + (rect.bottom - rect.top - totalHeight) / 2;
-    rcDraw1.bottom = rcDraw1.top + tmTile1.height;
+    rcDraw1.bottom = rcDraw1.top + tmTitle1.height;
     rcDraw2.left = (rect.right - rect.left - tmText1.width) / 2;
     rcDraw2.right = rcDraw2.left + tmText1.width;
-    rcDraw2.top = rcDraw1.bottom + lineGap;
+    rcDraw2.top = rcDraw1.bottom + lay.lineGap;
     rcDraw2.bottom = rcDraw2.top + tmText1.height;
-    rcDraw3.left = (rect.right - rect.left - tmTile2.width) / 2;
-    rcDraw3.right = rcDraw3.left + tmTile2.width;
-    rcDraw3.top = rcDraw2.bottom + lineGap;
-    rcDraw3.bottom = rcDraw3.top + tmTile2.height;
-    rcDraw4.left = (rect.right - rect.left - tmText2.width) / 2;
-    rcDraw4.right = rcDraw4.left + tmText2.width;
-    rcDraw4.top = rcDraw3.bottom + lineGap;
-    rcDraw4.bottom = rcDraw4.top + tmText2.height;
+    rcDraw3.left = (rect.right - rect.left - tmSeparate.width) / 2;
+    rcDraw3.right = rcDraw3.left + tmSeparate.width;
+    rcDraw3.top = rcDraw2.bottom + lay.lineGap;
+    rcDraw3.bottom = rcDraw3.top + tmSeparate.height;
+    rcDraw4.left = (rect.right - rect.left - tmTitle2.width) / 2;
+    rcDraw4.right = rcDraw4.left + tmTitle2.width;
+    rcDraw4.top = rcDraw3.bottom + lay.lineGap;
+    rcDraw4.bottom = rcDraw4.top + tmTitle2.height;
+    rcDraw5.left = (rect.right - rect.left - tmText2.width) / 2;
+    rcDraw5.right = rcDraw5.left + tmText2.width;
+    rcDraw5.top = rcDraw4.bottom + lay.lineGap;
+    rcDraw5.bottom = rcDraw5.top + tmText2.height;
 
     IRenderer::instance()->drawText(TITLE1, -1, rcDraw1, m_styles.unified ? 0 : 1);
     IRenderer::instance()->drawText(TEXT1, -1, rcDraw2, 0);
-    IRenderer::instance()->drawText(TITLE2, -1, rcDraw3, m_styles.unified ? 0 : 1);
-    IRenderer::instance()->drawText(TEXT2, -1, rcDraw4, 0);
+    IRenderer::instance()->drawText(SEPARATE, -1, rcDraw3, 0);
+    IRenderer::instance()->drawText(TITLE2, -1, rcDraw4, m_styles.unified ? 0 : 1);
+    IRenderer::instance()->drawText(TEXT2, -1, rcDraw5, 0);
     IRenderer::instance()->endPaint();
 
     BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, hMemdc, 0, 0, SRCCOPY);
@@ -519,7 +574,7 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
         case IDCANCEL:
             EndDialog(m_hWnd, LOWORD(wParam));
             return (INT_PTR)TRUE;
-        case IDC_CHECK_SAME:
+        case IDC_CHECK_SAMETEXTSTYLE:
             return onUnifiedTextStyle();
         case IDC_BUTTON_TEXT_FONT:
             return onTextFont();
@@ -543,6 +598,14 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
                 return onBackgroundImageModeChanged();
             }
             break;
+        case IDC_COMBO_RENDER:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                return onRendererTypeChanged();
+            }
+            break;
+        case IDC_CHECK_CLEARTYPE:
+            return onClearTypeChanged();
         case IDC_EDIT_BGALPHA:
             if (HIWORD(wParam) == EN_CHANGE)
             {

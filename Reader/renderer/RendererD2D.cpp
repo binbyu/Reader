@@ -1,5 +1,6 @@
 #pragma once
 #include "RendererD2D.h"
+#include "Settings.h"
 
 //#pragma comment(lib, "Msimg32.lib")
 //#pragma comment(lib, "d2d1.lib")
@@ -18,6 +19,7 @@ ImageD2D::ImageD2D()
     , m_frameIndex(0)
     , m_generationID(-1)
     , m_d2dBitmap(nullptr)
+    , m_hasAlpha(false)
 {
 }
 
@@ -123,7 +125,7 @@ HBITMAP ImageD2D::getHBITMAP() const
     IWICBitmapSource* pSource32bpp = NULL;
     void* pBits = NULL;
 
-    if (SUCCEEDED(WICConvertBitmapSource(GUID_WICPixelFormat32bppBGR, m_bitmap, &pSource32bpp)))
+    if (SUCCEEDED(WICConvertBitmapSource(GUID_WICPixelFormat32bppPBGRA, m_bitmap, &pSource32bpp)))
     {
         int w = width();
         int h = height();
@@ -144,6 +146,11 @@ HBITMAP ImageD2D::getHBITMAP() const
         SAFE_RELEASE(pSource32bpp);
     }
     return hBitmap;
+}
+
+bool ImageD2D::hasAlpha() const
+{
+    return m_hasAlpha;
 }
 
 ID2D1Bitmap* ImageD2D::getD2DBitmap(ID2D1RenderTarget * pRT, unsigned int gid) const
@@ -228,6 +235,26 @@ bool ImageD2D::createD2DBitmap(ID2D1RenderTarget * pRT, unsigned int gid)
 
 IWICBitmap* ImageD2D::decodeFrame(IWICBitmapFrameDecode * pFrame)
 {
+    WICPixelFormatGUID pixelFormat = { 0 };
+    if (SUCCEEDED(pFrame->GetPixelFormat(&pixelFormat)))
+    {
+        IWICComponentInfo* pCompInfo = nullptr;
+        if (SUCCEEDED(ContextD2D::instance()->WICFactory()->CreateComponentInfo(pixelFormat, &pCompInfo)))
+        {
+            IWICPixelFormatInfo2* pPixelInfo = nullptr;
+            if (SUCCEEDED(pCompInfo->QueryInterface(IID_IWICPixelFormatInfo2, (void**)&pPixelInfo)))
+            {
+                BOOL bSupportsTransparency = FALSE;
+                if (SUCCEEDED(pPixelInfo->SupportsTransparency(&bSupportsTransparency)))
+                {
+                    m_hasAlpha = (bSupportsTransparency != FALSE);
+                }
+                SAFE_RELEASE(pPixelInfo);
+            }
+            SAFE_RELEASE(pCompInfo);
+        }
+    }
+
     IWICBitmap* pNewBitmap = nullptr;
     IWICFormatConverter* pConverter = nullptr;
     if (SUCCEEDED(ContextD2D::instance()->WICFactory()->CreateFormatConverter(&pConverter)))
@@ -419,8 +446,7 @@ ContextD2D::~ContextD2D()
 
 bool ContextD2D::initialize()
 {
-    if (ContextD2D::instance()->isInitialized())
-        return true;
+    if (m_initialized) return true;
 
     HRESULT hr = S_OK;
 
@@ -547,11 +573,6 @@ void ContextD2D::cleanup()
     m_initialized = false;
 }
 
-bool ContextD2D::isInitialized()
-{
-    return m_initialized;
-}
-
 ID2D1Factory* ContextD2D::D2DFactory()
 {
     return m_pD2DFactory;
@@ -572,33 +593,25 @@ IWICImagingFactory* ContextD2D::WICFactory()
 *  RendererD2D                                                      *
 ********************************************************************/
 RendererD2D::RendererD2D()
+    : RendererBase()
 {
+    ContextD2D::instance()->initialize();
 }
 
 RendererD2D::~RendererD2D()
-{
-    cleanup();
-}
-
-bool RendererD2D::initialize()
-{
-    return ContextD2D::instance()->initialize();
-}
-
-void RendererD2D::cleanup()
 {
     if (m_measurer)
     {
         delete m_measurer;
         m_measurer = nullptr;
     }
+
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
-    ContextD2D::instance()->cleanup();
 }
 
-EngineType RendererD2D::type()
+RendererType RendererD2D::type()
 {
     return D2D;
 }
@@ -612,19 +625,24 @@ IMeasurer* RendererD2D::measurer()
     return m_measurer;
 }
 
-bool RendererD2D::beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles&styles, bool blend)
+bool RendererD2D::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyles&styles, bool clearType, bool blend)
 {
-    if (!ContextD2D::instance()->isInitialized() || !hWnd/* || styles.empty()*/)
+    if (!ContextD2D::instance()->initialize() || !hWnd/* || styles.empty()*/)
     {
         return false;
     }
 
-    if (m_hWnd != hWnd)
+    if (!Settings::instance().data().clearType) clearType = false;
+
+    RECT rect = rc;
+    normalizeRect(rect);
+
+    if (m_hWnd != hWnd || m_clearType != clearType)
     {
         releaseTextResources();
         releaseDeviceResources();
     }
-    else if (memcmp(&m_rect, &rect, sizeof(RECT)) != 0)
+    else if (!isSameSize(rect))
     {
         releaseTextResources();
         releaseDeviceResources();
@@ -638,7 +656,8 @@ bool RendererD2D::beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextSty
     m_hdc = hdc;
     m_styles = styles;
     m_rect = rect;
-	m_isBlend = blend;
+    m_clearType = clearType;
+    m_isBlend = blend;
 
     if (!createLayeredDC())
     {
@@ -735,7 +754,7 @@ void RendererD2D::clear(const COLORREF & color)
     m_pRenderTarget->Clear(colorRefToD2D(color, GetAValue(color)));
 }
 
-void RendererD2D::fillRect(const COLORREF & color, const RECT & rect)
+void RendererD2D::fillRect(const COLORREF & color, const RECT& rect)
 {
     if (!m_pRenderTarget)
     {
@@ -757,7 +776,7 @@ void RendererD2D::fillRect(const COLORREF & color, const RECT & rect)
     SAFE_RELEASE(pBrush);
 }
 
-void RendererD2D::fillRect(const Image * image, const RECT & rect, WrapMode mode)
+void RendererD2D::fillRect(const Image* image, const RECT& rect, WrapMode mode)
 {
     if (!image || !m_pRenderTarget)
     {
@@ -809,7 +828,7 @@ void RendererD2D::fillRect(const Image * image, const RECT & rect, WrapMode mode
     SAFE_RELEASE(pBrush);
 }
 
-void RendererD2D::drawText(const wchar_t* text, int length, const RECT & rect, int textStyleIndex)
+void RendererD2D::drawText(const wchar_t* text, int length, const RECT& rect, int textStyleIndex)
 {
     if (!text || !m_pRenderTarget)
     {
@@ -870,7 +889,7 @@ void RendererD2D::drawText(const wchar_t* text, int length, const RECT & rect, i
     SAFE_RELEASE(textLayout);
 }
 
-void RendererD2D::drawImage(const Image * image, const RECT & rect, bool keepRatio)
+void RendererD2D::drawImage(const Image* image, const RECT& rect, bool keepRatio)
 {
     if (!image || !m_pRenderTarget)
     {
@@ -1038,6 +1057,7 @@ Image* RendererD2D::createImageFromBGColor(const COLORREF & color, BYTE alpha, i
                     imd2d = new ImageD2D;
                     imd2d->m_d2dBitmap = pDstD2DBitmap;
                     imd2d->m_generationID = m_generationID;
+                    imd2d->m_hasAlpha = alpha < 0xff;
                     pDstD2DBitmap = nullptr;
                 }
                 SAFE_RELEASE(pDstD2DBitmap);
@@ -1049,7 +1069,7 @@ Image* RendererD2D::createImageFromBGColor(const COLORREF & color, BYTE alpha, i
     return imd2d;
 }
 
-Image* RendererD2D::createImageFromBGImage(const Image * image, BYTE alpha, int width, int height, WrapMode mode)
+Image* RendererD2D::createImageFromBGImage(const Image* image, BYTE alpha, int width, int height, WrapMode mode)
 {
     if (width <= 0 || height <= 0 || !image || !m_pRenderTarget)
     {
@@ -1115,6 +1135,7 @@ Image* RendererD2D::createImageFromBGImage(const Image * image, BYTE alpha, int 
                 dstImd2d = new ImageD2D;
                 dstImd2d->m_d2dBitmap = pDstD2DBitmap;
                 dstImd2d->m_generationID = m_generationID;
+                dstImd2d->m_hasAlpha = (alpha < 0xff) || (image && image->hasAlpha());
                 pDstD2DBitmap = nullptr;
             }
             SAFE_RELEASE(pDstD2DBitmap);
@@ -1129,9 +1150,10 @@ bool RendererD2D::createDeviceResources()
     if (!m_pRenderTarget)
     {
         IWICBitmap* pWicBitmap = nullptr;
+        const GUID& bitmapPixelFormat = m_clearType ? GUID_WICPixelFormat32bppBGR : GUID_WICPixelFormat32bppPBGRA;
         HRESULT hr = ContextD2D::instance()->WICFactory()->CreateBitmap(
             m_rect.right - m_rect.left, m_rect.bottom - m_rect.top,
-            GUID_WICPixelFormat32bppPBGRA,
+            bitmapPixelFormat,
             WICBitmapCacheOnLoad,
             &pWicBitmap);
         if (!SUCCEEDED(hr))
@@ -1139,9 +1161,11 @@ bool RendererD2D::createDeviceResources()
             return false;
         }
 
+        // !!! Clear Type not support alpha backgroud
+        D2D1_ALPHA_MODE alphaMode = m_clearType ? D2D1_ALPHA_MODE_IGNORE : D2D1_ALPHA_MODE_PREMULTIPLIED;
         D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
             D2D1_RENDER_TARGET_TYPE_DEFAULT,
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode),
             0.0f, 0.0f,
             D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE
         );

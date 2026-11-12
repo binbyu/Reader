@@ -12,6 +12,14 @@ UINT DpiAwareness::dpi() const
     return m_dpix;
 }
 
+UINT DpiAwareness::windowDpi(HWND hWnd) const
+{
+    typedef UINT (WINAPI *GetDpiForWindowFunc)(HWND);
+    static GetDpiForWindowFunc getDpiForWindow = reinterpret_cast<GetDpiForWindowFunc>(GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+    UINT windowDpi = getDpiForWindow ? getDpiForWindow(hWnd) : 0;
+    return windowDpi ? windowDpi : dpi();
+}
+
 float DpiAwareness::scaleFactor() const
 {
     return (float)m_dpix / DEFAULT_DPI;
@@ -23,89 +31,157 @@ void DpiAwareness::setDpi(UINT dpiX, UINT dpiY)
     m_dpiy = dpiY;
 }
 
-void DpiAwareness::logicalToPhysical(int src, int& dst) const
+BOOL DpiAwareness::adjustWindowRectExForDpi(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle)
 {
-    dst = MulDiv(src, m_dpix, DEFAULT_DPI);
+    typedef BOOL (WINAPI *AdjustWindowRectExForDpiFunc)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    static AdjustWindowRectExForDpiFunc adjustWindowRectExForDpi = (AdjustWindowRectExForDpiFunc)(GetProcAddress(GetModuleHandleW(L"user32.dll"), "AdjustWindowRectExForDpi"));
+
+    if (adjustWindowRectExForDpi) return adjustWindowRectExForDpi(lpRect, dwStyle, bMenu, dwExStyle, m_dpix);
+    else return AdjustWindowRectEx(lpRect, dwStyle, bMenu, dwExStyle);
 }
 
-void DpiAwareness::physicalToLogical(int src, int& dst) const
+int DpiAwareness::getSystemMetricsForDpi(int nIndex)
 {
-    dst = MulDiv(src, DEFAULT_DPI, m_dpix);
+    typedef int (WINAPI *GetSystemMetricsForDpiFunc)(int, UINT);
+    static GetSystemMetricsForDpiFunc getSystemMetricsForDpi = (GetSystemMetricsForDpiFunc)(GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetSystemMetricsForDpi"));
+
+    if (getSystemMetricsForDpi) return getSystemMetricsForDpi(nIndex, m_dpix);
+    else return GetSystemMetrics(nIndex);
 }
 
-void DpiAwareness::logicalToPhysical(const POINT& src, POINT& dst) const
+BOOL DpiAwareness::systemParametersInfoForDpi(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni)
 {
-    dst.x = MulDiv(src.x, m_dpix, DEFAULT_DPI);
-    dst.y = MulDiv(src.y, m_dpiy, DEFAULT_DPI);
+    typedef BOOL (WINAPI *SystemParametersInfoForDpiFunc)(UINT, UINT, PVOID, UINT, UINT);
+    static SystemParametersInfoForDpiFunc systemParametersInfoForDpi = (SystemParametersInfoForDpiFunc)(GetProcAddress(GetModuleHandleW(L"user32.dll"), "SystemParametersInfoForDpi"));
+
+    if (systemParametersInfoForDpi) return systemParametersInfoForDpi(uiAction, uiParam, pvParam, fWinIni, m_dpix);
+    else return SystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 
-void DpiAwareness::physicalToLogical(const POINT& src, POINT& dst) const
+void DpiAwareness::toPhysical(int& v) const
 {
-    dst.x = MulDiv(src.x, DEFAULT_DPI, m_dpix);
-    dst.y = MulDiv(src.y, DEFAULT_DPI, m_dpiy);
+    v = MulDiv(v, m_dpix, DEFAULT_DPI);
 }
 
-void DpiAwareness::logicalToPhysical(const SIZE& src, SIZE& dst) const
+void DpiAwareness::toLogical(int& v) const
 {
-    dst.cx = MulDiv(src.cx, m_dpix, DEFAULT_DPI);
-    dst.cy = MulDiv(src.cy, m_dpiy, DEFAULT_DPI);
+    v = MulDiv(v, DEFAULT_DPI, m_dpix);
 }
 
-void DpiAwareness::physicalToLogical(const SIZE& src, SIZE& dst) const
+void DpiAwareness::toPhysical(LONG& v) const
 {
-    dst.cx = MulDiv(src.cx, DEFAULT_DPI, m_dpix);
-    dst.cy = MulDiv(src.cy, DEFAULT_DPI, m_dpiy);
+    v = MulDiv(v, m_dpix, DEFAULT_DPI);
 }
 
-void DpiAwareness::logicalToPhysical(const RECT& src, RECT& dst) const
+void DpiAwareness::toLogical(LONG& v) const
 {
-    dst.left   = MulDiv(src.left, m_dpix, DEFAULT_DPI);
-    dst.top    = MulDiv(src.top, m_dpiy, DEFAULT_DPI);
-    dst.right  = MulDiv(src.right, m_dpix, DEFAULT_DPI);
-    dst.bottom = MulDiv(src.bottom, m_dpiy, DEFAULT_DPI);
+    v = MulDiv(v, DEFAULT_DPI, m_dpix);
 }
 
-void DpiAwareness::physicalToLogical(const RECT& src, RECT& dst) const
+void DpiAwareness::toPhysical(POINT& v) const
 {
-    dst.left   = MulDiv(src.left, DEFAULT_DPI, m_dpix);
-    dst.top    = MulDiv(src.top, DEFAULT_DPI, m_dpiy);
-    dst.right  = MulDiv(src.right, DEFAULT_DPI, m_dpix);
-    dst.bottom = MulDiv(src.bottom, DEFAULT_DPI, m_dpiy);
+    toPhysical(v.x);
+    toPhysical(v.y);
 }
 
-void DpiAwareness::logicalToPhysical(const LOGFONT& src, LOGFONT& dst) const
+void DpiAwareness::toLogical(POINT& v) const
 {
-    dst.lfWidth  = MulDiv(src.lfWidth, m_dpix, DEFAULT_DPI);
-    dst.lfHeight = MulDiv(src.lfHeight, m_dpiy, DEFAULT_DPI);
+    toLogical(v.x);
+    toLogical(v.y);
 }
 
-void DpiAwareness::physicalToLogical(const LOGFONT& src, LOGFONT& dst) const
+void DpiAwareness::toPhysical(SIZE& v) const
 {
-    dst.lfWidth  = MulDiv(src.lfWidth, DEFAULT_DPI, m_dpix);
-    dst.lfHeight = MulDiv(src.lfHeight, DEFAULT_DPI, m_dpiy);
+    toPhysical(v.cx);
+    toPhysical(v.cy);
 }
 
-void DpiAwareness::logicalToPhysical(const WINDOWPLACEMENT& src, WINDOWPLACEMENT& dst) const
+void DpiAwareness::toLogical(SIZE& v) const
 {
-    logicalToPhysical(src.ptMinPosition, dst.ptMinPosition);
-    logicalToPhysical(src.ptMaxPosition, dst.ptMaxPosition);
-    logicalToPhysical(src.rcNormalPosition, dst.rcNormalPosition); 
+    toLogical(v.cx);
+    toLogical(v.cy);
 }
 
-void DpiAwareness::physicalToLogical(const WINDOWPLACEMENT& src, WINDOWPLACEMENT& dst) const
+void DpiAwareness::toPhysical(RECT& v) const
 {
-    physicalToLogical(src.ptMinPosition, dst.ptMinPosition);
-    physicalToLogical(src.ptMaxPosition, dst.ptMaxPosition);
-    physicalToLogical(src.rcNormalPosition, dst.rcNormalPosition); 
+    POINT lt = { v.left, v.top };
+    POINT rb = { v.right, v.bottom };
+    toPhysical(lt);
+    toPhysical(rb);
+    v.left = lt.x;
+    v.top = lt.y;
+    v.right = rb.x;
+    v.bottom = rb.y;
+}
+
+void DpiAwareness::toLogical(RECT& v) const
+{
+    POINT lt = { v.left, v.top };
+    POINT rb = { v.right, v.bottom };
+    toLogical(lt);
+    toLogical(rb);
+    v.left = lt.x;
+    v.top = lt.y;
+    v.right = rb.x;
+    v.bottom = rb.y;
+}
+
+void DpiAwareness::toPhysical(LOGFONT& v) const
+{
+    toPhysical(v.lfWidth);
+    toPhysical(v.lfHeight);
+}
+
+void DpiAwareness::toLogical(LOGFONT& v) const
+{
+    toLogical(v.lfWidth);
+    toLogical(v.lfHeight);
+}
+
+void DpiAwareness::toPhysical(WINDOWPLACEMENT& v) const
+{
+    toPhysical(v.ptMinPosition);
+    toPhysical(v.ptMaxPosition);
+    toPhysical(v.rcNormalPosition);
+}
+
+void DpiAwareness::toLogical(WINDOWPLACEMENT& v) const
+{
+    toLogical(v.ptMinPosition);
+    toLogical(v.ptMaxPosition);
+    toLogical(v.rcNormalPosition);
+}
+
+void DpiAwareness::toPhysical(LayoutConfig& v) const
+{
+    toPhysical(v.borderL);
+    toPhysical(v.borderT);
+    toPhysical(v.borderR);
+    toPhysical(v.borderB);
+    toPhysical(v.charGap);
+    toPhysical(v.lineGap);
+    toPhysical(v.paragraphGap);
+}
+
+void DpiAwareness::toLogical(LayoutConfig& v) const
+{
+    toLogical(v.borderL);
+    toLogical(v.borderT);
+    toLogical(v.borderR);
+    toLogical(v.borderB);
+    toLogical(v.charGap);
+    toLogical(v.lineGap);
+    toLogical(v.paragraphGap);
 }
 
 DpiAwareness::DpiAwareness()
 {
-    HDC hdc;
-    hdc = GetDC(NULL);
-    m_dpix = GetDeviceCaps(hdc, LOGPIXELSX);
-    m_dpiy = GetDeviceCaps(hdc, LOGPIXELSY);
-    ReleaseDC(NULL, hdc);
+    HDC hdc = GetDC(NULL);
+    m_dpix = hdc ? GetDeviceCaps(hdc, LOGPIXELSX) : DEFAULT_DPI;
+    m_dpiy = hdc ? GetDeviceCaps(hdc, LOGPIXELSY) : DEFAULT_DPI;
+    if (hdc) ReleaseDC(NULL, hdc);
+    if (!m_dpix) m_dpix = DEFAULT_DPI;
+    if (!m_dpiy) m_dpiy = DEFAULT_DPI;
 }
 
 DpiAwareness::~DpiAwareness()

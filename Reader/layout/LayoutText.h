@@ -38,7 +38,7 @@ public:
 
 protected:
     bool paragraphToLines(int start, int length, int renderW, std::vector<LineInfo>& lines);
-    void initCharStack(int start, int length);
+    bool initCharStack(int start, int length);
     int  calcIndentWidth() const;
     int  emptyLineHeight() const;
     int  maxSearchLength() const;

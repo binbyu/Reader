@@ -9,6 +9,9 @@
 #include <memory>
 #include <algorithm>
 
+/********************************************************************
+*  ImageD2D                                                         *
+********************************************************************/
 class ImageD2D : public Image
 {
 public:
@@ -22,6 +25,7 @@ public:
     virtual int     frameDelay(int index) const;
     virtual bool    activeFrame(int index);
     virtual HBITMAP getHBITMAP() const;
+    virtual bool    hasAlpha() const;
     ID2D1Bitmap*    getD2DBitmap(ID2D1RenderTarget* pRT, unsigned int gid) const;
 public:
     void updateFrameCount();
@@ -35,8 +39,12 @@ public:
     int m_frameIndex;
     unsigned int m_generationID;
     ID2D1Bitmap* m_d2dBitmap;
+    bool m_hasAlpha;
 };
 
+/********************************************************************
+*  MeasurerD2D                                                      *
+********************************************************************/
 class RendererD2D;
 class MeasurerD2D : public IMeasurer
 {
@@ -48,6 +56,9 @@ private:
     RendererD2D* m_renderer;
 };
 
+/********************************************************************
+*  ContextD2D                                                       *
+********************************************************************/
 class ContextD2D
 {
 private:
@@ -57,7 +68,6 @@ public:
     static ContextD2D* instance();
     bool initialize();
     void cleanup();
-    bool isInitialized();
     ID2D1Factory* D2DFactory();
     IDWriteFactory* DWriteFactory();
     IWICImagingFactory* WICFactory();
@@ -71,19 +81,19 @@ private:
     IWICImagingFactory* m_pWICFactory = nullptr;
 };
 
+/********************************************************************
+*  RendererD2D                                                      *
+********************************************************************/
 class RendererD2D : public RendererBase
 {
     friend class MeasurerD2D;
 public:
     RendererD2D();
     virtual ~RendererD2D();
-
-    virtual bool initialize();
-    virtual void cleanup();
-    virtual EngineType type();
+    virtual RendererType type();
     virtual IMeasurer* measurer();
 
-    virtual bool beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles& styles, bool blend = false);
+    virtual bool beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles& styles, bool clearType = false, bool blend = false);
     virtual void endPaint();
 
     virtual void clear(const COLORREF& color);

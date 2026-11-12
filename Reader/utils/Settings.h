@@ -20,6 +20,7 @@ public:
     void  restoreDefault();
     void  toLogical(Data& data);
     void  toPhysical(Data& data);
+    void  fixedWindowInfo(WindowInfo& window);
 
 private:
     Settings();
@@ -29,7 +30,6 @@ private:
     void flush();
     void writer();
     void notify(DWORD error);
-    void fixedWindowInfo(WindowInfo& window);
     std::wstring fileName();
 
 private:

@@ -3,6 +3,7 @@
 #include "DpiAwareness.h"
 #include "IRenderer.h"
 #include "IBook.h"
+#include "Logger.h"
 #include "Settings.h"
 
 LayoutText::LayoutText()
@@ -18,7 +19,9 @@ LayoutText::~LayoutText()
 
 int LayoutText::findPrevPageIndex(int end, int width, int height)
 {
-    m_config = toPhysical(Settings::instance().data().layout);
+    m_config = Settings::instance().data().layout;
+    DpiAwareness::instance().toPhysical(m_config);
+
     PageInfo pageInfo;
     pageInfo.start = end;
     pageInfo.length = 0;
@@ -145,7 +148,9 @@ int LayoutText::findPrevLineIndex(int end, int n, int width)
     const int total = m_source->length();
     if (!text || end <= 0 || end > total) return end;
 
-    m_config = toPhysical(Settings::instance().data().layout);
+    m_config = Settings::instance().data().layout;
+    DpiAwareness::instance().toPhysical(m_config);
+
     const int readerW = width - m_config.borderL - m_config.borderR;
     if (readerW <= 0) return end;
 
@@ -208,7 +213,9 @@ int LayoutText::findPrevLineIndex(int end, int n, int width)
 
 PageInfo LayoutText::layout(int start, int width, int height)
 {
-    m_config = toPhysical(Settings::instance().data().layout);
+    m_config = Settings::instance().data().layout;
+    DpiAwareness::instance().toPhysical(m_config);
+
     PageInfo pageInfo;
     pageInfo.start = start;
     pageInfo.length = 0;
@@ -333,7 +340,7 @@ bool LayoutText::paragraphToLines(int start, int length, int renderW, std::vecto
     const bool isHead = start == 0 ? true : Utils::isCrLf(text[start - 1]);
     const bool isTitle = m_source->isTitleLine(start);
 
-    initCharStack(start, length);
+    if (!initCharStack(start, length)) return false;
 
     int indentW = 0;
     if (!isTitle && isHead && m_config.indent)
@@ -473,10 +480,10 @@ bool LayoutText::paragraphToLines(int start, int length, int renderW, std::vecto
     return true;
 }
 
-void LayoutText::initCharStack(int start, int length)
+bool LayoutText::initCharStack(int start, int length)
 {
     m_stack.reset();
-    if (!m_source) return;
+    if (!m_source) return false;
 
     const wchar_t* text = m_source->text();
     int end = start + length;
@@ -501,8 +508,14 @@ void LayoutText::initCharStack(int start, int length)
         }
 
         TextMetrics tm = m_measurer->measureText(text + i, 1, -1, tsIdx);
+        if (tm.width == 0 && tm.height == 0 && (!Utils::isBlank(text[i]) && !Utils::isCrLf(text[i])))
+        {
+            lgerror("Invalid text measurer!");
+            return false;
+        }
         m_stack.push({ i, tsIdx, tm.width, tm.height });
     }
+    return true;
 }
 
 int LayoutText::calcIndentWidth() const
@@ -529,7 +542,7 @@ int LayoutText::maxSearchLength() const
 int LayoutText::tagIndex(int index)
 {
     if (!m_source) return -1;
-    const auto& tags = Setting::instance().data().tags;
+    const auto& tags = Settings::instance().data().tags;
     for (int i=0; i<(int)tags.size(); i++)
     {
         const auto& tag = tags[i];
@@ -615,7 +628,7 @@ void LayoutText::validateLines(const wchar_t* text, int start, int length, int r
             ASSERT(ch.index < lineEnd);
             ASSERT(ch.index > lastIndex);
 #if ENABLE_TAG
-            ASSERT(ch.tsIdx >= 0 && ch.tsIdx < Setting::instance().data().tags.size() + 2);
+            ASSERT(ch.tsIdx >= 0 && ch.tsIdx < Settings::instance().data().tags.size() + 2);
 #else
             ASSERT(ch.tsIdx >= 0 && ch.tsIdx < 2);
 #endif

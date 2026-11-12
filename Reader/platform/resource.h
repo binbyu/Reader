@@ -296,7 +296,11 @@
 #define IDC_EDIT_PROXY_USER             1031
 #define IDC_EDIT_PROXY_PASS             1032
 #define IDC_COMBO_PROXY                 1033
+#define IDC_COMBO3                      1033
+#define IDC_COMBO_RENDER                1033
 #define IDC_BUTTON_UPGRADE_INGORE       1034
+#define IDC_CHECK1                      1034
+#define IDC_CHECK_CLEARTYPE             1034
 #define IDC_BUTTON_UPGRADE_DOWN         1035
 #define IDC_EDIT_UPGRADE_VERSION        1036
 #define IDC_EDIT_UPGRADE_DESC           1037
@@ -414,7 +418,6 @@
 #define IDC_CHECK_REFRESH_CONTENT       1161
 #define IDC_BUTTON_TEXT_FONT            1162
 #define IDC_CHECK_MOUSEHIDE             1162
-#define IDC_CHECK_SAME                  1163
 #define IDC_CHECK_SAMETEXTSTYLE         1163
 #define IDC_BUTTON_CHAPTER_FONT         1164
 #define IDC_BUTTON_BGCOLOR              1165
@@ -442,7 +445,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        302
 #define _APS_NEXT_COMMAND_VALUE         32774
-#define _APS_NEXT_CONTROL_VALUE         1030
+#define _APS_NEXT_CONTROL_VALUE         1035
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

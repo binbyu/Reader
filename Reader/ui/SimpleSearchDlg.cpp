@@ -209,9 +209,11 @@ LRESULT SimpleSearchDlg::onOpenBookButtonClick()
     }
     SetFileAttributesW(savePath.c_str(), FILE_ATTRIBUTE_HIDDEN);
 
+    std::string bookUrl = getDlgItemTextA(IDC_EDIT_URL);
     bookName = Utils::dirtyFileName(bookName);
     if (bookName.empty()) bookName = DEFAULT_BOOK_NAME;
-    std::wstring fileName = Utils::appPath() + ONLINE_FILE_SAVE_PATH + bookName + L".ol";
+    std::wstring hash = Utils::fnv1a32(bookUrl.c_str(), bookUrl.size());
+    std::wstring fileName = Utils::appPath() + ONLINE_FILE_SAVE_PATH + bookName + L"-" + hash + L".ol";
     if (Utils::isFileExist(fileName))
     {
         int ret = messageBox(IDS_FILE_ISEXIST, IDS_WARN, MB_ICONWARNING | MB_YESNOCANCEL);
@@ -393,6 +395,7 @@ LRESULT SimpleSearchDlg::onReqCompleter(WPARAM wParam, LPARAM lParam)
 
         if (titles.empty() || urls.empty() || urls.size() != texts.size())
         {
+            enableControls();
             messageBox(IDS_PARSE_FAIL2, IDS_ERROR, MB_ICONERROR | MB_OK);
             return (INT_PTR)TRUE;
         }
@@ -415,6 +418,7 @@ LRESULT SimpleSearchDlg::onReqCompleter(WPARAM wParam, LPARAM lParam)
 
         if (m_chapters.empty())
         {
+            enableControls();
             messageBox(IDS_PARSE_FAIL2, IDS_ERROR, MB_ICONERROR | MB_OK);
             return (INT_PTR)TRUE;
         }
@@ -442,6 +446,7 @@ LRESULT SimpleSearchDlg::onReqCompleter(WPARAM wParam, LPARAM lParam)
 
         if (contents.empty())
         {
+            enableControls();
             messageBox(IDS_PREVIEW_FAIL, IDS_ERROR, MB_ICONERROR | MB_OK);
             return (INT_PTR)TRUE;
         }

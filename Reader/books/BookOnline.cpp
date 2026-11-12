@@ -549,17 +549,19 @@ bool BookOnline::parseChapters(int chapterIdx, AsyncCallback cb)
                         if (Utils::isValidHref(chapterNextUrls[i]))
                         {
                             https_combine_url(result->req->url, chapterNextUrls[i].c_str(), combinedUrl);
-
-                            // request next page
-                            request_t r;
-                            memset(&r, 0, sizeof(request_t));
-                            r.method = GET;
-                            r.url = combinedUrl;
-                            r.param1 = rd;
-                            r.completer = result->req->completer;
-                            this_->m_reqs.remove_and_add(result->handle, r);
-                            rd = nullptr; // not free
-                            goto FREE;
+                            if (strcmp(combinedUrl, result->req->url) != 0)
+                            {
+                                // request next page
+                                request_t r;
+                                memset(&r, 0, sizeof(request_t));
+                                r.method = GET;
+                                r.url = combinedUrl;
+                                r.param1 = rd;
+                                r.completer = result->req->completer;
+                                this_->m_reqs.remove_and_add(result->handle, r);
+                                rd = nullptr; // not free
+                                goto FREE;
+                            }
                         }
                     }
                 }
@@ -690,17 +692,19 @@ bool BookOnline::parseContent(int chapterIdx, AsyncCallback cb)
                         if (Utils::isValidHref(contentNextUrls[i]))
                         {
                             https_combine_url(result->req->url, contentNextUrls[i].c_str(), combinedUrl);
-
-                            // request next page
-                            request_t r;
-                            memset(&r, 0, sizeof(request_t));
-                            r.method = GET;
-                            r.url = combinedUrl;
-                            r.param1 = rd;
-                            r.completer = result->req->completer;
-                            this_->m_reqs.remove_and_add(result->handle, r);
-                            rd = nullptr; // not free
-                            goto FREE;
+                            if (strcmp(combinedUrl, result->req->url) != 0)
+                            {
+                                // request next page
+                                request_t r;
+                                memset(&r, 0, sizeof(request_t));
+                                r.method = GET;
+                                r.url = combinedUrl;
+                                r.param1 = rd;
+                                r.completer = result->req->completer;
+                                this_->m_reqs.remove_and_add(result->handle, r);
+                                rd = nullptr; // not free
+                                goto FREE;
+                            }
                         }
                     }
                 }

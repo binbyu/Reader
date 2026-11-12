@@ -1,18 +1,11 @@
 #pragma once
-#include <string>
-#include <vector>
 #include "types.h"
-
-enum EngineType
-{
-    D2D,
-    GDIPLUS,
-};
+#include <vector>
 
 class Image
 {
 public:
-    virtual        ~Image() = default;
+    virtual         ~Image() = default;
     virtual int     width() const = 0;
     virtual int     height() const = 0;
     virtual void*   bitmap() const = 0;
@@ -21,6 +14,7 @@ public:
     virtual int     frameDelay(int index) const = 0;
     virtual bool    activeFrame(int index) = 0;
     virtual HBITMAP getHBITMAP() const = 0;
+    virtual bool    hasAlpha() const = 0;
 };
 
 class IMeasurer
@@ -34,17 +28,16 @@ class IRenderer
 {
 public:
     static IRenderer* instance();
+    static std::vector<RendererType> supports();
+    static void switchto(RendererType type);
 
 public:
     virtual ~IRenderer() = default;
-
-    virtual bool initialize() = 0;
-    virtual void cleanup() = 0;
-    virtual EngineType type() = 0;
+    virtual RendererType type() = 0;
     virtual IMeasurer* measurer() = 0;
 
     // if hdc is nullptr, is Layered Window
-    virtual bool beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles& styles, bool blend = false) = 0;
+    virtual bool beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles& styles, bool clearType = false, bool blend = false) = 0;
     virtual void endPaint() = 0;
 
     virtual void clear(const COLORREF& color) = 0;

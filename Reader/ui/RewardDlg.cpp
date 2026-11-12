@@ -62,7 +62,7 @@ LRESULT RewardDlg::onInitDialog()
     rect.left = m_rectL.left;
     rect.right = m_rectR.right;
 
-    AdjustWindowRect(&rect, (DWORD)GetWindowLongPtr(m_hWnd, GWL_STYLE), FALSE);
+    DpiAwareness::instance().adjustWindowRectExForDpi(&rect, (DWORD)GetWindowLongPtr(m_hWnd, GWL_STYLE), FALSE, (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE));
     centerParent(rect);
     return TRUE;
 }

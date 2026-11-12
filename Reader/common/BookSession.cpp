@@ -22,7 +22,6 @@ BookSession::BookSession(HWND hWnd)
     , m_height(0)
     , m_checkUpdateQueue()
 {
-    IRenderer::instance()->initialize();
     m_layout = new LayoutText();
     m_layout->setMeasurer(IRenderer::instance()->measurer());
     setTextStyles();
@@ -31,7 +30,6 @@ BookSession::BookSession(HWND hWnd)
 BookSession::~BookSession()
 {
     uninit();
-    IRenderer::instance()->cleanup();
 }
 
 void BookSession::init()
@@ -562,10 +560,10 @@ void BookSession::addMark(int index)
     if (m_bookInfo && isValid())
     {
         auto& marks = m_bookInfo->marks;
-        auto it = std::lower_bound(marks.begin(), marks.end(), m_bookInfo->index);
-        if (it == marks.end())
+        auto it = std::lower_bound(marks.begin(), marks.end(), index);
+        if (it == marks.end() || *it != index)
         {
-            marks.insert(it, m_bookInfo->index);
+            marks.insert(it, index);
             Settings::instance().save();
             PostMessageW(m_hWnd, WM_UPDATEMARKS, 0, NULL);
         }
@@ -577,7 +575,7 @@ void BookSession::remMark(int index)
     if (m_bookInfo)
     {
         auto& marks = m_bookInfo->marks;
-        auto it = std::find(marks.begin(), marks.end(), (int)index);
+        auto it = std::find(marks.begin(), marks.end(), index);
         if (it != marks.end())
         {
             marks.erase(it);
@@ -662,6 +660,7 @@ void BookSession::drawPage(HDC hdc, const RECT& rect)
 void BookSession::updateStyles()
 {
     setTextStyles();
+    if (m_layout) m_layout->setMeasurer(IRenderer::instance()->measurer());
     PostMessageW(m_hWnd, WM_REDRAW, 0, NULL);
 }
 
@@ -792,7 +791,9 @@ void BookSession::setTextStyles()
 #if ENABLE_TAG
     for (auto& tag : data.tags)
     {
-        m_styles[idx++] = TextStyle(tag.font, textAlpha << 24 | tag.textColor, 0xff000000 | tag.backgroundColor);
+        BYTE tagBgAlpha = tag.backgroundColor >> 24;
+        if (tagBgAlpha == 0) tagBgAlpha = 0xff;
+        m_styles[idx++] = TextStyle(tag.font, textAlpha << 24 | tag.textColor, tagBgAlpha << 24 | tag.backgroundColor);
     }
 #endif
 

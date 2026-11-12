@@ -76,6 +76,7 @@
 #define WM_UPDATEBOOKS              (WM_USER_BEGIN + 23)
 #define WM_UPDATECHAPTERS           (WM_USER_BEGIN + 24)
 #define WM_UPDATEMARKS              (WM_USER_BEGIN + 25)
+#define WM_RENDERERCHANGED          (WM_USER_BEGIN + 26)
 #define WM_USER_END                 (WM_USER_BEGIN + 0xff)
 
 // custom menu ids

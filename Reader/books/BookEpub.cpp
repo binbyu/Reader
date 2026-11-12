@@ -1,6 +1,7 @@
 #include "BookEpub.h"
 #include "miniz.h"
 #include "conv.h"
+#include <algorithm>
 
 BookEpub::BookEpub(const std::wstring& fileName)
     : BookBase(fileName)
@@ -614,14 +615,394 @@ bool BookEpub::parseOps(FileData& file, wchar_t **text, int *len, wchar_t **titl
 
 bool BookEpub::splitHtmlByNavpoints(Files& files)
 {
-    // not use for epub
+    if (m_abort) return false;
+    if (m_epub->navpoints.empty()) return true;
+
+    // 1. Group anchors by base HTML relative file path
+    std::map<std::string, std::vector<AnchorInfo>> fileAnchorMap;
+    for (const auto& navPair : m_epub->navpoints)
+    {
+        if (m_abort) return false;
+        const std::string& href = navPair.second.href;
+        size_t hashPos = href.find('#');
+        if (hashPos != std::string::npos && hashPos + 1 < href.size())
+        {
+            std::string filePath = href.substr(0, hashPos);
+            std::string anchorId = href.substr(hashPos + 1);
+            fileAnchorMap[filePath].push_back({ anchorId, navPair.first });
+        }
+    }
+
+    if (fileAnchorMap.empty()) return true;
+
+    // 2. Process each HTML file
+    for (const auto& item : fileAnchorMap)
+    {
+        if (m_abort) return false;
+        const std::string& sourceHref = item.first;
+        const std::vector<AnchorInfo>& anchors = item.second;
+
+        auto fileIt = files.find(sourceHref);
+        if (fileIt == files.end() || !fileIt->second.data || fileIt->second.size <= 0)
+        {
+            continue;
+        }
+
+        std::vector<SlicedHtmlPart> parts;
+        if (!splitHtmlByAnchors(fileIt->second.data, fileIt->second.size, anchors, parts) || parts.size() <= 1)
+        {
+            continue;
+        }
+
+        // File naming
+        std::string baseDir;
+        std::string baseName = sourceHref;
+        size_t lastSlash = sourceHref.find_last_of('/');
+        if (lastSlash != std::string::npos)
+        {
+            baseDir = sourceHref.substr(0, lastSlash + 1);
+            baseName = sourceHref.substr(lastSlash + 1);
+        }
+        size_t dotPos = baseName.find_last_of('.');
+        if (dotPos != std::string::npos)
+        {
+            baseName = baseName.substr(0, dotPos);
+        }
+
+        // Save generated part files and update metadata
+        for (size_t i = 0; i < parts.size(); ++i)
+        {
+            if (m_abort) return false;
+
+            std::string newFileName = baseDir + baseName + "_part_" + std::to_string(i) + ".html";
+            std::string newId = baseName + "_part_" + std::to_string(i);
+
+            // Store sliced data in files map
+            FileData fdata;
+            fdata.size = (int)parts[i].xhtml.size();
+            fdata.data = (char*)malloc(fdata.size + 1);
+            if (fdata.data)
+            {
+                memcpy(fdata.data, parts[i].xhtml.c_str(), fdata.size);
+                fdata.data[fdata.size] = 0;
+                fdata.ownData = true;
+                files.insert(std::make_pair(newFileName, fdata));
+            }
+
+            // Add new Manifest
+            Manifest manifest;
+            manifest.id = newId;
+            manifest.href = newFileName;
+            manifest.mediaType = "application/xhtml+xml";
+            m_epub->manifests.insert(std::make_pair(newId, std::move(manifest)));
+
+            // Update Navpoints
+            for (const auto& navKey : parts[i].navKeys)
+            {
+                auto navIt = m_epub->navpoints.find(navKey);
+                if (navIt != m_epub->navpoints.end())
+                {
+                    Navpoint updatedNav = std::move(navIt->second);
+                    updatedNav.href = newFileName;
+                    m_epub->navpoints.erase(navIt);
+                    m_epub->navpoints.insert(std::make_pair(newFileName, std::move(updatedNav)));
+                }
+            }
+        }
+
+        // Rebuild m_epub->spines
+        auto spineIt = std::find_if(m_epub->spines.begin(), m_epub->spines.end(),
+            [&sourceHref](const Manifest* m) { return m->href == sourceHref; });
+
+        if (spineIt != m_epub->spines.end())
+        {
+            size_t index = std::distance(m_epub->spines.begin(), spineIt);
+            m_epub->spines.erase(spineIt);
+
+            for (size_t i = 0; i < parts.size(); ++i)
+            {
+                std::string newId = baseName + "_part_" + std::to_string(i);
+                auto mfIt = m_epub->manifests.find(newId);
+                if (mfIt != m_epub->manifests.end())
+                {
+                    m_epub->spines.insert(m_epub->spines.begin() + index + i, &(mfIt->second));
+                }
+            }
+        }
+
+        // Clean up original file entry
+        if (fileIt->second.ownData && fileIt->second.data)
+        {
+            free(fileIt->second.data);
+            fileIt->second.data = nullptr;
+            fileIt->second.size = 0;
+        }
+        files.erase(fileIt);
+    }
     return true;
+}
+
+bool BookEpub::splitHtmlByAnchors(const char* data, int size, const std::vector<AnchorInfo>& anchors, std::vector<SlicedHtmlPart>& parts)
+{
+    parts.clear();
+    if (!data || size <= 0 || anchors.empty())
+    {
+        return false;
+    }
+
+    // 1. Parse HTML into DOM
+    xmlDocPtr doc = htmlReadMemory(data, size, nullptr, "UTF-8", HTML_PARSE_RECOVER | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET);
+    if (!doc)
+    {
+        return false;
+    }
+
+    // 2. Index anchor nodes in a single document traversal
+    struct AnchorNode
+    {
+        xmlNodePtr node;
+        std::string fullNavKey;
+    };
+    std::vector<AnchorNode> anchorNodes;
+    anchorNodes.reserve(anchors.size());
+
+    std::map<std::string, xmlNodePtr> anchorNodeById;
+    for (const auto& anchor : anchors)
+    {
+        if (!anchor.anchorId.empty())
+        {
+            anchorNodeById.emplace(anchor.anchorId, nullptr);
+        }
+    }
+
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    for (xmlNodePtr cur = root; cur;)
+    {
+        if (cur->type == XML_ELEMENT_NODE)
+        {
+            for (xmlAttrPtr attr = cur->properties; attr; attr = attr->next)
+            {
+                if (attr->ns || (xmlStrcmp(attr->name, BAD_CAST "id") != 0 &&
+                    xmlStrcmp(attr->name, BAD_CAST "name") != 0))
+                {
+                    continue;
+                }
+
+                xmlChar* value = xmlNodeListGetString(doc, attr->children, 1);
+                if (value)
+                {
+                    auto nodeIt = anchorNodeById.find((const char*)value);
+                    if (nodeIt != anchorNodeById.end() && !nodeIt->second)
+                    {
+                        nodeIt->second = cur;
+                    }
+                    xmlFree(value);
+                }
+            }
+        }
+
+        if (m_abort) break;
+        if (cur->children)
+        {
+            cur = cur->children;
+        }
+        else
+        {
+            while (cur && cur != root && !cur->next)
+            {
+                cur = cur->parent;
+            }
+            cur = (cur == root) ? nullptr : cur->next;
+        }
+    }
+
+    if (m_abort)
+    {
+        xmlFreeDoc(doc);
+        return false;
+    }
+
+    for (const auto& anchor : anchors)
+    {
+        auto nodeIt = anchorNodeById.find(anchor.anchorId);
+        if (nodeIt != anchorNodeById.end() && nodeIt->second)
+        {
+            anchorNodes.push_back({ nodeIt->second, anchor.fullNavKey });
+        }
+    }
+
+    if (anchorNodes.empty())
+    {
+        xmlFreeDoc(doc);
+        return false;
+    }
+
+    // 3. Find <body> and lowest common container for all chapters
+    xmlNodePtr bodyNode = nullptr;
+    for (xmlNodePtr cur = root ? root->children : nullptr; cur; cur = cur->next)
+    {
+        if (cur->type == XML_ELEMENT_NODE && xmlStrcasecmp(cur->name, BAD_CAST "body") == 0)
+        {
+            bodyNode = cur;
+            break;
+        }
+    }
+    if (!bodyNode)
+    {
+        bodyNode = root;
+    }
+    if (!bodyNode)
+    {
+        xmlFreeDoc(doc);
+        return false;
+    }
+
+    auto getChildUnder = [](xmlNodePtr node, xmlNodePtr parent) -> xmlNodePtr {
+        xmlNodePtr cur = node;
+        while (cur && cur->parent && cur->parent != parent)
+        {
+            cur = cur->parent;
+        }
+        return (cur && cur->parent == parent) ? cur : nullptr;
+        };
+
+    xmlNodePtr container = bodyNode;
+    while (true)
+    {
+        xmlNodePtr commonChild = nullptr;
+        bool allSame = true;
+        for (const auto& an : anchorNodes)
+        {
+            xmlNodePtr c = getChildUnder(an.node, container);
+            if (!c)
+            {
+                allSame = false;
+                break;
+            }
+            if (!commonChild)
+            {
+                commonChild = c;
+            }
+            else if (commonChild != c)
+            {
+                allSame = false;
+                break;
+            }
+        }
+        if (allSame && commonChild && commonChild->children)
+        {
+            container = commonChild;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // 4. Map container's direct child nodes to anchor navKeys
+    std::map<xmlNodePtr, std::vector<std::string>> nodeToNavKeys;
+    for (const auto& an : anchorNodes)
+    {
+        xmlNodePtr c = getChildUnder(an.node, container);
+        if (c)
+        {
+            nodeToNavKeys[c].push_back(an.fullNavKey);
+        }
+    }
+
+    if (nodeToNavKeys.empty())
+    {
+        xmlFreeDoc(doc);
+        return false;
+    }
+
+    // 5. Group nodes into slices in document order
+    struct Slice
+    {
+        xmlNodePtr startNode;
+        std::vector<std::string> navKeys;
+    };
+    std::vector<Slice> slices;
+
+    for (xmlNodePtr cur = container->children; cur; cur = cur->next)
+    {
+        auto it = nodeToNavKeys.find(cur);
+        if (it != nodeToNavKeys.end())
+        {
+            slices.push_back({ cur, it->second });
+        }
+        else if (slices.empty())
+        {
+            slices.push_back({ cur, {} }); // Content before the first anchor
+        }
+    }
+
+    if (slices.size() <= 1)
+    {
+        xmlFreeDoc(doc);
+        return false;
+    }
+
+    // 6. Build a standalone XHTML document for each slice
+    for (size_t i = 0; i < slices.size(); ++i)
+    {
+        if (m_abort)
+        {
+            parts.clear();
+            xmlFreeDoc(doc);
+            return false;
+        }
+
+        xmlDocPtr newDoc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNodePtr htmlNode = xmlNewNode(nullptr, BAD_CAST "html");
+        xmlDocSetRootElement(newDoc, htmlNode);
+        xmlNewNs(htmlNode, BAD_CAST "http://www.w3.org/1999/xhtml", nullptr);
+
+        xmlNodePtr headNode = xmlNewChild(htmlNode, nullptr, BAD_CAST "head", nullptr);
+        xmlNewChild(headNode, nullptr, BAD_CAST "title", BAD_CAST "Chapter");
+
+        xmlNodePtr newBodyNode = xmlNewChild(htmlNode, nullptr, BAD_CAST "body", nullptr);
+
+        xmlNodePtr sliceStart = slices[i].startNode;
+        xmlNodePtr sliceEnd = (i + 1 < slices.size()) ? slices[i + 1].startNode : nullptr;
+
+        for (xmlNodePtr n = sliceStart; n && n != sliceEnd; n = n->next)
+        {
+            xmlNodePtr copy = xmlDocCopyNode(n, newDoc, 1);
+            if (copy)
+            {
+                xmlAddChild(newBodyNode, copy);
+            }
+        }
+
+        xmlChar* mem = nullptr;
+        int memSize = 0;
+        xmlDocDumpFormatMemory(newDoc, &mem, &memSize, 1);
+
+        SlicedHtmlPart part;
+        part.navKeys = slices[i].navKeys;
+        if (mem && memSize > 0)
+        {
+            part.xhtml.assign((const char*)mem, memSize);
+            xmlFree(mem);
+        }
+        xmlFreeDoc(newDoc);
+
+        parts.push_back(std::move(part));
+    }
+
+    xmlFreeDoc(doc);
+    return !parts.empty();
 }
 
 std::string BookEpub::formatHref(const std::string& base, const std::string& href)
 {
+#if 0 // keep anchor
     size_t pos = href.find('#');
     std::string path = pos == std::string::npos ? href : href.substr(0, pos);
+#else
+    std::string path = href;
+#endif
     return decodeHref(resolveHref(base, path));
 }
 

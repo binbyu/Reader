@@ -1,155 +1,6 @@
 #pragma once
 #include "RendererGDIPlus.h"
-
-//#pragma comment(lib, "Msimg32.lib")
-//#pragma comment(lib, "gdiplus.lib")
-
-/********************************************************************
-*  ImageGDIPlus                                                     *
-********************************************************************/
-ImageGDIPlus::ImageGDIPlus()
-    : m_bitmap(nullptr)
-    , m_frameCount(-1)
-    , m_frameIndex(0)
-{
-}
-
-ImageGDIPlus::~ImageGDIPlus()
-{
-    if (m_bitmap)
-    {
-        delete m_bitmap;
-        m_bitmap = nullptr;
-    }
-}
-
-int ImageGDIPlus::width() const
-{
-    return m_bitmap ? m_bitmap->GetWidth() : 0;
-}
-
-int ImageGDIPlus::height() const
-{
-    return m_bitmap ? m_bitmap->GetHeight() : 0;
-}
-
-void* ImageGDIPlus::bitmap() const
-{
-    return m_bitmap;
-}
-
-int ImageGDIPlus::frameCount() const
-{
-    if (m_frameCount == -1)
-    {
-        const_cast<ImageGDIPlus*>(this)->updateFrameCount();
-    }
-    return m_frameCount;
-}
-
-int ImageGDIPlus::frameIndex() const
-{
-    return m_frameIndex;
-}
-
-int ImageGDIPlus::frameDelay(int index) const
-{
-    if (m_bitmap && index >= 0 && index < frameCount())
-    {
-        UINT size = m_bitmap->GetPropertyItemSize(PropertyTagFrameDelay);
-        if (size > 0)
-        {
-            std::vector<BYTE> buffer(size);
-            Gdiplus::PropertyItem* item = (Gdiplus::PropertyItem*)buffer.data();
-            if (Gdiplus::Ok == m_bitmap->GetPropertyItem(PropertyTagFrameDelay, size, item))
-            {
-                UINT* delays = (UINT*)item->value;
-                if (index < (int)item->length / (int)sizeof(UINT))
-                {
-                    return delays[index] * 10; // unit is 10ms
-                }
-            }
-        }
-    }
-    return -1;
-}
-
-bool ImageGDIPlus::activeFrame(int index)
-{
-    if (m_bitmap && index >= 0 && index < frameCount())
-    {
-        if (index == m_frameIndex)
-        {
-            return true;
-        }
-
-        GUID Guid = Gdiplus::FrameDimensionTime;
-        if (Gdiplus::Ok == m_bitmap->SelectActiveFrame(&Guid, index))
-        {
-            m_frameIndex = index;
-            return true;
-        }
-    }
-    return false;
-}
-
-HBITMAP ImageGDIPlus::getHBITMAP() const
-{
-    HBITMAP hBitmap = nullptr;
-    m_bitmap->GetHBITMAP(Gdiplus::Color(0, 0, 0, 0), &hBitmap);
-    return hBitmap;
-}
-
-void ImageGDIPlus::updateFrameCount()
-{
-    if (m_bitmap)
-    {
-        UINT count = m_bitmap->GetFrameDimensionsCount();
-        if (count == 0)
-        {
-            m_frameCount = 1;
-        }
-        else
-        {
-            GUID* pDimensionIDs = new GUID[count];
-            m_bitmap->GetFrameDimensionsList(pDimensionIDs, count);
-            m_frameCount = m_bitmap->GetFrameCount(&pDimensionIDs[0]);
-            delete[] pDimensionIDs;
-        }
-    }
-    else
-    {
-        m_frameCount = 0;
-    }
-}
-
-void ImageGDIPlus::decode()
-{
-    if (m_bitmap)
-    {
-#if 1
-        Gdiplus::Bitmap* decoded = m_bitmap->Clone(0, 0, m_bitmap->GetWidth(), m_bitmap->GetHeight(), PixelFormat32bppPARGB);
-        if (decoded && Gdiplus::Ok == decoded->GetLastStatus())
-        {
-            delete m_bitmap;
-            m_bitmap = decoded;
-            decoded = nullptr;
-        }
-#else
-        Gdiplus::Bitmap* decoded = new Gdiplus::Bitmap(m_bitmap->GetWidth(), m_bitmap->GetHeight(), PixelFormat32bppPARGB);
-        Gdiplus::Graphics graphics(decoded);
-        graphics.DrawImage(m_bitmap, 0, 0);
-        delete m_bitmap;
-        m_bitmap = decoded;
-        decoded = nullptr;
-#endif
-        if (decoded)
-        {
-            delete decoded;
-        }
-    }
-}
-
+#include "Settings.h"
 
 /********************************************************************
 *  MeasurerGDIPlus                                                  *
@@ -251,52 +102,11 @@ TextMetrics MeasurerGDIPlus::measureText(const wchar_t* text, int length, int ma
 *  RendererGDIPlus                                                  *
 ********************************************************************/
 RendererGDIPlus::RendererGDIPlus()
+    : RendererGDIPlusBase()
 {
 }
 
 RendererGDIPlus::~RendererGDIPlus()
-{
-    cleanup();
-}
-
-bool RendererGDIPlus::initialize()
-{
-    if (!m_initialized)
-    {
-        m_hDll = LoadLibraryW(L"gdiplus.dll");
-        if (!m_hDll)
-        {
-            return false;
-        }
-
-        m_pGdiplusStartup = reinterpret_cast<GdiplusStartupFunc>(GetProcAddress(m_hDll, "GdiplusStartup"));
-        if (!m_pGdiplusStartup)
-        {
-            cleanup();
-            return false;
-        }
-
-        m_pGdiplusShutdown = reinterpret_cast<GdiplusShutdownFunc>(GetProcAddress(m_hDll, "GdiplusShutdown"));
-        if (!m_pGdiplusShutdown)
-        {
-            cleanup();
-            return false;
-        }
-
-        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-        Gdiplus::GdiplusStartupOutput gdiplusStartupOutput;
-        Gdiplus::Status status = m_pGdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, &gdiplusStartupOutput);
-        if (status != Gdiplus::Ok)
-        {
-            cleanup();
-            return false;
-        }
-        m_initialized = true;
-    }
-    return true;
-}
-
-void RendererGDIPlus::cleanup()
 {
     if (m_measurer)
     {
@@ -307,24 +117,9 @@ void RendererGDIPlus::cleanup()
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
-
-    if (m_initialized && m_pGdiplusShutdown)
-    {
-        m_pGdiplusShutdown(m_gdiplusToken);
-        m_gdiplusToken = 0;
-        m_initialized = false;
-    }
-    if (m_hDll)
-    {
-        FreeLibrary(m_hDll);
-        m_hDll = nullptr;
-    }
-
-    m_pGdiplusStartup = nullptr;
-    m_pGdiplusShutdown = nullptr;
 }
 
-EngineType RendererGDIPlus::type()
+RendererType RendererGDIPlus::type()
 {
     return GDIPLUS;
 }
@@ -338,18 +133,23 @@ IMeasurer* RendererGDIPlus::measurer()
     return m_measurer;
 }
 
-bool RendererGDIPlus::beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const TextStyles& styles, bool blend)
+bool RendererGDIPlus::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyles& styles, bool clearType, bool blend)
 {
-    if (!m_initialized || !hWnd/* || styles.empty()*/)
+    if (!hWnd/* || styles.empty()*/)
     {
         return false;
     }
+
+    if (!Settings::instance().data().clearType) clearType = false;
+
+    RECT rect = rc;
+    normalizeRect(rect);
 
     if (m_styles != styles)
     {
         releaseTextResources();
     }
-    if (memcmp(&m_rect, &rect, sizeof(RECT)) != 0)
+    if (!isSameSize(rect) || m_clearType != clearType)
     {
         releaseDeviceResources();
     }
@@ -358,7 +158,8 @@ bool RendererGDIPlus::beginPaint(HWND hWnd, HDC hdc, const RECT& rect, const Tex
     m_hdc = hdc;
     m_rect = rect;
     m_styles = styles;
-	m_isBlend = blend;
+    m_clearType = clearType;
+    m_isBlend = blend;
 
     if (!createLayeredDC())
     {
@@ -387,7 +188,7 @@ void RendererGDIPlus::endPaint()
     {
         HDC memdc = CreateCompatibleDC(m_hdc);
         HBITMAP hBitmap = nullptr;
-        auto status = m_memBitmap->GetHBITMAP(Gdiplus::Color(0, 0, 0, 0), &hBitmap);
+        m_memBitmap->GetHBITMAP(Gdiplus::Color(0, 0, 0, 0), &hBitmap);
         SelectObject(memdc, hBitmap);
 
         if (m_isLayered) // Layered Windows
@@ -438,16 +239,17 @@ void RendererGDIPlus::endPaint()
 
 void RendererGDIPlus::clear(const COLORREF& color)
 {
-    if (!m_initialized || !m_graphics)
+    if (!m_graphics)
     {
         return;
     }
+
     m_graphics->Clear(Gdiplus::Color(GetAValue(color), GetRValue(color), GetGValue(color), GetBValue(color)));
 }
 
 void RendererGDIPlus::fillRect(const COLORREF& color, const RECT& rect)
 {
-    if (!m_initialized || !m_graphics)
+    if (!m_graphics)
     {
         return;
     }
@@ -465,7 +267,7 @@ void RendererGDIPlus::fillRect(const COLORREF& color, const RECT& rect)
 
 void RendererGDIPlus::fillRect(const Image* image, const RECT& rect, WrapMode mode)
 {
-    if (!image || !m_initialized || !m_graphics)
+    if (!image || !m_graphics)
     {
         return;
     }
@@ -505,7 +307,7 @@ void RendererGDIPlus::fillRect(const Image* image, const RECT& rect, WrapMode mo
 
 void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect, int textStyleIndex)
 {
-    if (!text || !m_initialized || !m_graphics)
+    if (!text || !m_graphics)
     {
         return;
     }
@@ -534,7 +336,7 @@ void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect
 
 void RendererGDIPlus::drawImage(const Image* image, const RECT& rect, bool keepRatio)
 {
-    if (!image || !m_initialized || !m_graphics)
+    if (!image || !m_graphics)
     {
         return;
     }
@@ -574,186 +376,6 @@ void RendererGDIPlus::drawImage(const Image* image, const RECT& rect, bool keepR
     m_graphics->DrawImage(pBitmap, dst, src.X, src.Y, src.Width, src.Height, Gdiplus::UnitPixel);
 }
 
-Image* RendererGDIPlus::loadImageFromPath(const wchar_t* path)
-{
-    if (!path || !m_initialized)
-    {
-        return nullptr;
-    }
-    Gdiplus::Bitmap* pBitmap = Gdiplus::Bitmap::FromFile(path);
-    if (!pBitmap || pBitmap->GetLastStatus() != Gdiplus::Ok)
-    {
-        if (pBitmap)
-        {
-            delete pBitmap;
-        }
-        return nullptr;
-    }
-
-    ImageGDIPlus* image = new ImageGDIPlus;
-    image->m_bitmap = pBitmap;
-    image->decode();
-    return image;
-}
-
-Image* RendererGDIPlus::loadImageFromStream(const BYTE* data, int size)
-{
-    if (!data || size <= 0 || !m_initialized)
-    {
-        return nullptr;
-    }
-    IStream* pStream = NULL;
-    pStream = SHCreateMemStream((const BYTE*)data, size);
-    Gdiplus::Bitmap* pBitmap = Gdiplus::Bitmap::FromStream(pStream);
-    if (!pBitmap || pBitmap->GetLastStatus() != Gdiplus::Ok)
-    {
-        if (pBitmap)
-        {
-            delete pBitmap;
-        }
-        pStream->Release();
-        return nullptr;
-    }
-
-    ImageGDIPlus* image = new ImageGDIPlus;
-    image->m_bitmap = pBitmap;
-    image->decode();
-    pStream->Release();
-    return image;
-}
-
-Image* RendererGDIPlus::loadImageFromResource(HINSTANCE hInstance, UINT resourceId, const wchar_t* resourceType)
-{
-    if (!resourceType || !m_initialized)
-    {
-        return nullptr;
-    }
-    IStream* pStream = loadResourceToStream(hInstance, resourceId, resourceType);
-    if (pStream)
-    {
-        Gdiplus::Bitmap* pBitmap = Gdiplus::Bitmap::FromStream(pStream);
-        if (!pBitmap || pBitmap->GetLastStatus() != Gdiplus::Ok)
-        {
-            if (pBitmap)
-            {
-                delete pBitmap;
-            }
-            freeStream(pStream);
-            return nullptr;
-        }
-
-        ImageGDIPlus* image = new ImageGDIPlus;
-        image->m_bitmap = pBitmap;
-        image->decode();
-        freeStream(pStream);
-        return image;
-    }
-    return nullptr;
-}
-
-Image* RendererGDIPlus::createImageFromBGColor(const COLORREF& color, BYTE alpha, int width, int height)
-{
-    if (width <= 0 || height <= 0 || !m_initialized)
-    {
-        return nullptr;
-    }
-
-    Gdiplus::Bitmap* pBitmap = new Gdiplus::Bitmap(width, height, PixelFormat32bppPARGB);
-    if (!pBitmap || pBitmap->GetLastStatus() != Gdiplus::Ok)
-    {
-        if (pBitmap)
-        {
-            delete pBitmap;
-        }
-        return nullptr;
-    }
-
-    Gdiplus::Graphics graphics(pBitmap);
-    Gdiplus::Rect rect(0, 0, width, height);
-    Gdiplus::SolidBrush brush(Gdiplus::Color(alpha, GetRValue(color), GetGValue(color), GetBValue(color)));
-    graphics.FillRectangle(&brush, rect);
-
-    ImageGDIPlus* image = new ImageGDIPlus;
-    image->m_bitmap = pBitmap;
-    return image;
-}
-
-Image* RendererGDIPlus::createImageFromBGImage(const Image* bgImage, BYTE alpha, int width, int height, WrapMode mode)
-{
-    if (!bgImage || width <= 0 || height <= 0)
-    {
-        return nullptr;
-    }
-    Gdiplus::Bitmap* bgBitmap = static_cast<Gdiplus::Bitmap*>(bgImage->bitmap());
-    if (!bgBitmap || bgBitmap->GetLastStatus() != Gdiplus::Ok)
-    {
-        return nullptr;
-    }
-
-    Gdiplus::Bitmap* pBitmap = new Gdiplus::Bitmap(width, height, PixelFormat32bppPARGB);
-    if (!pBitmap || pBitmap->GetLastStatus() != Gdiplus::Ok)
-    {
-        if (pBitmap)
-        {
-            delete pBitmap;
-        }
-        return nullptr;
-    }
-
-    Gdiplus::RectF rcDrawRect;
-    rcDrawRect.X = 0.0;
-    rcDrawRect.Y = 0.0;
-    rcDrawRect.Width = (float)width;
-    rcDrawRect.Height = (float)height;
-    Gdiplus::Graphics* graphics = Gdiplus::Graphics::FromImage(pBitmap);
-    if (!graphics)
-    {
-        delete pBitmap;
-        return nullptr;
-    }
-#if 0 // too slow
-    graphics->SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-#endif
-    if (graphics->GetLastStatus() != Gdiplus::Ok)
-    {
-        delete pBitmap;
-        return nullptr;
-    }
-
-    Gdiplus::ColorMatrix colorMatrix = {
-        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, alpha / 255.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    Gdiplus::ImageAttributes imgAtt;
-    imgAtt.SetColorMatrix(&colorMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
-    switch (mode)
-    {
-    case STRETCH:
-        graphics->DrawImage(bgBitmap, rcDrawRect, 0.0, 0.0, (float)bgBitmap->GetWidth(), (float)bgBitmap->GetHeight(), Gdiplus::UnitPixel, &imgAtt);
-        break;
-    case TILE:
-        imgAtt.SetWrapMode(Gdiplus::WrapModeTile);
-        graphics->DrawImage(bgBitmap, rcDrawRect, 0.0, 0.0, (float)width, (float)height, Gdiplus::UnitPixel, &imgAtt);
-        break;
-    case TILEFLIP:
-        imgAtt.SetWrapMode(Gdiplus::WrapModeTileFlipXY);
-        graphics->DrawImage(bgBitmap, rcDrawRect, 0.0, 0.0, (float)width, (float)height, Gdiplus::UnitPixel, &imgAtt);
-        break;
-    default:
-        graphics->DrawImage(bgBitmap, rcDrawRect, 0.0, 0.0, (float)bgBitmap->GetWidth(), (float)bgBitmap->GetHeight(), Gdiplus::UnitPixel, &imgAtt);
-        break;
-    }
-
-    delete graphics;
-    ImageGDIPlus* image = new ImageGDIPlus;
-    image->m_bitmap = pBitmap;
-    return image;
-}
-
 bool RendererGDIPlus::createDeviceResources()
 {
     if (!m_graphics || !m_memBitmap)
@@ -770,13 +392,9 @@ bool RendererGDIPlus::createDeviceResources()
             return false;
         }
         m_graphics->SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-#if 1
-        m_graphics->SetSmoothingMode(Gdiplus::SmoothingModeNone);
-        m_graphics->SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
-#else
-        m_graphics->SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-        m_graphics->SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
-#endif
+        //m_graphics->SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+        if (m_clearType) m_graphics->SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit); // !!! Clear Type not support alpha backgroud
+        else             m_graphics->SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
         if (m_graphics->GetLastStatus() != Gdiplus::Ok)
         {
             return false;
@@ -819,7 +437,7 @@ bool RendererGDIPlus::createTextResources()
             const TextStyle& s = m_styles[i];
             TextResource& tr = m_trs[i];
 
-            // Create Font
+            // create Font
             tr.font = createFont(s.font);
             if (!tr.font || tr.font->GetLastStatus() != Gdiplus::Ok)
             {
@@ -919,41 +537,19 @@ RendererGDIPlus::TextResource* RendererGDIPlus::textResource(int index)
 
 Gdiplus::Font* RendererGDIPlus::createFont(const LOGFONTW& logfont)
 {
-    Gdiplus::FontStyle style = Gdiplus::FontStyleRegular;
-    if (logfont.lfItalic)
+    Gdiplus::Font* font = new Gdiplus::Font(m_hdc, &logfont);
+    if (font)
     {
-        style = static_cast<Gdiplus::FontStyle>(style | Gdiplus::FontStyleItalic);
-    }
-    if (logfont.lfWeight >= FW_BOLD)
-    {
-        style = static_cast<Gdiplus::FontStyle>(style | Gdiplus::FontStyleBold);
-    }
-    if (logfont.lfUnderline)
-    {
-        style = static_cast<Gdiplus::FontStyle>(style | Gdiplus::FontStyleUnderline);
-    }
-    if (logfont.lfStrikeOut)
-    {
-        style = static_cast<Gdiplus::FontStyle>(style | Gdiplus::FontStyleStrikeout);
-    }
-
-    Gdiplus::REAL fontSize = static_cast<Gdiplus::REAL>(std::abs(logfont.lfHeight));
-    if (fontSize <= 0)
-    {
-        fontSize = 12.0f;
-    }
-
-    Gdiplus::FontFamily family(logfont.lfFaceName);
-    if (family.GetLastStatus() != Gdiplus::Ok)
-    {
-        return new Gdiplus::Font(Gdiplus::FontFamily::GenericSansSerif(), fontSize, style, Gdiplus::UnitPixel);
-    }
-
-    Gdiplus::Font* font = new Gdiplus::Font(&family, fontSize, style, Gdiplus::UnitPixel);
-    if (!font || font->GetLastStatus() != Gdiplus::Ok)
-    {
+        if (font->GetLastStatus() == Gdiplus::Ok) return font;
         delete font;
-        font = new Gdiplus::Font(Gdiplus::FontFamily::GenericSansSerif(), fontSize, style, Gdiplus::UnitPixel);
+        font = nullptr;
     }
-    return font;
+
+    font = new Gdiplus::Font(Gdiplus::FontFamily::GenericSansSerif(), 12.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+    if (font)
+    {
+        if (font->GetLastStatus() == Gdiplus::Ok) return font;
+        delete font;
+    }
+    return nullptr;
 }

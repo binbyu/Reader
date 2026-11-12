@@ -197,7 +197,9 @@
     <ClInclude Include="renderer\IRenderer.h" />
     <ClInclude Include="renderer\RendererBase.h" />
     <ClInclude Include="renderer\RendererD2D.h" />
+    <ClInclude Include="renderer\RendererGDI.h" />
     <ClInclude Include="renderer\RendererGDIPlus.h" />
+    <ClInclude Include="renderer\RendererGDIPlusBase.h" />
     <ClInclude Include="ui\AboutDlg.h" />
     <ClInclude Include="ui\AdvanceSettingDlg.h" />
     <ClInclude Include="ui\BasicSettingDlg.h" />
@@ -250,7 +252,9 @@
     <ClCompile Include="layout\LayoutText.cpp" />
     <ClCompile Include="renderer\RendererBase.cpp" />
     <ClCompile Include="renderer\RendererD2D.cpp" />
+    <ClCompile Include="renderer\RendererGDI.cpp" />
     <ClCompile Include="renderer\RendererGDIPlus.cpp" />
+    <ClCompile Include="renderer\RendererGDIPlusBase.cpp" />
     <ClCompile Include="common\barcode.cpp" />
     <ClCompile Include="common\main.cpp" />
     <ClCompile Include="ui\AboutDlg.cpp" />

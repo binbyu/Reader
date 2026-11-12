@@ -1,6 +1,6 @@
 #pragma once
-#if ENABLE_TAG
 #include "Dialog.h"
+#if ENABLE_TAG
 #include "Settings.h"
 
 class TagItemDlg : public Dialog

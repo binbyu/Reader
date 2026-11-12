@@ -26,7 +26,7 @@ LRESULT FollowDlg::onInitDialog()
         float scale = DpiAwareness::instance().scaleFactor();
         RECT rect;
         SetRect(&rect, 0, 0, (int)(m_image->width() * scale), (int)(m_image->height() * scale));
-        AdjustWindowRect(&rect, (DWORD)GetWindowLongPtr(m_hWnd, GWL_STYLE), FALSE);
+        DpiAwareness::instance().adjustWindowRectExForDpi(&rect, (DWORD)GetWindowLongPtr(m_hWnd, GWL_STYLE), FALSE, (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE));
         centerParent(rect);
     }
     return TRUE;

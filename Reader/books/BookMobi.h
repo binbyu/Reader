@@ -29,18 +29,6 @@ struct Mobi : public Epub
     MOBIRawml *rawml;
 };
 
-struct AnchorInfo
-{
-    std::string anchorId;
-    std::string fullNavKey;
-};
-
-struct SlicedHtmlPart
-{
-    std::string xhtml;
-    std::vector<std::string> navKeys;
-};
-
 class BookMobi : public BookEpub
 {
 public:
@@ -52,13 +40,6 @@ protected:
     virtual bool loadBook(Files& files);
     virtual bool parseOcf(Files& files);
     virtual bool parseCover(Files& files);
-
-    // split html is written by AI
-    virtual bool splitHtmlByNavpoints(Files& files);
-    bool splitHtmlByAnchors(const char* data, int size, const std::vector<AnchorInfo>& anchors, std::vector<SlicedHtmlPart>& parts);
-
-protected:
-    virtual std::string formatHref(const std::string& base, const std::string& href);
 
 private:
     Mobi* mobi() const;

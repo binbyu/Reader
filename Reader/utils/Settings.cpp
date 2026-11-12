@@ -94,7 +94,6 @@ void Settings::load()
             defaultData(m_data);
         }
         m_data.version = Utils::appVersion();
-        fixedWindowInfo(m_data.window);
     }
     toPhysical(m_data);
     ASSERT(m_data.customColors.size() == MAX_CUSTOMCOLORS_COUNT);
@@ -187,12 +186,14 @@ void Settings::notify(DWORD error)
 
 void Settings::defaultData(Data& data)
 {
-    int logicalWidth = GetSystemMetrics(SM_CXSCREEN);
-    int logicalHeight = GetSystemMetrics(SM_CYSCREEN);
-    DpiAwareness::instance().physicalToLogical(logicalWidth, logicalWidth);
-    DpiAwareness::instance().physicalToLogical(logicalHeight, logicalHeight);
+    int screenWidth = DpiAwareness::instance().getSystemMetricsForDpi(SM_CXSCREEN);
+    int screenHeight = DpiAwareness::instance().getSystemMetricsForDpi(SM_CYSCREEN);
+    DpiAwareness::instance().toLogical(screenWidth);
+    DpiAwareness::instance().toLogical(screenHeight);
 
     data.version = Utils::appVersion();
+    data.rendererType = RendererType::D2D;
+    data.clearType = true;
     data.window.mode = DisplayMode::NORMAL;
     data.window.placement.length = sizeof(WINDOWPLACEMENT);
     data.window.placement.flags = 0;
@@ -201,8 +202,8 @@ void Settings::defaultData(Data& data)
     data.window.placement.ptMinPosition.y = -1;
     data.window.placement.ptMaxPosition.x = -1;
     data.window.placement.ptMaxPosition.y = -1;
-    data.window.placement.rcNormalPosition.left = (logicalWidth - DEFAULT_APP_WIDTH) / 2;
-    data.window.placement.rcNormalPosition.top = (logicalHeight - DEFAULT_APP_HEIGHT) / 2;
+    data.window.placement.rcNormalPosition.left = (screenWidth - DEFAULT_APP_WIDTH) / 2;
+    data.window.placement.rcNormalPosition.top = (screenHeight - DEFAULT_APP_HEIGHT) / 2;
     data.window.placement.rcNormalPosition.right = data.window.placement.rcNormalPosition.left + DEFAULT_APP_WIDTH;
     data.window.placement.rcNormalPosition.bottom = data.window.placement.rcNormalPosition.top + DEFAULT_APP_HEIGHT;
     data.window.borderlessRect = data.window.placement.rcNormalPosition;
@@ -314,7 +315,7 @@ void Settings::defaultFont(LOGFONTW& font)
     font.lfCharSet        = DEFAULT_CHARSET;
     font.lfOutPrecision   = OUT_OUTLINE_PRECIS;
     font.lfClipPrecision  = CLIP_DEFAULT_PRECIS;
-    font.lfQuality        = CLEARTYPE_QUALITY;
+    font.lfQuality        = CLEARTYPE_NATURAL_QUALITY;
     font.lfPitchAndFamily = DEFAULT_PITCH | FF_SWISS;
 
     LANGID langId      = GetUserDefaultUILanguage();
@@ -332,24 +333,18 @@ void Settings::defaultFont(LOGFONTW& font)
 void Settings::toLogical(Data& data)
 {
 #if 1 // placement is always logical
-    DpiAwareness::instance().physicalToLogical(data.window.placement, data.window.placement);
+    DpiAwareness::instance().toLogical(data.window.placement);
 #endif
-    DpiAwareness::instance().physicalToLogical(data.window.borderlessRect, data.window.borderlessRect);
+    DpiAwareness::instance().toLogical(data.window.borderlessRect);
 #if 0 // will recalc in Layout
-    DpiAwareness::instance().physicalToLogical(data.layout.borderL, data.layout.borderL);
-    DpiAwareness::instance().physicalToLogical(data.layout.borderR, data.layout.borderR);
-    DpiAwareness::instance().physicalToLogical(data.layout.borderT, data.layout.borderT);
-    DpiAwareness::instance().physicalToLogical(data.layout.borderB, data.layout.borderB);
-    DpiAwareness::instance().physicalToLogical(data.layout.charGap, data.layout.charGap);
-    DpiAwareness::instance().physicalToLogical(data.layout.lineGap, data.layout.lineGap);
-    DpiAwareness::instance().physicalToLogical(data.layout.paragraphGap, data.layout.paragraphGap);
+    DpiAwareness::instance().toLogical(data.layout);
 #endif
-    DpiAwareness::instance().physicalToLogical(data.styles.textFont, data.styles.textFont);
-    DpiAwareness::instance().physicalToLogical(data.styles.titleFont, data.styles.titleFont);
+    DpiAwareness::instance().toLogical(data.styles.textFont);
+    DpiAwareness::instance().toLogical(data.styles.titleFont);
 #if ENABLE_TAG
     for (auto& tag : data.tags)
     {
-        DpiAwareness::instance().physicalToLogical(tag.font, tag.font);
+        DpiAwareness::instance().toLogical(tag.font);
     }
 #endif
 }
@@ -357,24 +352,18 @@ void Settings::toLogical(Data& data)
 void Settings::toPhysical(Data& data)
 {
 #if 1 // placement is always logical
-    DpiAwareness::instance().logicalToPhysical(data.window.placement, data.window.placement);
+    DpiAwareness::instance().toPhysical(data.window.placement);
 #endif
-    DpiAwareness::instance().logicalToPhysical(data.window.borderlessRect, data.window.borderlessRect);
+    DpiAwareness::instance().toPhysical(data.window.borderlessRect);
 #if 0 // will recalc in Layout
-    DpiAwareness::instance().logicalToPhysical(data.layout.borderL, data.layout.borderL);
-    DpiAwareness::instance().logicalToPhysical(data.layout.borderR, data.layout.borderR);
-    DpiAwareness::instance().logicalToPhysical(data.layout.borderT, data.layout.borderT);
-    DpiAwareness::instance().logicalToPhysical(data.layout.borderB, data.layout.borderB);
-    DpiAwareness::instance().logicalToPhysical(data.layout.charGap, data.layout.charGap);
-    DpiAwareness::instance().logicalToPhysical(data.layout.lineGap, data.layout.lineGap);
-    DpiAwareness::instance().logicalToPhysical(data.layout.paragraphGap, data.layout.paragraphGap);
+    DpiAwareness::instance().toPhysical(data.layout);
 #endif
-    DpiAwareness::instance().logicalToPhysical(data.styles.textFont, data.styles.textFont);
-    DpiAwareness::instance().logicalToPhysical(data.styles.titleFont, data.styles.titleFont);
+    DpiAwareness::instance().toPhysical(data.styles.textFont);
+    DpiAwareness::instance().toPhysical(data.styles.titleFont);
 #if ENABLE_TAG
     for (auto& tag : data.tags)
     {
-        DpiAwareness::instance().logicalToPhysical(tag.font, tag.font);
+        DpiAwareness::instance().toPhysical(tag.font);
     }
 #endif
 }
@@ -387,38 +376,53 @@ void Settings::fixedWindowInfo(WindowInfo& window)
     }
     window.placement.flags &= ~WPF_SETMINPOSITION;
 
-    auto fixRect = [](const RECT& rcScreen, RECT& rc)
+    auto isRectVisibleOnAnyMonitor = [](const RECT & rc)
     {
-        if (rc.right <= rc.left)
+        struct Context
         {
-            rc.right = rc.left + DEFAULT_APP_WIDTH;
-        }
-        if (rc.bottom <= rc.top)
-        {
-            rc.bottom = rc.top + DEFAULT_APP_HEIGHT;
-        }
-        if (rc.left < rcScreen.left)
-        {
-            rc.left = rcScreen.left;
-        }
-        if (rc.top < rcScreen.top)
-        {
-            rc.top = rcScreen.top;
-        }
-        if (rc.right > rcScreen.right)
-        {
-            rc.right = rcScreen.right;
-        }
-        if (rc.bottom > rcScreen.bottom)
-        {
-            rc.bottom = rcScreen.bottom;
-        }
+            RECT rc;
+            bool visible;
+        };
+        Context ctx = { rc, FALSE };
+
+        EnumDisplayMonitors(NULL, NULL, [](HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+            {
+                Context* ctx = (Context*)dwData;
+                RECT rcDummy;
+                if (IntersectRect(&rcDummy, &ctx->rc, lprcMonitor))
+                {
+                    ctx->visible = true;
+                    return FALSE;
+                }
+                return TRUE;
+            },
+            (LPARAM)&ctx);
+        return ctx.visible;
     };
 
-    RECT rcScreen;
-    SystemParametersInfo(SPI_GETWORKAREA, 0, &rcScreen, 0);
-    fixRect(rcScreen, window.placement.rcNormalPosition);
-    fixRect(rcScreen, window.borderlessRect);
+    auto fixRect = [&](RECT& rect)
+    {
+        if (isRectVisibleOnAnyMonitor(rect)) return;
+
+        HMONITOR hNearest = MonitorFromRect(&rect, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(hNearest, &mi);
+        RECT rcArea = mi.rcWork;
+
+        int width = rect.right - rect.left;
+        if (width <= 0) { width = DEFAULT_APP_WIDTH; DpiAwareness::instance().toPhysical(width); }
+        int height = rect.bottom - rect.top;
+        if (height <= 0) { height = DEFAULT_APP_HEIGHT; DpiAwareness::instance().toPhysical(height); }
+
+        rect.left = rcArea.left + (rcArea.right - rcArea.left - width) / 2;
+        rect.top = rcArea.top + (rcArea.bottom - rcArea.top - height) / 2;
+        rect.right = rect.left + width;
+        rect.bottom = rect.top + height;
+    };
+
+    fixRect(window.placement.rcNormalPosition);
+    fixRect(window.borderlessRect);
+    save();
 }
 
 std::wstring Settings::fileName()

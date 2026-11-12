@@ -13,7 +13,6 @@ public:
 
 protected:
     bool isValid();
-    LayoutConfig toPhysical(const LayoutConfig& cfg) const;
 
 protected:
     IMeasurer*      m_measurer;

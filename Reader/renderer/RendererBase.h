@@ -16,6 +16,8 @@ protected:
     virtual void releaseDeviceResources() = 0;
     virtual bool createTextResources() = 0;
     virtual void releaseTextResources() = 0;
+    virtual bool isSameSize(const RECT& rect);
+    virtual void normalizeRect(RECT& rect);
 
 protected:
     HWND m_hWnd = nullptr;
@@ -23,5 +25,6 @@ protected:
     RECT m_rect = { 0 };
     TextStyles m_styles;
     bool m_isLayered = false;
+    bool m_clearType = false;
 	bool m_isBlend = false;
 };

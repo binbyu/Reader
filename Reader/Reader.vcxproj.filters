@@ -46,7 +46,13 @@
     <ClInclude Include="renderer\RendererD2D.h">
       <Filter>renderer</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\RendererGDI.h">
+      <Filter>renderer</Filter>
+    </ClInclude>
     <ClInclude Include="renderer\RendererGDIPlus.h">
+      <Filter>renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\RendererGDIPlusBase.h">
       <Filter>renderer</Filter>
     </ClInclude>
     <ClInclude Include="layout\ILayout.h">
@@ -222,7 +228,13 @@
     <ClCompile Include="renderer\RendererD2D.cpp">
       <Filter>renderer</Filter>
     </ClCompile>
+    <ClCompile Include="renderer\RendererGDI.cpp">
+      <Filter>renderer</Filter>
+    </ClCompile>
     <ClCompile Include="renderer\RendererGDIPlus.cpp">
+      <Filter>renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\RendererGDIPlusBase.cpp">
       <Filter>renderer</Filter>
     </ClCompile>
     <ClCompile Include="layout\LayoutText.cpp">

@@ -50,6 +50,18 @@ struct Epub
     CoverMani   cover;
 };
 
+struct AnchorInfo
+{
+    std::string anchorId;
+    std::string fullNavKey;
+};
+
+struct SlicedHtmlPart
+{
+    std::string xhtml;
+    std::vector<std::string> navKeys;
+};
+
 class BookEpub : public BookBase
 {
 public:
@@ -68,7 +80,10 @@ protected:
     virtual bool parseCover(Files& files);
     virtual bool parseChapters(Files& files);
     virtual bool parseOps(FileData& file, wchar_t **text, int *len, wchar_t **title, int *tlen, bool needTitle);
+
+    // split html is written by AI
     virtual bool splitHtmlByNavpoints(Files& files);
+    bool splitHtmlByAnchors(const char* data, int size, const std::vector<AnchorInfo>& anchors, std::vector<SlicedHtmlPart>& parts);
 
 protected:
     virtual std::string formatHref(const std::string& base, const std::string& href);

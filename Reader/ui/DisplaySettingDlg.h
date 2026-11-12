@@ -22,6 +22,8 @@ protected:
     LRESULT onBackgroundImageFileChanged();
     LRESULT onBackgroundImageModeChanged();
     LRESULT onBackgroundAlphaChanged();
+    LRESULT onRendererTypeChanged();
+    LRESULT onClearTypeChanged();
     LRESULT onTextAlphaChanged();
     LRESULT onUpdatePreview(HDC hdc, RECT rect);
 

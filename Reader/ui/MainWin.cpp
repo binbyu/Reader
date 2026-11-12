@@ -27,6 +27,7 @@ MainWin::MainWin(HINSTANCE hInstance)
     , m_hStatusBar(nullptr)
     , m_hTreeView(nullptr)
     , m_hTreeMark(nullptr)
+    , m_hDummy(nullptr)
     , m_hEditCtrl(nullptr)
     , m_hFindDlg(nullptr)
     , m_uFindMsgId(-1)
@@ -35,6 +36,7 @@ MainWin::MainWin(HINSTANCE hInstance)
     , m_hKeyboardHook(nullptr)
     , m_imgLoading(nullptr)
     , m_imgBackground(nullptr)
+    , m_imgBgSrc(nullptr)
     , m_isSwitching(false)
     , m_isCreating(false)
     , m_autoPageEnabled(false)
@@ -53,18 +55,14 @@ MainWin::~MainWin()
         DeleteObject(m_hNewBitmap);
         m_hNewBitmap = nullptr;
     }
-    if (m_imgLoading)
-    {
-        delete m_imgLoading;
-        m_imgLoading = nullptr;
-    }
+    unloadLoadingImage();
     unloadBgImage();
+    unloadBgSrcImage();
     if (m_session)
     {
         delete m_session;
         m_session = nullptr;
     }
-    IRenderer::instance()->cleanup();
 }
 
 HWND MainWin::hFindDlg()
@@ -250,6 +248,9 @@ LRESULT MainWin::handleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     case WM_UPDATEMARKS:
         result = onUpdateMarks(message, wParam, lParam);
         break;
+    case WM_RENDERERCHANGED:
+        result = onRendererChanged(message, wParam, lParam);
+        break;
     default:
         if (message == m_uFindMsgId)
             result = onSearch(message, wParam, lParam);
@@ -266,6 +267,18 @@ void MainWin::prevCreate()
 
 void MainWin::postCreate()
 {
+    DpiAwareness& dpiAwareness = DpiAwareness::instance();
+    UINT oldDpi = dpiAwareness.dpi();
+    UINT windowDpi = dpiAwareness.windowDpi(m_hWnd);
+    if (windowDpi != oldDpi)
+    {
+        Settings::instance().toLogical(m_data);
+        dpiAwareness.setDpi(windowDpi, windowDpi);
+        Settings::instance().toPhysical(m_data);
+        updateTreeViewFont();
+        m_session->updateStyles();
+    }
+    Settings::instance().fixedWindowInfo(m_data.window);
     SetWindowPlacement(m_hWnd, &m_data.window.placement);
     m_isCreating = false;
     switchDisplayMode(m_data.window.mode);
@@ -327,6 +340,7 @@ LRESULT MainWin::onCreate()
     m_hStatusBar = CreateWindow(STATUSCLASSNAME, L"Status Bar.", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, m_hWnd, nullptr, m_hInstance, nullptr);
     m_hTreeView = CreateWindow(WC_TREEVIEW, L"Tree View", /*WS_VISIBLE | */WS_CHILD /*| WS_BORDER*/ | TVS_HASLINES | TVS_NOHSCROLL | TVS_NOTOOLTIPS | TVS_LINESATROOT, 0, 0, 0, 0, m_hWnd, nullptr, m_hInstance, nullptr);
     m_hTreeMark = CreateWindow(WC_TREEVIEW, L"Tree Mark", /*WS_VISIBLE | */WS_CHILD /*| WS_BORDER*/ | TVS_HASLINES | TVS_NOHSCROLL | TVS_NOTOOLTIPS | TVS_LINESATROOT, 0, 0, 0, 0, m_hWnd, nullptr, m_hInstance, nullptr);
+    m_hDummy = CreateWindow(L"STATIC", L"", WS_OVERLAPPEDWINDOW, 0, 0, 100, 300, nullptr, nullptr, m_hInstance, nullptr);
     m_uFindMsgId = RegisterWindowMessage(FINDMSGSTRING);
     m_session = new BookSession(m_hWnd);
     Settings::instance().setHwnd(m_hWnd);
@@ -340,6 +354,7 @@ LRESULT MainWin::onDestroy()
     registerHotKey(false);
     minToTray(false);
     PostQuitMessage(0);
+    if (m_hDummy) { DestroyWindow(m_hDummy); m_hDummy = nullptr; }
     return TRUE;
 }
 
@@ -347,13 +362,19 @@ LRESULT MainWin::onPaint(HDC hdc)
 {
     BYTE alpha = hdc ? 0xff : m_data.window.alpha;
     RECT rcPaint = drawTextRect();
+    Image* imgSrc = loadBgSrcImage();
+    bool clearType = (alpha == 0xff) && (!imgSrc || !imgSrc->hasAlpha());
 
-    IRenderer::instance()->beginPaint(m_hWnd, hdc, rcPaint, m_session->styles());
+    IRenderer::instance()->beginPaint(m_hWnd, hdc, rcPaint, m_session->styles(), clearType);
 
     // draw background
     Image* imgBackground = loadBgImage(rcPaint.right - rcPaint.left, rcPaint.bottom - rcPaint.top, alpha);
     if (imgBackground)
     {
+        if (imgBackground->hasAlpha() && hdc)
+        {
+            IRenderer::instance()->fillRect(alpha << 24 | m_data.background.color, rcPaint);
+        }
         IRenderer::instance()->drawImage(imgBackground, rcPaint);
     }
     else
@@ -363,12 +384,15 @@ LRESULT MainWin::onPaint(HDC hdc)
 
     if (m_session->isLoading())
     {
-        RECT rc = { 0 };
-        rc.left = (rcPaint.right - rcPaint.left - m_imgLoading->width()) / 2;
-        rc.top = (rcPaint.bottom - rcPaint.top - m_imgLoading->height()) / 2;
-        rc.right = rc.left + m_imgLoading->width();
-        rc.bottom = rc.top + m_imgLoading->height();
-        IRenderer::instance()->drawImage(m_imgLoading, rc);
+        if (m_imgLoading)
+        {
+            RECT rc = { 0 };
+            rc.left = (rcPaint.right - rcPaint.left - m_imgLoading->width()) / 2;
+            rc.top = (rcPaint.bottom - rcPaint.top - m_imgLoading->height()) / 2;
+            rc.right = rc.left + m_imgLoading->width();
+            rc.bottom = rc.top + m_imgLoading->height();
+            IRenderer::instance()->drawImage(m_imgLoading, rc);
+        }
     }
     else
     {
@@ -389,7 +413,7 @@ LRESULT MainWin::onNcHitTest(UINT message, WPARAM wParam, LPARAM lParam)
     if (DisplayMode::BORDERLESS == m_data.window.mode)
     {
         int border = BORDER_WIDTH;
-        DpiAwareness::instance().logicalToPhysical(border, border);
+        DpiAwareness::instance().toPhysical(border);
 
         POINT pt = { LOWORD(lParam), HIWORD(lParam) };
         ScreenToClient(m_hWnd, &pt);
@@ -440,7 +464,7 @@ LRESULT MainWin::onNcHitTest(UINT message, WPARAM wParam, LPARAM lParam)
             else
             {
                 int captionHeight = CAPTION_HEIGHT;
-                DpiAwareness::instance().logicalToPhysical(captionHeight, captionHeight);
+                DpiAwareness::instance().toPhysical(captionHeight);
                 rc.bottom = rc.bottom / 2 > captionHeight ? captionHeight : rc.bottom / 2;
                 if (PtInRect(&rc, pt))
                 {
@@ -668,10 +692,41 @@ LRESULT MainWin::onMouseDown(UINT message, WPARAM wParam, LPARAM lParam)
 
     auto mouseLRHide = [&]()
         {
-            if ((wParam & MK_LBUTTON) && (wParam & MK_RBUTTON) && m_data.keyset.enableMouseLRHide)
+            BOOL leftDown = (wParam & MK_LBUTTON) != 0;
+            BOOL rightDown = (wParam & MK_RBUTTON) != 0;
+            if (message == WM_NCLBUTTONDOWN)
+            {
+                leftDown = TRUE;
+                rightDown = (GetKeyState(VK_RBUTTON) & 0x8000) != 0;
+            }
+            else if (message == WM_NCRBUTTONDOWN)
+            {
+                leftDown = (GetKeyState(VK_LBUTTON) & 0x8000) != 0;
+                rightDown = TRUE;
+            }
+            if (leftDown && rightDown && m_data.keyset.enableMouseLRHide)
             {
                 showWindow(false);
                 return TRUE;
+            }
+            return FALSE;
+        };
+
+    auto unHookMouse = [&]()
+        {
+            if (m_hMouseHook)
+            {
+                switch (wParam)
+                {
+                case HTMINBUTTON:
+             // case HTMAXBUTTON:
+                case HTCLOSE:
+                    UnhookWindowsHookEx(m_hMouseHook);
+                    m_hMouseHook = NULL;
+                    break;
+                default:
+                    break;
+                }
             }
             return FALSE;
         };
@@ -718,6 +773,7 @@ LRESULT MainWin::onMouseDown(UINT message, WPARAM wParam, LPARAM lParam)
         return TRUE;
     case WM_NCLBUTTONDOWN:
         if (mouseLRHide()) return TRUE;
+        if (unHookMouse()) return TRUE;
         if (hideTreeView(m_hTreeView, 1)) return TRUE;
         if (hideTreeView(m_hTreeMark, 2)) return TRUE;
         break;
@@ -779,8 +835,8 @@ LRESULT MainWin::onMouseWheel(UINT message, WPARAM wParam, LPARAM lParam)
     auto setFontAlpha = [this](BYTE alpha) {
         if (m_data.window.textAlpha == alpha) return;
         m_data.window.textAlpha = alpha;
-        m_session->updateStyles();
         unloadBgImage();
+        m_session->updateStyles();
         Settings::instance().save(300);
     };
 
@@ -947,9 +1003,9 @@ LRESULT MainWin::onDpiChanged(UINT message, WPARAM wParam, LPARAM lParam)
         DpiAwareness::instance().setDpi(newDpiX, newDpiY);
         Settings::instance().toPhysical(m_data);
         Settings::instance().save();
-        m_session->updateStyles();
         unloadBgImage();
-        updateTreeViewFont();
+        if (m_hTreeView && m_hTreeMark) updateTreeViewFont();
+        if (m_session) m_session->updateStyles();
     }
     if (pRect)
     {
@@ -1033,9 +1089,9 @@ LRESULT MainWin::onOpenDisplaySettingDlg(UINT message, WPARAM wParam, LPARAM lPa
     if (dlg.isChanged())
     {
         SetLayeredWindowAttributes(m_hWnd, 0, m_data.window.alpha < MIN_LAYERED_ALPHA ? MIN_LAYERED_ALPHA : m_data.window.alpha, LWA_ALPHA);
-        m_session->updateStyles();
         unloadBgImage();
         updateTreeViewFont();
+        m_session->updateStyles();
     }
     return result;
 }
@@ -1091,8 +1147,8 @@ LRESULT MainWin::onOpenTagSettingDlg(UINT message, WPARAM wParam, LPARAM lParam)
 #if ENABLE_TAG
     TagMgrDlg dlg(m_hInstance, m_hWnd);
     auto ret = dlg.exec();
-    m_session->updateStyles();
     unloadBgImage();
+    m_session->updateStyles();
     return ret;
 #else
     return TRUE;
@@ -1168,8 +1224,10 @@ LRESULT MainWin::onRestoreDefault(UINT message, WPARAM wParam, LPARAM lParam)
     {
         m_session->reopen();
     }
-    m_session->updateStyles();
+    reloadLoadingImage();
     unloadBgImage();
+    unloadBgSrcImage();
+    m_session->updateStyles();
 
     switchDisplayMode(m_data.window.mode);
     minToTray(m_data.window.minToTray);
@@ -1495,13 +1553,22 @@ LRESULT MainWin::onUpdateMarks(UINT message, WPARAM wParam, LPARAM lParam)
 
             tvi.pszText = buffer;
             tvi.cchTextMax = len;
-            tvi.lParam = (LPARAM)i;
+            tvi.lParam = (LPARAM)marks[i];
             tvins.item = tvi;
             tvins.hInsertAfter = hPrev;
             tvins.hParent = TVI_ROOT;
             hPrev = (HTREEITEM)SendMessage(m_hTreeMark, TVM_INSERTITEM, 0, (LPARAM)&tvins);
         }
     }
+    return TRUE;
+}
+
+LRESULT MainWin::onRendererChanged(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    reloadLoadingImage();
+    unloadBgImage();
+    unloadBgSrcImage();
+    m_session->updateStyles();
     return TRUE;
 }
 
@@ -1715,9 +1782,9 @@ LRESULT MainWin::onFontZoomIn(UINT message, WPARAM wParam, LPARAM lParam)
         if (pointSize < ZOOM_MAX)
         {
             m_data.styles.textFont.lfHeight = -MulDiv(pointSize + 1, DpiAwareness::instance().dpi(), 72);
-            m_session->updateStyles();
             unloadBgImage();
             updateTreeViewFont();
+            m_session->updateStyles();
         }
     }
     return TRUE;
@@ -1732,9 +1799,9 @@ LRESULT MainWin::onFontZoomOut(UINT message, WPARAM wParam, LPARAM lParam)
         if (pointSize > ZOOM_MIN)
         {
             m_data.styles.textFont.lfHeight = -MulDiv(pointSize - 1, DpiAwareness::instance().dpi(), 72);
-            m_session->updateStyles();
             unloadBgImage();
             updateTreeViewFont();
+            m_session->updateStyles();
         }
     }
     return TRUE;
@@ -1803,14 +1870,14 @@ LRESULT MainWin::onMouseHide(UINT message, WPARAM wParam, LPARAM lParam)
                                     if (!IsWindowVisible(_this->m_hWnd))
                                     {
                                         // show window
-                                        _this->onHideWindow(WH_MOUSE_LL, wParam, lParam);
+                                        _this->showWindow(true);
                                     }
                                     break;
                                 case MouseBackAction::RESTORE_WITH_CTRL:
                                     if (!IsWindowVisible(_this->m_hWnd) && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
                                     {
                                         // show window with ctrl
-                                        _this->onHideWindow(WH_MOUSE_LL, wParam, lParam);
+                                        _this->showWindow(true);
                                     }
                                     break;
                                 default:
@@ -1820,7 +1887,7 @@ LRESULT MainWin::onMouseHide(UINT message, WPARAM wParam, LPARAM lParam)
                             else
                             {
                                 // hide window
-                                if (IsWindowVisible(_this->m_hWnd)) _this->onHideWindow(WH_MOUSE_LL, wParam, lParam);
+                                if (IsWindowVisible(_this->m_hWnd)) _this->showWindow(false);
                             }
                         }
                     }
@@ -1966,7 +2033,7 @@ void MainWin::minToTray(bool bShow)
         if (!m_nid.hWnd)
         {
             m_nid.hWnd = m_hWnd;
-            m_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+            m_nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_INFO;
             m_nid.uID = IDM_SYSTRAY;
             m_nid.uCallbackMessage = WM_SYSTRAY;
             m_nid.hIcon = LoadIcon(m_hInstance, MAKEINTRESOURCE(IDI_READER));
@@ -2124,6 +2191,7 @@ void MainWin::switchDisplayMode(DisplayMode mode)
         SetWindowLongPtr(m_hWnd, GWL_EXSTYLE, m_data.window.exStyle);
         ShowWindow(m_hStatusBar, SW_SHOW);
         SetMenu(m_hWnd, m_hMenu);
+        SetWindowPos(m_hWnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
         SetLayeredWindowAttributes(m_hWnd, 0, m_data.window.alpha < MIN_LAYERED_ALPHA ? MIN_LAYERED_ALPHA : m_data.window.alpha, LWA_ALPHA);
         SetWindowPlacement(m_hWnd, &m_data.window.placement);
     }
@@ -2132,7 +2200,7 @@ void MainWin::switchDisplayMode(DisplayMode mode)
         m_data.window.borderlessRect = calcBorderlessRect();
         const RECT& rcWin = m_data.window.borderlessRect;
 
-        m_data.window.style = WS_POPUP;
+        m_data.window.style = WS_POPUP | WS_MINIMIZEBOX;
         m_data.window.exStyle = (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED;
         m_data.window.mode = DisplayMode::BORDERLESS;
 
@@ -2140,7 +2208,7 @@ void MainWin::switchDisplayMode(DisplayMode mode)
         SetWindowLongPtr(m_hWnd, GWL_EXSTYLE, m_data.window.exStyle);
         ShowWindow(m_hStatusBar, SW_HIDE);
         SetMenu(m_hWnd, NULL);
-        SetWindowPos(m_hWnd, HWND_TOP, rcWin.left, rcWin.top, rcWin.right - rcWin.left, rcWin.bottom - rcWin.top, SWP_NOREDRAW | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+        SetWindowPos(m_hWnd, HWND_TOP, rcWin.left, rcWin.top, rcWin.right - rcWin.left, rcWin.bottom - rcWin.top, SWP_FRAMECHANGED | SWP_NOREDRAW | SWP_NOACTIVATE | SWP_NOCOPYBITS);
     }
     else if (DisplayMode::FULLSCREEN == mode)
     {
@@ -2153,7 +2221,7 @@ void MainWin::switchDisplayMode(DisplayMode mode)
         SetWindowLongPtr(m_hWnd, GWL_EXSTYLE, (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
         ShowWindow(m_hStatusBar, SW_HIDE);
         SetMenu(m_hWnd, NULL);
-        SetWindowPos(m_hWnd, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top, SWP_NOREDRAW | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+        SetWindowPos(m_hWnd, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top, SWP_FRAMECHANGED | SWP_NOREDRAW | SWP_NOACTIVATE | SWP_NOCOPYBITS);
     }
     redrawWindow();
     m_isSwitching = false;
@@ -2183,7 +2251,7 @@ RECT MainWin::calcNormalRect()
         RECT rcStatus;
         GetWindowRect(m_hStatusBar, &rcStatus);
         rcWin.bottom += rcStatus.bottom - rcStatus.top;
-        AdjustWindowRectEx(&rcWin, WS_OVERLAPPEDWINDOW, FALSE, (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+        DpiAwareness::instance().adjustWindowRectExForDpi(&rcWin, WS_OVERLAPPEDWINDOW, FALSE, (DWORD)GetWindowLongPtr(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
         rcWin.top -= menuHeight(rcWin.right - rcWin.left);
         ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&rcWin.left));
         ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&rcWin.right));
@@ -2212,44 +2280,46 @@ RECT MainWin::calcBorderlessRect()
 
 int MainWin::menuHeight(int width)
 {
-    if (!m_hMenu)
+    auto getMenuBarHeight = [](HWND hWnd, int menuH) -> int
     {
-        return GetSystemMetrics(SM_CYMENU);
-    }
+        MENUBARINFO mbi = {};
+        mbi.cbSize = sizeof(mbi);
+        if (!GetMenuBarInfo(hWnd, OBJID_MENU, 0, &mbi)) return menuH;
+        int h = mbi.rcBar.bottom - mbi.rcBar.top;
+        if (h < 0) return menuH;
+#if 0
+        return h;
+#else
+        // Adjust the menu bar height to account for the gap between the menu bar and client area.
+        POINT pt = { 0, 0 };
+        ClientToScreen(hWnd, &pt);
+        return h + (pt.y - mbi.rcBar.bottom);
+#endif
+    };
 
-    MENUBARINFO mbi;
-    mbi.cbSize = sizeof(mbi);
-    if (GetMenuBarInfo(m_hWnd, OBJID_MENU, 0, &mbi))
+    int menuH = DpiAwareness::instance().getSystemMetricsForDpi(SM_CYMENU);
+    if (m_hMenu)
     {
-        return mbi.rcBar.bottom - mbi.rcBar.top;
-    }
-
-    // this is not a good way to get menu height, but it easily works
-    // "dummy window" is bebetter way to get menu height, SetMenu(m_hDummy, m_hMenu)
-    width = max(GetSystemMetrics(SM_CXMINTRACK), width);
-    int itemCount = GetMenuItemCount(m_hMenu);
-    if (itemCount <= 0)
-    {
-        return GetSystemMetrics(SM_CYMENU);
-    }
-
-    RECT rcItem;
-    int h = 0;
-    int w = 0;
-    for (int i=0; i<itemCount; i++)
-    {
-        GetMenuItemRect(m_hWnd, m_hMenu, i, &rcItem);
-        if (w + rcItem.right-rcItem.left > width && w > 0)
+        if (GetMenu(m_hWnd) == m_hMenu)
         {
-            h += rcItem.bottom - rcItem.top;
-            w = rcItem.right-rcItem.left;
+            menuH = getMenuBarHeight(m_hWnd, menuH);
         }
         else
         {
-            w += rcItem.right-rcItem.left;
+            if (m_hDummy)
+            {
+                HMONITOR hMonitor = MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTONEAREST);
+                MONITORINFO mi = { sizeof(mi) };
+                GetMonitorInfo(hMonitor, &mi);
+
+                SetMenu(m_hDummy, m_hMenu);
+                SetWindowPos(m_hDummy, NULL, mi.rcMonitor.left, mi.rcMonitor.top, width, 300, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                menuH = getMenuBarHeight(m_hDummy, menuH);
+                SetMenu(m_hDummy, NULL);
+            }
         }
     }
-    return h + GetSystemMetrics(SM_CYMENU);
+    return menuH;
 }
 
 void MainWin::initHttps()
@@ -2399,11 +2469,7 @@ void MainWin::updateTreeViewFont()
         NONCLIENTMETRICS theMetrics = {0};
         theMetrics.cbSize = sizeof(NONCLIENTMETRICS);
 
-#if defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0A00)
-        SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), (PVOID)&theMetrics, 0, DpiAwareness::instance().dpi());
-#else
-        SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), (PVOID)&theMetrics, 0);
-#endif
+        DpiAwareness::instance().systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), (PVOID)&theMetrics, 0);
         newFont = theMetrics.lfMenuFont;
         iMenuHeight = abs((int)(theMetrics.iMenuHeight * 1.25f)); // 1.25 line height
     }
@@ -2435,7 +2501,22 @@ DWORD MainWin::toModifiers(WPARAM wParam)
     return MAKEWORD(wParam, modifiers);
 }
 
-void  MainWin::unloadBgImage()
+void MainWin::unloadLoadingImage()
+{
+    if (m_imgLoading)
+    {
+        delete m_imgLoading;
+        m_imgLoading = nullptr;
+    }
+}
+
+void MainWin::reloadLoadingImage()
+{
+    unloadLoadingImage();
+    m_imgLoading = IRenderer::instance()->loadImageFromResource(m_hInstance, IDR_GIF_LOADING, L"GIF");
+}
+
+void MainWin::unloadBgImage()
 {
     if (m_imgBackground)
     {
@@ -2451,6 +2532,7 @@ Image* MainWin::loadBgImage(int w, int h, BYTE alpha)
     static int _height = 0;
     static BYTE _alpha = 0;
     static WrapMode _mode = WrapMode::TILEFLIP;
+    static RendererType _type = IRenderer::instance()->type();
 
     auto& background = m_data.background;
     if (!background.enableImage)
@@ -2458,7 +2540,7 @@ Image* MainWin::loadBgImage(int w, int h, BYTE alpha)
         return nullptr;
     }
 
-    if (m_imgBackground && background.fileName == _fileName && w == _width && h == _height && alpha == _alpha && background.mode == _mode)
+    if (m_imgBackground && background.fileName == _fileName && w == _width && h == _height && alpha == _alpha && background.mode == _mode && _type == IRenderer::instance()->type())
     {
         return m_imgBackground;
     }
@@ -2468,13 +2550,36 @@ Image* MainWin::loadBgImage(int w, int h, BYTE alpha)
     _alpha = alpha;
     _fileName = background.fileName;
     _mode = background.mode;
+    _type = IRenderer::instance()->type();
 
-    Image* temp = IRenderer::instance()->loadImageFromPath(_fileName.c_str());
-    if (temp)
+    Image* src = loadBgSrcImage();
+    if (src)
     {
         unloadBgImage();
-        m_imgBackground = IRenderer::instance()->createImageFromBGImage(temp, _alpha, _width, _height, _mode);
-        delete temp;
+        m_imgBackground = IRenderer::instance()->createImageFromBGImage(src, _alpha, _width, _height, _mode);
     }
     return m_imgBackground;
+}
+
+void MainWin::unloadBgSrcImage()
+{
+    if (m_imgBgSrc)
+    {
+        delete m_imgBgSrc;
+        m_imgBgSrc = nullptr;
+    }
+}
+
+Image* MainWin::loadBgSrcImage()
+{
+    static std::wstring _fileName;
+    if (_fileName == m_data.background.fileName && m_imgBgSrc)
+    {
+        return m_imgBgSrc;
+    }
+
+    _fileName = m_data.background.fileName;
+    unloadBgSrcImage();
+    m_imgBgSrc = IRenderer::instance()->loadImageFromPath(_fileName.c_str());
+    return m_imgBgSrc;
 }

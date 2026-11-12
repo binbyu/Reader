@@ -62,6 +62,7 @@ protected:
         }
         else
         {
+            // SystemParametersInfoForDpi is not support for SPI_GETWORKAREA
             SystemParametersInfo(SPI_GETWORKAREA, 0, &rcParent, 0);
         }
         int pw = rcParent.right - rcParent.left;

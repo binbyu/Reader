@@ -102,7 +102,7 @@ public://utils
             };
 
         hMsgBoxHook = SetWindowsHookEx(WH_CBT, MsgBoxHookProc, m_hInstance, GetCurrentThreadId());
-        int res = MessageBoxEx(m_hWnd, text, caption, uType, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
+        int res = MessageBox(m_hWnd, text, caption, uType);
 
         if (hMsgBoxHook)
         {

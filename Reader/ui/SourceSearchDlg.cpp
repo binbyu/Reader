@@ -153,7 +153,8 @@ LRESULT SourceSearchDlg::onOpenBookButtonClick()
 
     std::wstring bookName = Utils::dirtyFileName(item.bookName);
     if (bookName.empty()) bookName = DEFAULT_BOOK_NAME;
-    std::wstring fileName = Utils::appPath() + ONLINE_FILE_SAVE_PATH + bookName + L".ol";
+    std::wstring hash = Utils::fnv1a32(item.bookMainPageUrl.c_str(), item.bookMainPageUrl.size());
+    std::wstring fileName = Utils::appPath() + ONLINE_FILE_SAVE_PATH + bookName + L"-" + hash + L".ol";
     if (Utils::isFileExist(fileName))
     {
         int ret = messageBox(IDS_FILE_ISEXIST, IDS_WARN, MB_ICONWARNING | MB_YESNOCANCEL);
@@ -330,8 +331,8 @@ LRESULT SourceSearchDlg::onReqCompleter(WPARAM wParam, LPARAM lParam)
             BookItem item;
             item.bsHost = source.host;
             item.bsName = source.title;
-            item.bookName = toUtf16(table_name[i]);
-            if (i < table_author.size()) item.bookAuthor = toUtf16(table_author[i]);
+            item.bookName = Utils::trim(toUtf16(table_name[i]));
+            if (i < table_author.size()) item.bookAuthor = Utils::trim(toUtf16(table_author[i]));
             item.bookMainPageUrl = buffer;
             m_bookItems.push_back(item);
         }
