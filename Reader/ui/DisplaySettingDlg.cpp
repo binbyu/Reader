@@ -3,6 +3,7 @@
 #include "resource.h"
 #include "DpiAwareness.h"
 #include "Utils.h"
+#include <WindowsX.h>
 #include <map>
 
 DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
@@ -462,7 +463,7 @@ void DisplaySettingDlg::updatePickColor(COLORREF color)
 {
     m_background.color = color;
     SetDlgItemTextW(m_hWnd, IDC_STATIC_RGB, Utils::toRGB(m_background.color).c_str());
-    updatePreview();
+    RedrawWindow(GetDlgItem(m_hWnd, IDC_STATIC_PREVIEW), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 }
 
 bool DisplaySettingDlg::openFileDialog(std::wstring& fileName)
@@ -700,7 +701,7 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
     case WM_MOUSEMOVE:
         if (m_isPickingColor)
         {
-            POINT pt = {LOWORD(lParam), HIWORD(lParam)};
+            POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
             ClientToScreen(m_hWnd, &pt);
             HDC hdc = GetDC(NULL);
             COLORREF color = GetPixel(hdc, pt.x, pt.y);
