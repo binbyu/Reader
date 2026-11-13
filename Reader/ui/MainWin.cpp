@@ -18,6 +18,7 @@
 #ifdef ENABLE_NETWORK
 #include "https.h"
 #endif
+#include <windowsx.h>
 
 MainWin::MainWin(HINSTANCE hInstance)
     : Window(hInstance, config(hInstance), nullptr)
@@ -415,7 +416,7 @@ LRESULT MainWin::onNcHitTest(UINT message, WPARAM wParam, LPARAM lParam)
         int border = BORDER_WIDTH;
         DpiAwareness::instance().toPhysical(border);
 
-        POINT pt = { LOWORD(lParam), HIWORD(lParam) };
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         ScreenToClient(m_hWnd, &pt);
         RECT rc = drawTextRect();
         if (pt.x < border && pt.y < border)
@@ -585,7 +586,7 @@ LRESULT MainWin::onContextMenu(UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (wParam == (WPARAM)m_hTreeMark)
     {
-        POINT pt = { LOWORD(lParam), HIWORD(lParam) };
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         HTREEITEM selected = TreeView_GetSelection(m_hTreeMark);
         if (selected)
         {

@@ -3,7 +3,7 @@
 #include "resource.h"
 #include "DpiAwareness.h"
 #include "Utils.h"
-#include <WindowsX.h>
+#include <windowsx.h>
 #include <map>
 
 DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
@@ -154,6 +154,7 @@ LRESULT DisplaySettingDlg::onBackgroundColor()
 {
     if (openColorDialog(m_hWnd, m_background.color))
     {
+        SetDlgItemTextW(m_hWnd, IDC_STATIC_RGB, Utils::toRGB(m_background.color).c_str());
         updatePreview();
     }
     return TRUE;
@@ -683,7 +684,7 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
     }
     case WM_LBUTTONDOWN:
     {
-        POINT pt = {LOWORD(lParam), HIWORD(lParam)};
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         ClientToScreen(m_hWnd, &pt);
         RECT rect;
         GetWindowRect(GetDlgItem(m_hWnd, IDC_STATIC_PICKER), &rect);

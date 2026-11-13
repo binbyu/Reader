@@ -45,8 +45,14 @@ Data& Settings::data()
 
 void Settings::restoreDefault()
 {
+    auto customColors = m_data.customColors;
+    auto fileName  = m_data.background.fileName;
     defaultData(m_data);
     toPhysical(m_data);
+
+    // keep customColors & fileName
+    m_data.customColors = customColors;
+    m_data.background.fileName = fileName;
 }
 
 Settings::Settings()

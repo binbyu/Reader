@@ -1,5 +1,6 @@
 #include "ListView.h"
 #include "resource.h"
+#include <windowsx.h>
 
 ListView::ListView(HWND hWnd, IWnd* parent)
     : m_hWnd(hWnd)
@@ -533,7 +534,7 @@ LRESULT CALLBACK ListView::subclassProc(HWND hWnd, UINT message, WPARAM wParam, 
         case WM_CONTEXTMENU:
             if ((HWND)wParam == pThis->m_hWnd)
             {
-                POINT pt = {LOWORD(lParam), HIWORD(lParam)};
+                POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
                 return pThis->onListContextMenu(pt);
             }
             break;

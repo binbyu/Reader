@@ -105,6 +105,9 @@ bool RendererGDI::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyle
     m_styles = styles;
     m_clearType = clearType;
     m_isBlend = blend;
+#if !ALWAYS_BLEND
+    m_textDCUsed = false;
+#endif
 
     if (!createLayeredDC())
     {
@@ -132,7 +135,11 @@ void RendererGDI::endPaint()
     if (m_memDC)
     {
         // alpha blend text to backgroud image
+#if !ALWAYS_BLEND
+        if (m_textDC && m_textDCUsed)
+#else
         if (m_textDC)
+#endif
         {
             int w = m_rect.right - m_rect.left;
             int h = m_rect.bottom - m_rect.top;
@@ -358,54 +365,80 @@ void RendererGDI::drawText(const wchar_t* text, int length, const RECT& rect, in
         return;
     }
 
-    int width = m_rect.right - m_rect.left;
-    int x0 = max(rect.left, 0L);
-    int y0 = max(rect.top, 0L);
-    int x1 = min(rect.right, m_rect.right - m_rect.left);
-    int y1 = min(rect.bottom, m_rect.bottom - m_rect.top);
-    if (x0 >= x1 || y0 >= y1)
+#if !ALWAYS_BLEND
+    if (m_isLayered || m_isBlend || (tr->haveBgColor && GetAValue(tr->bgColor) < 0xff) || GetAValue(tr->textColor) < 0xff)
     {
-        return;
-    }
-
-    if (tr->haveBgColor)
-    {
-        fillRect(tr->bgColor, rect);
-    }
-
-    for (int y = y0; y < y1; ++y)
-    {
-        DWORD* row = (DWORD*)(m_textBits + y * width * 4);
-        for (int x = x0; x < x1; ++x)
+#endif
+        int width = m_rect.right - m_rect.left;
+        int x0 = max(rect.left, 0L);
+        int y0 = max(rect.top, 0L);
+        int x1 = min(rect.right, m_rect.right - m_rect.left);
+        int y1 = min(rect.bottom, m_rect.bottom - m_rect.top);
+        if (x0 >= x1 || y0 >= y1)
         {
-            row[x] = 0x00FFFFFF;
+            return;
         }
-    }
 
-    HFONT hOldFont = (HFONT)SelectObject(m_textDC, tr->hFont);
-    SetTextColor(m_textDC, RGB(0, 0, 0));
-    SetBkMode(m_textDC, TRANSPARENT);
-    TextOutW(m_textDC, rect.left, rect.top, text, length);
-    SelectObject(m_textDC, hOldFont);
-
-    BYTE a = GetAValue(tr->textColor);
-    BYTE r = GetRValue(tr->textColor);
-    BYTE g = GetGValue(tr->textColor);
-    BYTE b = GetBValue(tr->textColor);
-    if (a == 0) a = 0xff;
-
-    for (int y = y0; y < y1; ++y)
-    {
-        DWORD* row = (DWORD*)(m_textBits + y * width * 4);
-        for (int x = x0; x < x1; ++x)
+        if (tr->haveBgColor)
         {
-            DWORD maskPixel = row[x];
-            row[x] = 0;
-            BYTE coverage = textCoverage(maskPixel);
-            BYTE alpha = (BYTE)((coverage * a + 127) / 255);
-            blendPremultipliedPixel(row[x], premultiplyPixel(r, g, b, alpha));
+            fillRect(tr->bgColor, rect);
         }
+
+        for (int y = y0; y < y1; ++y)
+        {
+            DWORD* row = (DWORD*)(m_textBits + y * width * 4);
+            for (int x = x0; x < x1; ++x)
+            {
+                row[x] = 0x00FFFFFF;
+            }
+        }
+
+        HFONT hOldFont = (HFONT)SelectObject(m_textDC, tr->hFont);
+        SetTextColor(m_textDC, RGB(0, 0, 0));
+        SetBkMode(m_textDC, TRANSPARENT);
+        TextOutW(m_textDC, rect.left, rect.top, text, length);
+        SelectObject(m_textDC, hOldFont);
+
+        BYTE a = GetAValue(tr->textColor);
+        BYTE r = GetRValue(tr->textColor);
+        BYTE g = GetGValue(tr->textColor);
+        BYTE b = GetBValue(tr->textColor);
+        if (a == 0) a = 0xff;
+
+        for (int y = y0; y < y1; ++y)
+        {
+            DWORD* row = (DWORD*)(m_textBits + y * width * 4);
+            for (int x = x0; x < x1; ++x)
+            {
+                DWORD maskPixel = row[x];
+                row[x] = 0;
+                BYTE coverage = textCoverage(maskPixel);
+                BYTE alpha = (BYTE)((coverage * a + 127) / 255);
+                blendPremultipliedPixel(row[x], premultiplyPixel(r, g, b, alpha));
+            }
+        }
+#if !ALWAYS_BLEND
+        m_textDCUsed = true;
     }
+    else
+    {
+        HFONT hOldFont = (HFONT)SelectObject(m_memDC, tr->hFont);
+        SetTextColor(m_memDC, tr->textColor & 0x00ffffff);
+
+        if (tr->haveBgColor)
+        {
+            SetBkColor(m_memDC, tr->bgColor & 0x00ffffff);
+            SetBkMode(m_memDC, OPAQUE);
+        }
+        else
+        {
+            SetBkMode(m_memDC, TRANSPARENT);
+        }
+
+        TextOutW(m_memDC, rect.left, rect.top, text, length);
+        SelectObject(m_memDC, hOldFont);
+    }
+#endif
 }
 
 void RendererGDI::drawImage(const Image* image, const RECT& rect, bool keepRatio)

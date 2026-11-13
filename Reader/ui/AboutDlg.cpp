@@ -3,6 +3,7 @@
 #include "Utils.h"
 #include "RewardDlg.h"
 #include "FollowDlg.h"
+#include <windowsx.h>
 
 AboutDlg::AboutDlg(HINSTANCE hInstance, HWND hParent)
     : Dialog(hInstance, hParent, IDD_ABOUTBOX)
@@ -43,7 +44,7 @@ LRESULT AboutDlg::onFollow()
 
 LRESULT AboutDlg::onLButtonDown(WPARAM wParam, LPARAM lParam)
 {
-    POINT pt = { LOWORD(lParam), HIWORD(lParam) };
+    POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
     HWND hWnd = GetDlgItem(m_hWnd, IDC_STATIC_LINK);
     ClientToScreen(m_hWnd, &pt);
     RECT rc;

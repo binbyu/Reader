@@ -1,6 +1,8 @@
 #pragma once
 #include "RendererGDIPlusBase.h"
 
+#define ALWAYS_BLEND    (0)
+
 class RendererGDI;
 class MeasurerGDI : public IMeasurer
 {
@@ -63,6 +65,9 @@ private:
     HBITMAP m_textBitmap = nullptr;
     HBITMAP m_oldTextBitmap = nullptr;
     BYTE*   m_textBits = nullptr;
+#if !ALWAYS_BLEND
+    BOOL    m_textDCUsed = false;
+#endif
 
     std::vector<TextResource> m_trs;
     MeasurerGDI* m_measurer = nullptr;
