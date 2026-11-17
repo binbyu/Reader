@@ -286,6 +286,7 @@ bool BookBase::formatText(wchar_t* p_data, int* p_len)
     int line_len = 0, crlf_len = 0, prefix_blank_len = 0, suffix_blank_len = 0;
     bool is_blank_line = false;
     bool is_changed = false;
+    int  blank_line_num = 0;
 
     while (Utils::nextLine(p_src_text, src_len - (int)(p_src_text - p_data), &line_len, &crlf_len, &is_blank_line, &prefix_blank_len, &suffix_blank_len))
     {
@@ -293,8 +294,16 @@ bool BookBase::formatText(wchar_t* p_data, int* p_len)
         {
             p_src_text += line_len + crlf_len; // CRLF
             is_changed = true;
+
+            // At most keep one blank line.
+            if (blank_line_num == 0 && dst_len > 0 /*not first line*/ && src_len - (int)(p_src_text - p_data) > 0 /*not lasest line*/)
+            {
+                p_data[dst_len++] = 0x0A;
+            }
+            blank_line_num++;
             continue;
         }
+        blank_line_num = 0;
 
         int effective_len = line_len - prefix_blank_len - suffix_blank_len;
         if (effective_len > 0)

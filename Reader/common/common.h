@@ -32,7 +32,7 @@
 #define BOOKSOURCE_MANUAL_DOC       (L"https://github.com/binbyu/Reader/blob/master/doc/bs.md")
 #define BOOKSOURCE_SAMPLE_FILE      ("https://raw.githubusercontent.com/binbyu/Reader/refs/heads/master/misc/bs.json")
 #define VERSION_INFO_URL            ("https://raw.githubusercontent.com/binbyu/Reader/refs/heads/master/misc/version.json")
-#define MAX_LOADSTRING              (256)
+#define MAX_LOADSTRING              (1024)
 #define MAX_URL_LENGTH              (1024)
 #define DEFAULT_DPI                 (96)
 #define MIN_LAYERED_ALPHA           (0x64)
@@ -77,6 +77,7 @@
 #define WM_UPDATECHAPTERS           (WM_USER_BEGIN + 24)
 #define WM_UPDATEMARKS              (WM_USER_BEGIN + 25)
 #define WM_RENDERERCHANGED          (WM_USER_BEGIN + 26)
+#define WM_AUTOPAGE                 (WM_USER_BEGIN + 27)
 #define WM_USER_END                 (WM_USER_BEGIN + 0xff)
 
 // custom menu ids

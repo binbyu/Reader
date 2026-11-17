@@ -57,6 +57,7 @@ protected:
     LRESULT onOpenAboutDlg(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onRestoreDefault(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onClear(UINT message, WPARAM wParam, LPARAM lParam);
+    LRESULT onExport(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onView(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onMark(UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT onSaveSettingResult(UINT message, WPARAM wParam, LPARAM lParam);

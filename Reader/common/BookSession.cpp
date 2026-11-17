@@ -8,6 +8,7 @@
 #include "Settings.h"
 #include "Utils.h"
 #include "Logger.h"
+#include <memory>
 
 BookSession::BookSession(HWND hWnd)
     : m_hWnd(hWnd)
@@ -384,7 +385,12 @@ void BookSession::seek(int index)
 
 void BookSession::seek(float prog)
 {
-    if (m_book && isValid()) seek((int)(prog / 100.0f * m_book->length()));
+    if (m_book && isValid())
+    {
+        int index = (int)(prog / 100.0f * m_book->length());
+        if (index == m_book->length() && index > 0) index--;
+        seek(index);
+    }
 }
 
 void BookSession::seek(bool forward, const wchar_t* keyword)
@@ -479,7 +485,6 @@ void BookSession::prevLine(int n)
 void BookSession::nextPage()
 {
     if (!m_book || !isValid()) return;
-    if (fetchChapter(NEXT_PAGE)) return;
 
     int seekPos = m_book->index() + pageLength();
     int preserveLines = Settings::instance().data().paging.preserveLines;
@@ -489,6 +494,9 @@ void BookSession::nextPage()
         if (lineCount > preserveLines) seekPos = m_pageInfo.lines[lineCount - preserveLines].start;
         else                           seekPos = m_pageInfo.lines[1].start;
     }
+
+    // use 'n' for forware lenght
+    if (fetchChapter(NEXT_PAGE, -1, seekPos - m_book->index())) return;
     seek(seekPos);
 }
 
@@ -706,7 +714,12 @@ LRESULT BookSession::onFetchComplete(WPARAM wParam, LPARAM lParam)
     case SEEK_CHAPTER: seekChapter(idxOrN); break;
     case PREV_PAGE:    prevPage();          break;
     case PREV_LINE:    prevLine(idxOrN);    break;
+#if 0
     case NEXT_PAGE:    nextPage();          break;
+#else
+    // m_pageInfo was updated in BookSession::onEvent, so use seek replace NEXT_PAGE
+    case NEXT_PAGE:    seek(m_book->index() + idxOrN); break;
+#endif
     case NEXT_LINE:    nextLine(idxOrN);    break;
     default: break;
     }
@@ -906,7 +919,7 @@ void BookSession::checkNext()
 {
 #ifdef ENABLE_NETWORK
     std::wstring fileName;
-    BookInfo* bookInfo = nullptr;
+    std::shared_ptr<BookInfo> bookInfo;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_checkUpdateQueue.empty()) return;
@@ -916,14 +929,26 @@ void BookSession::checkNext()
 
         auto& books = Settings::instance().data().books;
         auto it = std::find_if(books.begin(), books.end(), [&](const BookInfo& bi) { return bi.fileName == fileName; });
-        if (it != books.end()) bookInfo = &(*it);
+        if (it != books.end())
+        {
+            bookInfo = std::make_shared<BookInfo>(*it); // deep copy BookInfo
+            bookInfo->hasNew = false;
+        }
     }
     if (!bookInfo || fileName.empty()) return;
 
     auto* book = new BookOnline(fileName);
     book->setHWND(m_hWnd);
-    book->setBookInfo(bookInfo);
-    book->checkUpdate([this, book](BookErrno err) {
+    book->setBookInfo(bookInfo.get());
+    book->checkUpdate([this, book, bookInfo, fileName](BookErrno err)
+    {
+        if (bookInfo->hasNew && (!m_book || m_book->fileName() != book->fileName()))
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            auto& books = Settings::instance().data().books;
+            auto it = std::find_if(books.begin(), books.end(), [&](const BookInfo& bi) { return bi.fileName == fileName; });
+            if (it != books.end()) it->hasNew = true;
+        }
         delete book;
         checkNext();
     });

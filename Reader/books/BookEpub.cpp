@@ -33,7 +33,7 @@ BookErrno BookEpub::parseBook()
     if (!parseNav(files))             goto FAIL;
     if (!parseNcx(files))             goto FAIL;
     if (!parseCover(files))           goto FAIL;
-    if (!splitHtmlByNavpoints(files)) goto FAIL; // for mobi
+    if (!splitHtmlByNavpoints(files)) goto FAIL;
     if (!parseChapters(files))        goto FAIL;
 
     freeBook(files);
@@ -997,10 +997,10 @@ bool BookEpub::splitHtmlByAnchors(const char* data, int size, const std::vector<
 
 std::string BookEpub::formatHref(const std::string& base, const std::string& href)
 {
-#if 0 // keep anchor
+#if 0
     size_t pos = href.find('#');
     std::string path = pos == std::string::npos ? href : href.substr(0, pos);
-#else
+#else // keep anchor
     std::string path = href;
 #endif
     return decodeHref(resolveHref(base, path));

@@ -9,11 +9,13 @@ public:
         : IWnd(hInstance, hParent)
         , m_resourceId(resourceId)
     {
+        if (hParent) PostMessage(hParent, WM_AUTOPAGE, 0, 0);
     }
 
     virtual ~Dialog()
     {
         close();
+        if (m_hParentWnd) PostMessage(m_hParentWnd, WM_AUTOPAGE, 1, 0);
     }
 
     virtual void create()

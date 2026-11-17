@@ -248,6 +248,10 @@
 #define IDS_JSON_PARSE_NODATA           307
 #define IDS_WEB_REQUEST_FAIL            308
 #define IDS_WEB_STATUS_ERROR            309
+#define IDS_BOOK_EXPORT_UNFETCH_TIPS    310
+#define IDS_BOOK_EXPORT_TIPS            311
+#define IDS_EXPORT                      312
+#define IDS_MENU_EXPORT                 312
 #define IDC_EDIT_LINEGAP                1000
 #define IDC_STATIC_COPYRIGHT            1000
 #define IDC_EDIT_BORDER                 1001
@@ -426,7 +430,9 @@
 #define IDM_OPEN                        32771
 #define IDM_DISPLAY                     32772
 #define IDM_NETWORK                     32773
+#define ID_Menu                         32774
 #define IDM_WEB                         32775
+#define IDM_EXPORT                      32776
 #define IDM_DEFAULT                     32781
 #define IDM_VIEW                        32784
 #define IDM_CLEAR                       32788
@@ -444,7 +450,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        302
-#define _APS_NEXT_COMMAND_VALUE         32774
+#define _APS_NEXT_COMMAND_VALUE         32777
 #define _APS_NEXT_CONTROL_VALUE         1035
 #define _APS_NEXT_SYMED_VALUE           110
 #endif

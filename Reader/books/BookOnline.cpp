@@ -1004,7 +1004,6 @@ BookErrno BookOnline::readFile()
     if (res != BookErrno::SUCC)
     {
         fclose(fp);
-        free(buffer);
         return res;
     }
 

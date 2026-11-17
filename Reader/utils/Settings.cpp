@@ -254,8 +254,8 @@ void Settings::defaultData(Data& data)
     data.layout.borderR = 2;
     data.layout.borderB = 2;
     data.layout.charGap = 2;
-    data.layout.lineGap = 5;
-    data.layout.paragraphGap = 15;
+    data.layout.lineGap = 4;
+    data.layout.paragraphGap = 4;
     data.layout.indent = true;
     data.layout.noBlansLine = true;
     data.layout.wordWrap = false;

@@ -92,6 +92,9 @@ LRESULT MainWin::handleMessage(UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_CLEAR:
                 result = onClear(message, wParam, lParam);
                 break;
+            case IDM_EXPORT:
+                result = onExport(message, wParam, lParam);
+                break;
             case IDM_EXIT:
                 DestroyWindow(m_hWnd);
                 break;
@@ -141,10 +144,6 @@ LRESULT MainWin::handleMessage(UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             }
         }
-        break;
-    case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE) pauseAutoPage();
-        else resumeAutoPage();
         break;
     case WM_CREATE:
         result = onCreate();
@@ -251,6 +250,10 @@ LRESULT MainWin::handleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_RENDERERCHANGED:
         result = onRendererChanged(message, wParam, lParam);
+        break;
+    case WM_AUTOPAGE:
+        if (wParam == 0) pauseAutoPage();
+        else if (wParam == 1) resumeAutoPage();
         break;
     default:
         if (message == m_uFindMsgId)
@@ -1252,6 +1255,75 @@ LRESULT MainWin::onClear(UINT message, WPARAM wParam, LPARAM lParam)
     return TRUE;
 }
 
+LRESULT MainWin::onExport(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (!m_session) return TRUE;
+    auto* book = m_session->book();
+    if (!book) return TRUE;
+    auto type = book->type();
+    int total = book->chapterCount();
+    int unfetch = 0;
+    const Chapter* chapter = nullptr;
+
+    if (type == BookType::ONLINE || type == BookType::WEB)
+    {
+        for (int i=0; i<total; i++)
+        {
+            const Chapter* c = book->chapter(i);
+            if (c->index == -1)
+            {
+                if (!chapter) chapter = c; 
+                unfetch++;
+            }
+        }
+    }
+
+    if (unfetch > 0)
+    {
+        int ret = messageBoxFmt(IDS_BOOK_EXPORT_UNFETCH_TIPS, IDS_WARN, MB_YESNO | MB_ICONWARNING, total, unfetch, chapter->title.c_str());
+        if (ret != IDYES) return TRUE;
+    }
+    else
+    {
+        int ret = messageBox(IDS_BOOK_EXPORT_TIPS, IDS_TIPS, MB_YESNO | MB_ICONINFORMATION);
+        if (ret != IDYES) return TRUE;
+    }
+
+    wchar_t fileName[MAX_PATH] = { 0 };
+    wcscpy(fileName, book->bookName());
+    OPENFILENAME ofn = { 0 };
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.hwndOwner = m_hWnd;
+    ofn.lpstrFilter = L"TEXT (*.txt)\0*.txt\0\0";
+    ofn.lpstrFile = fileName;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrDefExt = L"txt";
+    ofn.Flags = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+    if (!GetSaveFileName(&ofn)) return TRUE;
+
+    FILE* fp = _wfopen(fileName, L"wb");
+    if (!fp)
+    {
+        messageBox(IDS_OPEN_FILE_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return TRUE;
+    }
+    if (1 != fwrite("\xff\xfe", sizeof(wchar_t), 1, fp))
+    {
+        fclose(fp);
+        messageBox(IDS_EXPORT_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return TRUE;
+    }
+    if (book->length() != fwrite(book->text(), sizeof(wchar_t), book->length(), fp))
+    {
+        fclose(fp);
+        messageBox(IDS_EXPORT_FAILED, IDS_ERROR, MB_ICONERROR | MB_OK);
+        return TRUE;
+    }
+    fclose(fp);
+    messageBox(IDS_EXPORT_COMPLETED, IDS_TIPS, MB_ICONINFORMATION | MB_OK);
+    return TRUE;
+}
+
 LRESULT MainWin::onView(UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (IsWindowVisible(m_hTreeView))
@@ -1435,6 +1507,7 @@ LRESULT MainWin::onBookStateChanged(UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT MainWin::onBookEvent(UINT message, WPARAM wParam, LPARAM lParam)
 {
     m_session->onEvent(wParam, lParam);
+    updateStatusBar();
     return TRUE;
 }
 
@@ -1496,6 +1569,7 @@ LRESULT MainWin::onUpdateBooks(UINT message, WPARAM wParam, LPARAM lParam)
         AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     }
     AppendMenu(hFile, MF_STRING, IDM_CLEAR, loadString(IDS_MENU_CLEAR).c_str());
+    AppendMenu(hFile, MF_STRING, IDM_EXPORT, loadString(IDS_MENU_EXPORT).c_str());
     AppendMenu(hFile, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFile, MF_STRING, IDM_EXIT, loadString(IDS_MENU_EXIT).c_str());
     InsertMenu(m_hMenu, 0, MF_BYPOSITION | MF_STRING | MF_POPUP, (UINT_PTR)hFile, loadString(IDS_MENU_FILE).c_str());
