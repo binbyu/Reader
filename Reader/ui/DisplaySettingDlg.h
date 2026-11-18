@@ -25,6 +25,8 @@ protected:
     LRESULT onRendererTypeChanged();
     LRESULT onClearTypeChanged();
     LRESULT onTextAlphaChanged();
+    LRESULT onShadowBlurChanged();
+    LRESULT onShadowColorChanged();
     LRESULT onUpdatePreview(HDC hdc, RECT rect);
 
 protected:
@@ -58,6 +60,8 @@ protected:
     BYTE m_textAlpha;
     BackgroundInfo m_background;
     LayoutConfig m_layout;
+    float m_shadowBlur;
+    COLORREF m_shadowColor;
     bool m_ignoreAlphaEditChange;
     bool m_changed;
 };

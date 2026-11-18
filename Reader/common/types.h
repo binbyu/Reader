@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 
 /////////////////////////////////////////////
@@ -29,6 +30,8 @@ struct TextStyle
     COLORREF textColor;
     COLORREF backgroundColor;
     bool haveBackgroundColor;
+    float shadowBlur = 0;      // text-shadow blur radius in px (fractional allowed), 0 = disabled
+    COLORREF shadowColor = 0;  // text-shadow color, drawn with fixed alpha 0x66
 
     TextStyle() {}
     TextStyle(const LOGFONTW& f, COLORREF c) : textColor(c), backgroundColor(0), haveBackgroundColor(false)
@@ -44,7 +47,9 @@ struct TextStyle
         return memcmp(&font, &other.font, sizeof(LOGFONTW)) == 0 &&
             textColor == other.textColor &&
             backgroundColor == other.backgroundColor &&
-            haveBackgroundColor == other.haveBackgroundColor;
+            haveBackgroundColor == other.haveBackgroundColor &&
+            fabs(shadowBlur - other.shadowBlur) < 0.01f &&
+            shadowColor == other.shadowColor;
     }
     bool operator!=(const TextStyle& other) const
     {
@@ -94,6 +99,21 @@ struct LayoutConfig
             alignment == rhs.alignment;
     }
     bool operator!=(const LayoutConfig& rhs) const
+    {
+        return !(*this == rhs);
+    }
+};
+
+struct ShadowInfo
+{
+    float blur;        // text-shadow blur radius in px (fractional allowed), 0 = disabled
+    COLORREF color;    // text-shadow color
+
+    bool operator==(const ShadowInfo& rhs) const
+    {
+        return fabs(blur - rhs.blur) < 0.01f && color == rhs.color;
+    }
+    bool operator!=(const ShadowInfo& rhs) const
     {
         return !(*this == rhs);
     }
@@ -565,6 +585,7 @@ struct Data
     KeysetInfo              keyset;
     TextInfo                styles;
     LayoutConfig            layout;
+    ShadowInfo              shadow;
     ChapterRule             chapterRule;
     UpgradeInfo             upgrade;
     WebShelfInfo            webShelf;

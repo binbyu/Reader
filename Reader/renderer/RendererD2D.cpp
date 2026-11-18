@@ -880,6 +880,37 @@ void RendererD2D::drawText(const wchar_t* text, int length, const RECT& rect, in
     );
     if (SUCCEEDED(hr))
     {
+        // text-shadow: multiple offset rings simulate gaussian blur of settings' radius
+        if (tr->shadowBrush && tr->shadowBlur > 0.01f)
+        {
+            const FLOAT diagonalScale = 0.7f;
+            const FLOAT outerOpacity = 0.35f;
+            for (FLOAT ro = tr->shadowBlur; ro > 0.05f; ro -= 1.0f)
+            {
+                const bool innermost = (ro - 1.0f) <= 0.05f;
+                D2D1_POINT_2F ring[8] = {
+                    {  ro,             0.0f },
+                    { -ro,             0.0f },
+                    {  0.0f,           ro   },
+                    {  0.0f,          -ro   },
+                    {  ro * diagonalScale,  ro * diagonalScale },
+                    { -ro * diagonalScale,  ro * diagonalScale },
+                    {  ro * diagonalScale, -ro * diagonalScale },
+                    { -ro * diagonalScale, -ro * diagonalScale },
+                };
+                tr->shadowBrush->SetOpacity(innermost ? 1.0f : outerOpacity);
+                for (const auto& off : ring)
+                {
+                    m_pRenderTarget->DrawTextLayout(
+                        D2D1::Point2F(bounds.left + off.x, bounds.top + off.y),
+                        textLayout,
+                        tr->shadowBrush
+                    );
+                }
+            }
+            tr->shadowBrush->SetOpacity(1.0f);
+        }
+
         m_pRenderTarget->DrawTextLayout(
             D2D1::Point2F(bounds.left, bounds.top),
             textLayout,
@@ -1278,6 +1309,19 @@ bool RendererD2D::createTextResources()
                 return false;
             }
 
+            // text-shadow brush (color from settings, alpha fixed for softness)
+            tr.shadowBlur = s.shadowBlur;
+            if (s.shadowBlur > 0)
+            {
+                D2D1_COLOR_F shadowColor = colorRefToD2D(s.shadowColor, 0x66);
+                hr = m_pRenderTarget->CreateSolidColorBrush(shadowColor, &tr.shadowBrush);
+                if (FAILED(hr) || !tr.shadowBrush)
+                {
+                    endPaint();
+                    return false;
+                }
+            }
+
             if (s.haveBackgroundColor)
             {
                 D2D1_COLOR_F bgColor = colorRefToD2D(s.backgroundColor, GetAValue(s.backgroundColor));
@@ -1308,6 +1352,10 @@ void RendererD2D::releaseTextResources()
         if (tr.bgBrush)
         {
             tr.bgBrush->Release();
+        }
+        if (tr.shadowBrush)
+        {
+            tr.shadowBrush->Release();
         }
         if (tr.fontFace)
         {

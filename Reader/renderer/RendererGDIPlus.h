@@ -47,6 +47,9 @@ private:
         Gdiplus::Font* font = nullptr;
         Gdiplus::SolidBrush* textBrush = nullptr;
         Gdiplus::SolidBrush* bgBrush = nullptr;
+        Gdiplus::SolidBrush* shadowBrush = nullptr;
+        Gdiplus::SolidBrush* shadowBrushFaint = nullptr;
+        float shadowBlur = 0;
         Gdiplus::StringFormat* stringFormat = nullptr;
     };
     TextResource* textResource(int index);

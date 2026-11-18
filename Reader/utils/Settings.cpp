@@ -262,6 +262,9 @@ void Settings::defaultData(Data& data)
     data.layout.splitChapter = false;
     data.layout.alignment = Alignment::LEFT;
 
+    data.shadow.blur = 1;
+    data.shadow.color = RGB(0xAC, 0xAC, 0xAC);
+
     data.chapterRule.rule = ChapterRule::Rule::DEFAULT;
     data.chapterRule.keyword = L"";
     data.chapterRule.regex = L"";
