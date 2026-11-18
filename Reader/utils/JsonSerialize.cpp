@@ -29,6 +29,7 @@ CJSON_DEFINE_TYPE(PagingInfo, mouseMode, scrollMode, preserveLines, scrollSpeed,
 CJSON_DEFINE_TYPE(KeyItem, type, id, value, enable)
 CJSON_DEFINE_TYPE(KeysetInfo, enableMouseLRHide, enableEscHide, mouseBackAction, keys)
 CJSON_DEFINE_TYPE(LayoutConfig, borderL, borderT, borderR, borderB, charGap, lineGap, paragraphGap, indent, noBlansLine, wordWrap, splitChapter, alignment)
+CJSON_DEFINE_TYPE(ShadowInfo, blur, color)
 CJSON_DEFINE_TYPE(ChapterRule, rule, keyword, regex)
 CJSON_DEFINE_TYPE(UpgradeInfo, ignoreVersion, lastCheckTime)
 CJSON_DEFINE_TYPE(WebShelfInfo, serverUrl)
@@ -38,9 +39,9 @@ CJSON_DEFINE_TYPE(TagInfo, enable, keyword, font, textColor, backgroundColor)
 CJSON_DEFINE_TYPE(BookSource, title, host, queryUrl, queryMethod, queryParams, queryCharset, bookNameXpath, bookMainpageXpath, bookAuthorXpath, enableChapterPage, chapterPageXpath, chapterTitleXpath, chapterUrlXpath, enableChapterNext, chapterNextUrlXpath, chapterNextKeywordXpath, chapterNextKeyword, contentXpath, enableContentNext, contentNextUrlXpath, contentNextKeywordXpath, contentNextKeyword, contentFilterType, contentFilterKeyword)
 CJSON_DEFINE_TYPE(BookInfo, fileName, index, marks, hasNew)
 #if ENABLE_TAG
-CJSON_DEFINE_TYPE(Data, version, rendererType, clearType, window, background, network, paging, keyset, styles, layout, chapterRule, upgrade, webShelf, customColors, tags, sources, books)
+CJSON_DEFINE_TYPE(Data, version, rendererType, clearType, window, background, network, paging, keyset, styles, layout, shadow, chapterRule, upgrade, webShelf, customColors, tags, sources, books)
 #else
-CJSON_DEFINE_TYPE(Data, version, rendererType, clearType, window, background, network, paging, keyset, styles, layout, chapterRule, upgrade, webShelf, customColors, sources, books)
+CJSON_DEFINE_TYPE(Data, version, rendererType, clearType, window, background, network, paging, keyset, styles, layout, shadow, chapterRule, upgrade, webShelf, customColors, sources, books)
 #endif
 CJSON_DEFINE_TYPE(VersionInfo, version, downloadurl, description, force)
 CJSON_DEFINE_TYPE(VersionList, list)

@@ -330,6 +330,36 @@ void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect
         m_graphics->FillRectangle(tr->bgBrush, bounds);
     }
 
+    // text-shadow: multiple offset rings simulate gaussian blur of settings' radius
+    if ((tr->shadowBrush || tr->shadowBrushFaint) && tr->shadowBlur > 0.01f)
+    {
+        const FLOAT diagonalScale = 0.7f;
+        for (FLOAT ro = tr->shadowBlur; ro > 0.05f; ro -= 1.0f)
+        {
+            const bool innermost = (ro - 1.0f) <= 0.05f;
+            Gdiplus::PointF ring[8] = {
+                Gdiplus::PointF( ro,             0.0f),
+                Gdiplus::PointF(-ro,             0.0f),
+                Gdiplus::PointF( 0.0f,           ro   ),
+                Gdiplus::PointF( 0.0f,          -ro   ),
+                Gdiplus::PointF( ro * diagonalScale,  ro * diagonalScale),
+                Gdiplus::PointF(-ro * diagonalScale,  ro * diagonalScale),
+                Gdiplus::PointF( ro * diagonalScale, -ro * diagonalScale),
+                Gdiplus::PointF(-ro * diagonalScale, -ro * diagonalScale),
+            };
+            Gdiplus::SolidBrush* brush = (!innermost && tr->shadowBrushFaint) ? tr->shadowBrushFaint : tr->shadowBrush;
+            if (!brush)
+            {
+                continue;
+            }
+            for (const auto& off : ring)
+            {
+                Gdiplus::PointF origin(bounds.X + off.X, bounds.Y + off.Y);
+                m_graphics->DrawString(text, length, tr->font, origin, tr->stringFormat, brush);
+            }
+        }
+    }
+
     Gdiplus::PointF origin(bounds.X, bounds.Y);
     m_graphics->DrawString(text, length, tr->font, origin, tr->stringFormat, tr->textBrush);
 }
@@ -450,6 +480,22 @@ bool RendererGDIPlus::createTextResources()
                 return false;
             }
 
+            // text-shadow brushes (color from settings, alpha fixed for softness)
+            tr.shadowBlur = s.shadowBlur;
+            if (s.shadowBlur > 0)
+            {
+                tr.shadowBrush = new Gdiplus::SolidBrush(Gdiplus::Color(0x66, GetRValue(s.shadowColor), GetGValue(s.shadowColor), GetBValue(s.shadowColor)));
+                if (!tr.shadowBrush || tr.shadowBrush->GetLastStatus() != Gdiplus::Ok)
+                {
+                    return false;
+                }
+                tr.shadowBrushFaint = new Gdiplus::SolidBrush(Gdiplus::Color(0x28, GetRValue(s.shadowColor), GetGValue(s.shadowColor), GetBValue(s.shadowColor)));
+                if (!tr.shadowBrushFaint || tr.shadowBrushFaint->GetLastStatus() != Gdiplus::Ok)
+                {
+                    return false;
+                }
+            }
+
             if (s.haveBackgroundColor)
             {
                 tr.bgBrush = new Gdiplus::SolidBrush(Gdiplus::Color(GetAValue(s.backgroundColor), GetRValue(s.backgroundColor), GetGValue(s.backgroundColor), GetBValue(s.backgroundColor)));
@@ -492,6 +538,14 @@ void RendererGDIPlus::releaseTextResources()
         if (tr.bgBrush)
         {
             delete tr.bgBrush;
+        }
+        if (tr.shadowBrush)
+        {
+            delete tr.shadowBrush;
+        }
+        if (tr.shadowBrushFaint)
+        {
+            delete tr.shadowBrushFaint;
         }
         if (tr.stringFormat)
         {

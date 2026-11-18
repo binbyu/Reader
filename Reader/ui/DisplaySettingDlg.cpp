@@ -19,6 +19,8 @@ DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
     m_textAlpha = data.window.textAlpha;
     m_background = data.background;
     m_layout = data.layout;
+    m_shadowBlur = data.shadow.blur;
+    m_shadowColor = data.shadow.color;
 }
 
 DisplaySettingDlg::~DisplaySettingDlg()
@@ -79,6 +81,40 @@ LRESULT DisplaySettingDlg::onInitDialog()
     SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_ALIGNMENT), CB_ADDSTRING, 0, (LPARAM)loadString(IDS_CENTER).c_str());
     SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_ALIGNMENT), CB_SETCURSEL, (int)m_layout.alignment, NULL);
 
+    // shadow settings (blur supports fractional px)
+    {
+        static const float kBlurOptions[] = {
+            0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.5f, 5.0f
+        };
+        static const int kBlurOptionCount = static_cast<int>(sizeof(kBlurOptions) / sizeof(kBlurOptions[0]));
+        HWND hCombo = GetDlgItem(m_hWnd, IDC_COMBO_SHADOWBLUR);
+        wchar_t label[16] = { 0 };
+        for (int i = 0; i < kBlurOptionCount; ++i)
+        {
+            if (kBlurOptions[i] == 0.0f)
+            {
+                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)L"0(关闭)");
+            }
+            else
+            {
+                _snwprintf(label, ARRAYSIZE(label), L"%g", kBlurOptions[i]);
+                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)label);
+            }
+        }
+        int sel = 0;
+        float bestDiff = 1e6f;
+        for (int i = 0; i < kBlurOptionCount; ++i)
+        {
+            float diff = fabs(kBlurOptions[i] - m_shadowBlur);
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                sel = i;
+            }
+        }
+        SendMessage(hCombo, CB_SETCURSEL, sel, NULL);
+    }
+
     centerParent();
     return TRUE;
 }
@@ -117,6 +153,12 @@ LRESULT DisplaySettingDlg::onSave()
     {
         m_changed = true;
         data.styles = m_styles;
+    }
+    if (fabs(m_shadowBlur - data.shadow.blur) > 0.01f || m_shadowColor != data.shadow.color)
+    {
+        m_changed = true;
+        data.shadow.blur = m_shadowBlur;
+        data.shadow.color = m_shadowColor;
     }
 
     Settings::instance().save();
@@ -260,6 +302,30 @@ LRESULT DisplaySettingDlg::onTextAlphaChanged()
     return TRUE;
 }
 
+LRESULT DisplaySettingDlg::onShadowBlurChanged()
+{
+    static const float kBlurOptions[] = {
+        0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.5f, 5.0f
+    };
+    static const int kBlurOptionCount = static_cast<int>(sizeof(kBlurOptions) / sizeof(kBlurOptions[0]));
+    int index = (int)SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_SHADOWBLUR), CB_GETCURSEL, 0, NULL);
+    if (index != CB_ERR && index != CB_ERRSPACE && index >= 0 && index < kBlurOptionCount)
+    {
+        m_shadowBlur = kBlurOptions[index];
+        updatePreview();
+    }
+    return TRUE;
+}
+
+LRESULT DisplaySettingDlg::onShadowColorChanged()
+{
+    if (openColorDialog(m_hWnd, m_shadowColor))
+    {
+        updatePreview();
+    }
+    return TRUE;
+}
+
 LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
 {
     // fill background
@@ -277,6 +343,10 @@ LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
     TextStyles textStyles(2);
     textStyles[0] = TextStyle(m_styles.textFont, m_textAlpha << 24 | m_styles.textColor);
     textStyles[1] = TextStyle(m_styles.titleFont, m_textAlpha << 24 | m_styles.titleColor);
+    textStyles[0].shadowBlur = m_shadowBlur;
+    textStyles[0].shadowColor = m_shadowColor;
+    textStyles[1].shadowBlur = m_shadowBlur;
+    textStyles[1].shadowColor = m_shadowColor;
 
     Image* image1 = nullptr;
     if (m_background.enableImage && !m_background.fileName.empty())
@@ -620,6 +690,14 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
                 return onTextAlphaChanged();
             }
             break;
+        case IDC_COMBO_SHADOWBLUR:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                return onShadowBlurChanged();
+            }
+            break;
+        case IDC_BUTTON_SHADOWCOLOR:
+            return onShadowColorChanged();
         case IDC_EDIT_LINEGAP:
             if (HIWORD(wParam) == EN_CHANGE)
             {
