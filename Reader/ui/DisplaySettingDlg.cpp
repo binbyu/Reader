@@ -4,7 +4,15 @@
 #include "DpiAwareness.h"
 #include "Utils.h"
 #include <windowsx.h>
+#include <cmath>
 #include <map>
+
+// Blur radius choices (px). Values are multiples of 0.25 and support fractions.
+static const float SHADOW_BLUR_VALUES[] = {
+    0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 2.5f,
+    3.0f, 3.5f, 4.0f, 4.5f, 5.0f
+};
+static const int SHADOW_BLUR_COUNT = sizeof(SHADOW_BLUR_VALUES) / sizeof(SHADOW_BLUR_VALUES[0]);
 
 DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
     : Dialog(hInstance, hParent, IDD_DISPLAYSETTING)
@@ -15,6 +23,7 @@ DisplaySettingDlg::DisplaySettingDlg(HINSTANCE hInstance, HWND hParent)
 {
     auto &data = Settings::instance().data();
     m_styles = data.styles;
+    m_shadow = data.shadow;
     m_alpha = data.window.alpha;
     m_textAlpha = data.window.textAlpha;
     m_background = data.background;
@@ -46,6 +55,34 @@ LRESULT DisplaySettingDlg::onInitDialog()
     }
     SendMessage(GetDlgItem(m_hWnd, IDC_COMBO_RENDER), CB_SETCURSEL, selected, NULL);
     CheckDlgButton(m_hWnd, IDC_CHECK_CLEARTYPE, Settings::instance().data().clearType ? BST_CHECKED : BST_UNCHECKED);
+
+    // text shadow settings
+    {
+        HWND hShadowCombo = GetDlgItem(m_hWnd, IDC_COMBO_SHADOWBLUR);
+        int selected = 0;
+        for (int i = 0; i < SHADOW_BLUR_COUNT; ++i)
+        {
+            std::wstring label;
+            if (SHADOW_BLUR_VALUES[i] <= 0.01f)
+            {
+                label = loadString(IDS_CLOSE); // localized "off" label
+            }
+            else
+            {
+                wchar_t text[32] = { 0 };
+                _snwprintf(text, ARRAYSIZE(text), L"%g px", (double)SHADOW_BLUR_VALUES[i]);
+                label = text;
+            }
+            LRESULT index = SendMessage(hShadowCombo, CB_ADDSTRING, 0, (LPARAM)label.c_str());
+            SendMessage(hShadowCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)i);
+            if (std::fabs(SHADOW_BLUR_VALUES[i] - m_shadow.blur) < 0.01f)
+            {
+                selected = (int)index;
+            }
+        }
+        SendMessage(hShadowCombo, CB_SETCURSEL, selected, NULL);
+        SetDlgItemTextW(m_hWnd, IDC_BUTTON_SHADOWCOLOR, Utils::toRGB(m_shadow.color).c_str());
+    }
 
     // font settings
     CheckDlgButton(m_hWnd, IDC_CHECK_SAMETEXTSTYLE, m_styles.unified ? BST_CHECKED : BST_UNCHECKED);
@@ -117,6 +154,11 @@ LRESULT DisplaySettingDlg::onSave()
     {
         m_changed = true;
         data.styles = m_styles;
+    }
+    if (m_shadow != data.shadow)
+    {
+        m_changed = true;
+        data.shadow = m_shadow;
     }
 
     Settings::instance().save();
@@ -260,6 +302,36 @@ LRESULT DisplaySettingDlg::onTextAlphaChanged()
     return TRUE;
 }
 
+LRESULT DisplaySettingDlg::onShadowBlurChanged()
+{
+    HWND hCombo = GetDlgItem(m_hWnd, IDC_COMBO_SHADOWBLUR);
+    int index = (int)SendMessage(hCombo, CB_GETCURSEL, 0, NULL);
+    if (index != CB_ERR && index >= 0 && index < SHADOW_BLUR_COUNT)
+    {
+        LRESULT valueIndex = SendMessage(hCombo, CB_GETITEMDATA, (WPARAM)index, 0);
+        if (valueIndex >= 0 && valueIndex < SHADOW_BLUR_COUNT)
+        {
+            float blur = SHADOW_BLUR_VALUES[(int)valueIndex];
+            if (std::fabs(blur - m_shadow.blur) >= 0.01f)
+            {
+                m_shadow.blur = blur;
+                updatePreview();
+            }
+        }
+    }
+    return TRUE;
+}
+
+LRESULT DisplaySettingDlg::onShadowColor()
+{
+    if (openColorDialog(m_hWnd, m_shadow.color))
+    {
+        SetDlgItemTextW(m_hWnd, IDC_BUTTON_SHADOWCOLOR, Utils::toRGB(m_shadow.color).c_str());
+        updatePreview();
+    }
+    return TRUE;
+}
+
 LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
 {
     // fill background
@@ -277,6 +349,8 @@ LRESULT DisplaySettingDlg::onUpdatePreview(HDC hdc, RECT rect)
     TextStyles textStyles(2);
     textStyles[0] = TextStyle(m_styles.textFont, m_textAlpha << 24 | m_styles.textColor);
     textStyles[1] = TextStyle(m_styles.titleFont, m_textAlpha << 24 | m_styles.titleColor);
+    textStyles[0].setShadow(m_shadow);
+    textStyles[1].setShadow(m_shadow);
 
     Image* image1 = nullptr;
     if (m_background.enableImage && !m_background.fileName.empty())
@@ -558,6 +632,19 @@ bool DisplaySettingDlg::loadData()
     m_alpha = (BYTE)GetDlgItemInt(m_hWnd, IDC_EDIT_BGALPHA, NULL, FALSE);
     m_textAlpha = (BYTE)GetDlgItemInt(m_hWnd, IDC_EDIT_TEXTALPHA, NULL, FALSE);
     // m_textStyle is updated in real time in OpenFontDialog, no need to get it here
+    // shadow blur is also kept in sync in onShadowBlurChanged; read it once more
+    // here so the stored value always matches what the combo box shows.
+    HWND hShadowCombo = GetDlgItem(m_hWnd, IDC_COMBO_SHADOWBLUR);
+    int shadowIndex = (int)SendMessage(hShadowCombo, CB_GETCURSEL, 0, NULL);
+    if (shadowIndex >= 0 && shadowIndex < SHADOW_BLUR_COUNT)
+    {
+        LRESULT valueIndex = SendMessage(hShadowCombo, CB_GETITEMDATA, (WPARAM)shadowIndex, 0);
+        if (valueIndex >= 0 && valueIndex < SHADOW_BLUR_COUNT)
+        {
+            m_shadow.blur = SHADOW_BLUR_VALUES[(int)valueIndex];
+        }
+    }
+    // m_shadow.color is updated in real time in onShadowColor
     return true;
 }
 
@@ -608,6 +695,14 @@ LRESULT DisplaySettingDlg::handleMessage(UINT message, WPARAM wParam, LPARAM lPa
             break;
         case IDC_CHECK_CLEARTYPE:
             return onClearTypeChanged();
+        case IDC_COMBO_SHADOWBLUR:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                return onShadowBlurChanged();
+            }
+            break;
+        case IDC_BUTTON_SHADOWCOLOR:
+            return onShadowColor();
         case IDC_EDIT_BGALPHA:
             if (HIWORD(wParam) == EN_CHANGE)
             {

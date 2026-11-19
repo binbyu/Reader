@@ -25,6 +25,8 @@ protected:
     LRESULT onRendererTypeChanged();
     LRESULT onClearTypeChanged();
     LRESULT onTextAlphaChanged();
+    LRESULT onShadowBlurChanged();
+    LRESULT onShadowColor();
     LRESULT onUpdatePreview(HDC hdc, RECT rect);
 
 protected:
@@ -54,6 +56,7 @@ protected:
     HCURSOR m_pickerCursor;
     bool m_isPickingColor;
     TextInfo m_styles;
+    ShadowInfo m_shadow;
     BYTE m_alpha;
     BYTE m_textAlpha;
     BackgroundInfo m_background;

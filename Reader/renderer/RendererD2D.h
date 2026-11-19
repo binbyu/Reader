@@ -124,6 +124,8 @@ private:
         IDWriteTextFormat* textFormat = nullptr;
         ID2D1SolidColorBrush* textBrush = nullptr;
         ID2D1SolidColorBrush* bgBrush = nullptr;
+        ID2D1SolidColorBrush* shadowBrush = nullptr; // translucent brush for the shadow ring
+        float shadowBlur = 0.0f;
 
         // for fast text measure
         IDWriteFontFace* fontFace = nullptr;

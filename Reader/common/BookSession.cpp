@@ -799,14 +799,17 @@ void BookSession::setTextStyles()
 
     BYTE textAlpha = data.window.textAlpha;
     int idx = 0;
-    m_styles[idx++] = TextStyle(data.styles.textFont, textAlpha << 24 | data.styles.textColor);
-    m_styles[idx++] = TextStyle(data.styles.titleFont, textAlpha << 24 | data.styles.titleColor);
+    m_styles[idx] = TextStyle(data.styles.textFont, textAlpha << 24 | data.styles.textColor);
+    m_styles[idx++].setShadow(data.shadow);
+    m_styles[idx] = TextStyle(data.styles.titleFont, textAlpha << 24 | data.styles.titleColor);
+    m_styles[idx++].setShadow(data.shadow);
 #if ENABLE_TAG
     for (auto& tag : data.tags)
     {
         BYTE tagBgAlpha = tag.backgroundColor >> 24;
         if (tagBgAlpha == 0) tagBgAlpha = 0xff;
-        m_styles[idx++] = TextStyle(tag.font, textAlpha << 24 | tag.textColor, tagBgAlpha << 24 | tag.backgroundColor);
+        m_styles[idx] = TextStyle(tag.font, textAlpha << 24 | tag.textColor, tagBgAlpha << 24 | tag.backgroundColor);
+        m_styles[idx++].setShadow(data.shadow);
     }
 #endif
 

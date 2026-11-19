@@ -176,6 +176,35 @@ bool RendererBase::isSameSize(const RECT& rect)
     return oldWidth == newWidth && oldHeight == newHeight;
 }
 
+BYTE RendererBase::shadowLayerAlpha(float blur)
+{
+    // Eight partly-transparent copies overlap around the glyph; the wider the
+    // blur the fainter each layer, which approximates a soft CSS text-shadow.
+    float alpha = 255.0f / (2.0f * (blur + 1.0f));
+    if (alpha < 16.0f) alpha = 16.0f;
+    if (alpha > 160.0f) alpha = 160.0f;
+    return static_cast<BYTE>(alpha);
+}
+
+void RendererBase::shadowOffsets(float blur, float offsets[SHADOW_RING_SAMPLES][2])
+{
+    // Eight evenly spaced points on a circle of radius `blur` (fractional
+    // radii are preserved so the fallback renderers can use sub-pixel draws).
+    static const float SIN[SHADOW_RING_SAMPLES] = {
+         0.00000000f,  0.70710678f,  1.00000000f,  0.70710678f,
+        -0.00000000f, -0.70710678f, -1.00000000f, -0.70710678f
+    };
+    static const float COS[SHADOW_RING_SAMPLES] = {
+         1.00000000f,  0.70710678f,  0.00000000f, -0.70710678f,
+        -1.00000000f, -0.70710678f, -0.00000000f,  0.70710678f
+    };
+    for (int i = 0; i < SHADOW_RING_SAMPLES; ++i)
+    {
+        offsets[i][0] = blur * COS[i];
+        offsets[i][1] = blur * SIN[i];
+    }
+}
+
 void RendererBase::normalizeRect(RECT& rect)
 {
     if (rect.left > rect.right)

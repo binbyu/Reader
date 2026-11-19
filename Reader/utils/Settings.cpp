@@ -249,6 +249,10 @@ void Settings::defaultData(Data& data)
     defaultFont(data.styles.textFont);
     defaultFont(data.styles.titleFont);
 
+    // text shadow: disabled by default, kept as an opt-in feature
+    data.shadow.blur = 0.0f;
+    data.shadow.color = RGB(172, 172, 172); // #ACACAC
+
     data.layout.borderL = 2;
     data.layout.borderT = 2;
     data.layout.borderR = 2;

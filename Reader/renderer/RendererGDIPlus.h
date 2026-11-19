@@ -47,6 +47,8 @@ private:
         Gdiplus::Font* font = nullptr;
         Gdiplus::SolidBrush* textBrush = nullptr;
         Gdiplus::SolidBrush* bgBrush = nullptr;
+        Gdiplus::SolidBrush* shadowBrush = nullptr; // translucent brush for the shadow ring
+        float shadowBlur = 0.0f;
         Gdiplus::StringFormat* stringFormat = nullptr;
     };
     TextResource* textResource(int index);

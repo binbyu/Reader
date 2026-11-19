@@ -5,6 +5,13 @@
 
 class RendererBase : public IRenderer
 {
+public:
+    // Shared helpers for the 8-direction shadow ring (used by both D2D and GDI+).
+    static const int SHADOW_RING_SAMPLES = 8;
+    static bool shadowEnabled(float blur) { return blur > 0.01f; }
+    static BYTE shadowLayerAlpha(float blur);
+    static void shadowOffsets(float blur, float offsets[SHADOW_RING_SAMPLES][2]);
+
 protected:
     RendererBase();
     virtual ~RendererBase();

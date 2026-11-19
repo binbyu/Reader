@@ -5,10 +5,29 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 
 /////////////////////////////////////////////
 // renderer
+struct ShadowInfo
+{
+    float    blur;     // CSS-like blur radius in pixels, 0 means disabled
+    COLORREF color;    // shadow color (RGB only, alpha is derived from blur)
+
+    ShadowInfo() : blur(0.0f), color(RGB(172, 172, 172)) {} // #ACACAC
+    ShadowInfo(float b, COLORREF c) : blur(b), color(c) {}
+
+    bool operator==(const ShadowInfo& other) const
+    {
+        return std::fabs(blur - other.blur) < 0.01f && color == other.color;
+    }
+    bool operator!=(const ShadowInfo& other) const
+    {
+        return !(*this == other);
+    }
+};
+
 enum RendererType
 {
     D2D,
@@ -29,22 +48,34 @@ struct TextStyle
     COLORREF textColor;
     COLORREF backgroundColor;
     bool haveBackgroundColor;
+    float    shadowBlur;    // text shadow blur radius, 0 means disabled
+    COLORREF shadowColor;   // text shadow color
 
-    TextStyle() {}
-    TextStyle(const LOGFONTW& f, COLORREF c) : textColor(c), backgroundColor(0), haveBackgroundColor(false)
+    TextStyle() : textColor(0), backgroundColor(0), haveBackgroundColor(false),
+                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172)) {}
+    TextStyle(const LOGFONTW& f, COLORREF c) : textColor(c), backgroundColor(0), haveBackgroundColor(false),
+                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172))
     {
         memcpy(&font, &f, sizeof(LOGFONTW));
     }
-    TextStyle(const LOGFONTW& f, COLORREF c, COLORREF b) : textColor(c), backgroundColor(b), haveBackgroundColor(true)
+    TextStyle(const LOGFONTW& f, COLORREF c, COLORREF b) : textColor(c), backgroundColor(b), haveBackgroundColor(true),
+                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172))
     {
         memcpy(&font, &f, sizeof(LOGFONTW));
+    }
+    void setShadow(const ShadowInfo& shadow)
+    {
+        shadowBlur = shadow.blur;
+        shadowColor = shadow.color;
     }
     bool operator==(const TextStyle& other) const
     {
         return memcmp(&font, &other.font, sizeof(LOGFONTW)) == 0 &&
             textColor == other.textColor &&
             backgroundColor == other.backgroundColor &&
-            haveBackgroundColor == other.haveBackgroundColor;
+            haveBackgroundColor == other.haveBackgroundColor &&
+            std::fabs(shadowBlur - other.shadowBlur) < 0.01f &&
+            shadowColor == other.shadowColor;
     }
     bool operator!=(const TextStyle& other) const
     {
@@ -564,6 +595,7 @@ struct Data
     PagingInfo              paging;
     KeysetInfo              keyset;
     TextInfo                styles;
+    ShadowInfo              shadow;
     LayoutConfig            layout;
     ChapterRule             chapterRule;
     UpgradeInfo             upgrade;
