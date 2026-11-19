@@ -880,6 +880,22 @@ void RendererD2D::drawText(const wchar_t* text, int length, const RECT& rect, in
     );
     if (SUCCEEDED(hr))
     {
+        // Draw the 8-direction shadow ring first, using a translucent brush so
+        // overlapping layers build up a soft edge. blur=0 is skipped entirely.
+        if (shadowEnabled(tr->shadowBlur) && tr->shadowBrush)
+        {
+            float offsets[SHADOW_RING_SAMPLES][2];
+            shadowOffsets(tr->shadowBlur, offsets);
+            for (int i = 0; i < SHADOW_RING_SAMPLES; ++i)
+            {
+                m_pRenderTarget->DrawTextLayout(
+                    D2D1::Point2F(bounds.left + offsets[i][0], bounds.top + offsets[i][1]),
+                    textLayout,
+                    tr->shadowBrush
+                );
+            }
+        }
+
         m_pRenderTarget->DrawTextLayout(
             D2D1::Point2F(bounds.left, bounds.top),
             textLayout,
@@ -1278,6 +1294,19 @@ bool RendererD2D::createTextResources()
                 return false;
             }
 
+            // create translucent shadow brush only when shadow is enabled
+            tr.shadowBlur = s.shadowBlur;
+            if (shadowEnabled(s.shadowBlur))
+            {
+                D2D1_COLOR_F shadowColor = colorRefToD2D(s.shadowColor, shadowLayerAlpha(s.shadowBlur));
+                hr = m_pRenderTarget->CreateSolidColorBrush(shadowColor, &tr.shadowBrush);
+                if (FAILED(hr) || !tr.shadowBrush)
+                {
+                    endPaint();
+                    return false;
+                }
+            }
+
             if (s.haveBackgroundColor)
             {
                 D2D1_COLOR_F bgColor = colorRefToD2D(s.backgroundColor, GetAValue(s.backgroundColor));
@@ -1308,6 +1337,10 @@ void RendererD2D::releaseTextResources()
         if (tr.bgBrush)
         {
             tr.bgBrush->Release();
+        }
+        if (tr.shadowBrush)
+        {
+            tr.shadowBrush->Release();
         }
         if (tr.fontFace)
         {

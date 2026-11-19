@@ -252,6 +252,7 @@
 #define IDS_BOOK_EXPORT_TIPS            311
 #define IDS_EXPORT                      312
 #define IDS_MENU_EXPORT                 312
+#define IDS_CLOSE                       313
 #define IDC_EDIT_LINEGAP                1000
 #define IDC_STATIC_COPYRIGHT            1000
 #define IDC_EDIT_BORDER                 1001
@@ -427,6 +428,8 @@
 #define IDC_BUTTON_BGCOLOR              1165
 #define IDC_STATIC_PICKER               1168
 #define IDC_STATIC_RGB                  1169
+#define IDC_COMBO_SHADOWBLUR            1170
+#define IDC_BUTTON_SHADOWCOLOR          1171
 #define IDM_OPEN                        32771
 #define IDM_DISPLAY                     32772
 #define IDM_NETWORK                     32773

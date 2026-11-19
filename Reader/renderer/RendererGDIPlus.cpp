@@ -330,6 +330,19 @@ void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect
         m_graphics->FillRectangle(tr->bgBrush, bounds);
     }
 
+    // Draw the 8-direction shadow ring with a separate translucent brush,
+    // then the solid text on top. blur=0 is skipped entirely (zero overhead).
+    if (shadowEnabled(tr->shadowBlur) && tr->shadowBrush)
+    {
+        float offsets[SHADOW_RING_SAMPLES][2];
+        shadowOffsets(tr->shadowBlur, offsets);
+        for (int i = 0; i < SHADOW_RING_SAMPLES; ++i)
+        {
+            Gdiplus::PointF shadowOrigin(bounds.X + offsets[i][0], bounds.Y + offsets[i][1]);
+            m_graphics->DrawString(text, length, tr->font, shadowOrigin, tr->stringFormat, tr->shadowBrush);
+        }
+    }
+
     Gdiplus::PointF origin(bounds.X, bounds.Y);
     m_graphics->DrawString(text, length, tr->font, origin, tr->stringFormat, tr->textBrush);
 }
@@ -450,6 +463,18 @@ bool RendererGDIPlus::createTextResources()
                 return false;
             }
 
+            // create the translucent shadow brush only when shadow is enabled
+            tr.shadowBlur = s.shadowBlur;
+            if (shadowEnabled(s.shadowBlur))
+            {
+                BYTE a = shadowLayerAlpha(s.shadowBlur);
+                tr.shadowBrush = new Gdiplus::SolidBrush(Gdiplus::Color(a, GetRValue(s.shadowColor), GetGValue(s.shadowColor), GetBValue(s.shadowColor)));
+                if (!tr.shadowBrush || tr.shadowBrush->GetLastStatus() != Gdiplus::Ok)
+                {
+                    return false;
+                }
+            }
+
             if (s.haveBackgroundColor)
             {
                 tr.bgBrush = new Gdiplus::SolidBrush(Gdiplus::Color(GetAValue(s.backgroundColor), GetRValue(s.backgroundColor), GetGValue(s.backgroundColor), GetBValue(s.backgroundColor)));
@@ -492,6 +517,10 @@ void RendererGDIPlus::releaseTextResources()
         if (tr.bgBrush)
         {
             delete tr.bgBrush;
+        }
+        if (tr.shadowBrush)
+        {
+            delete tr.shadowBrush;
         }
         if (tr.stringFormat)
         {
