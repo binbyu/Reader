@@ -2,14 +2,13 @@
 #include "RendererGDIPlusBase.h"
 
 class RendererGDIPlus;
-class MeasurerGDIPlus : public IMeasurer
+class MeasurerGDIPlus : public MeasurerBase
 {
 public:
     MeasurerGDIPlus(RendererGDIPlus* r);
-    ~MeasurerGDIPlus();
-    virtual TextMetrics measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex);
-private:
-    RendererGDIPlus* m_renderer;
+    virtual ~MeasurerGDIPlus() = default;
+protected:
+    virtual TextMetrics measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex) override;
 };
 
 class RendererGDIPlus : public RendererGDIPlusBase
@@ -35,6 +34,8 @@ protected:
     virtual void releaseDeviceResources();
     virtual bool createTextResources();
     virtual void releaseTextResources();
+    virtual bool createShadowResources(int needW, int needH);
+    virtual void releaseShadowResources();
 
 protected:
     bool createLayeredDC();
@@ -47,15 +48,30 @@ private:
         Gdiplus::Font* font = nullptr;
         Gdiplus::SolidBrush* textBrush = nullptr;
         Gdiplus::SolidBrush* bgBrush = nullptr;
-        Gdiplus::SolidBrush* shadowBrush = nullptr; // translucent brush for the shadow ring
-        float shadowBlur = 0.0f;
+        Gdiplus::SolidBrush* shadowBrush = nullptr;
         Gdiplus::StringFormat* stringFormat = nullptr;
+        ShadowInfo shadow;
     };
     TextResource* textResource(int index);
 
 private:
+    struct CharShadowGDIPlus
+    {
+        Gdiplus::Bitmap* bitmap = nullptr;
+        int pad = 0;
+        int sw = 0;
+        int sh = 0;
+    };
+
     Gdiplus::Graphics* m_graphics = nullptr;
     Gdiplus::Bitmap* m_memBitmap = nullptr;
     std::vector<TextResource> m_trs;
     MeasurerGDIPlus* m_measurer = nullptr;
+
+    // for shadow
+    Gdiplus::Bitmap* m_pShadowBitmap = nullptr;
+    Gdiplus::SolidBrush* m_pShadowWhiteBrush = nullptr;
+    int m_shadowCapW = 0;
+    int m_shadowCapH = 0;
+    LRUCache<CharShadowKey, CharShadowGDIPlus, CharShadowKeyHash> m_charShadowCache;
 };

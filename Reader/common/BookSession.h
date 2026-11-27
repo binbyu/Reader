@@ -35,7 +35,7 @@ public:
     ~BookSession();
 
 public:
-    void              init();
+    void              init(const std::wstring& defaultFile = L"");
     void              uninit();
     void              open(int index);
     void              open(const std::wstring& fileName, bool forced = false);

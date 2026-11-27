@@ -25,7 +25,8 @@ protected:
     LRESULT onRendererTypeChanged();
     LRESULT onClearTypeChanged();
     LRESULT onTextAlphaChanged();
-    LRESULT onShadowBlurChanged();
+    LRESULT onShadowEnableChanged();
+    LRESULT onShadowValueChanged();
     LRESULT onShadowColor();
     LRESULT onUpdatePreview(HDC hdc, RECT rect);
 
@@ -36,6 +37,8 @@ protected:
     void bindSliderEditPair(int sliderId, int editId, BYTE& value, int minValue, int maxValue);
     void setSliderValue(int sliderId, int value);
     void setEditValue(int editId, int value);
+    void setShadowValue(int editId, float value);
+    bool getShadowValue(int editId, float& value);
     bool handleSliderChange(int sliderId, int editId, BYTE& value);
     bool handleEditChange(int editId, int sliderId, BYTE& value, int minValue, int maxValue);
     void startPickColor();

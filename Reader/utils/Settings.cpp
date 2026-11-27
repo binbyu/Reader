@@ -249,8 +249,10 @@ void Settings::defaultData(Data& data)
     defaultFont(data.styles.textFont);
     defaultFont(data.styles.titleFont);
 
-    // text shadow: disabled by default, kept as an opt-in feature
-    data.shadow.blur = 0.0f;
+    data.shadow.enable = false;
+    data.shadow.offsetX = 1.0f;
+    data.shadow.offsetY = 1.0f;
+    data.shadow.blur = 2.5f;
     data.shadow.color = RGB(172, 172, 172); // #ACACAC
 
     data.layout.borderL = 2;
@@ -311,7 +313,7 @@ void Settings::defaultKeys(KeysetInfo& keyset)
 
 void Settings::defaultFont(LOGFONTW& font)
 {
-    const int POINTSIZE = 11;
+    const int POINTSIZE = 12;
 
     memset(&font, 0, sizeof(LOGFONTW));
     font.lfHeight         = -MulDiv(POINTSIZE, /*DpiAwareness::instance().dpi()*/ DEFAULT_DPI, 72); // Logic Font for settings

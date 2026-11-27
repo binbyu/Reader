@@ -14,6 +14,7 @@
 #include "NetworkSettingDlg.h"
 #include "AboutDlg.h"
 #include "JumpProgressDlg.h"
+#include "SingleApp.h"
 #include "conv.h"
 #ifdef ENABLE_NETWORK
 #include "https.h"
@@ -290,7 +291,7 @@ void MainWin::postCreate()
     hideTaskbar(m_data.window.hideTaskbar);
     registerHotKey(true);
     initTimers();
-    m_session->init();
+    m_session->init(SingleApp::cmdFile());
 }
 
 const WinConfig& MainWin::config(HINSTANCE hInstance)
@@ -364,12 +365,13 @@ LRESULT MainWin::onDestroy()
 
 LRESULT MainWin::onPaint(HDC hdc)
 {
+    auto* renderer = IRenderer::instance();
     BYTE alpha = hdc ? 0xff : m_data.window.alpha;
     RECT rcPaint = drawTextRect();
     Image* imgSrc = loadBgSrcImage();
     bool clearType = (alpha == 0xff) && (!imgSrc || !imgSrc->hasAlpha());
 
-    IRenderer::instance()->beginPaint(m_hWnd, hdc, rcPaint, m_session->styles(), clearType);
+    renderer->beginPaint(m_hWnd, hdc, rcPaint, m_session->styles(), clearType);
 
     // draw background
     Image* imgBackground = loadBgImage(rcPaint.right - rcPaint.left, rcPaint.bottom - rcPaint.top, alpha);
@@ -377,13 +379,13 @@ LRESULT MainWin::onPaint(HDC hdc)
     {
         if (imgBackground->hasAlpha() && hdc)
         {
-            IRenderer::instance()->fillRect(alpha << 24 | m_data.background.color, rcPaint);
+            renderer->fillRect(alpha << 24 | m_data.background.color, rcPaint);
         }
-        IRenderer::instance()->drawImage(imgBackground, rcPaint);
+        renderer->drawImage(imgBackground, rcPaint);
     }
     else
     {
-        IRenderer::instance()->fillRect(alpha << 24 | m_data.background.color, rcPaint);
+        renderer->fillRect(alpha << 24 | m_data.background.color, rcPaint);
     }
 
     if (m_session->isLoading())
@@ -395,7 +397,7 @@ LRESULT MainWin::onPaint(HDC hdc)
             rc.top = (rcPaint.bottom - rcPaint.top - m_imgLoading->height()) / 2;
             rc.right = rc.left + m_imgLoading->width();
             rc.bottom = rc.top + m_imgLoading->height();
-            IRenderer::instance()->drawImage(m_imgLoading, rc);
+            renderer->drawImage(m_imgLoading, rc);
         }
     }
     else
@@ -403,7 +405,7 @@ LRESULT MainWin::onPaint(HDC hdc)
         m_session->drawPage(hdc, rcPaint);
     }
 
-    IRenderer::instance()->endPaint();
+    renderer->endPaint();
 
     updateTitle();
     updateStatusBar();
@@ -2648,6 +2650,10 @@ void MainWin::unloadBgSrcImage()
 Image* MainWin::loadBgSrcImage()
 {
     static std::wstring _fileName;
+    if (!m_data.background.enableImage)
+    {
+        return nullptr;
+    }
     if (_fileName == m_data.background.fileName && m_imgBgSrc)
     {
         return m_imgBgSrc;

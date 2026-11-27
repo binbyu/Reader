@@ -525,7 +525,10 @@ bool BookOnline::parseChapters(int chapterIdx, AsyncCallback cb)
         if (this_->m_bs->enableChapterNext)
         {
             HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->chapterNextUrlXpath, chapterNextUrls);
-            HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->chapterNextKeywordXpath, chapterNextKeywords);
+            if (!this_->m_bs->chapterNextKeywordXpath.empty())
+            {
+                HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->chapterNextKeywordXpath, chapterNextKeywords);
+            }
         }
         HtmlParser::instance().parseHtmlEnd(ctx);
 
@@ -540,11 +543,13 @@ bool BookOnline::parseChapters(int chapterIdx, AsyncCallback cb)
 
         if (this_->m_bs->enableChapterNext)
         {
-            if (!chapterNextUrls.empty() && !chapterNextKeywords.empty() && chapterNextUrls.size() == chapterNextKeywords.size())
+            bool hasKeyword = !this_->m_bs->chapterNextKeywordXpath.empty();
+            if (!hasKeyword || (!chapterNextKeywords.empty() && chapterNextUrls.size() == chapterNextKeywords.size()))
             {
+                std::string chapterNextKeyword = Utils::trim(this_->m_bs->chapterNextKeyword);
                 for (size_t i = 0; i < chapterNextUrls.size(); i++)
                 {
-                    if (std::string::npos != chapterNextKeywords[i].find(this_->m_bs->chapterNextKeyword))
+                    if (!hasKeyword || std::string::npos != chapterNextKeywords[i].find(chapterNextKeyword))
                     {
                         if (Utils::isValidHref(chapterNextUrls[i]))
                         {
@@ -674,7 +679,10 @@ bool BookOnline::parseContent(int chapterIdx, AsyncCallback cb)
         if (this_->m_bs && this_->m_bs->enableContentNext)
         {
             HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentNextUrlXpath, contentNextUrls);
-            HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentNextKeywordXpath, contentNextKeywords);
+            if (!this_->m_bs->contentNextKeywordXpath.empty())
+            {
+                HtmlParser::instance().parseHtmlNext(ctx, this_->m_bs->contentNextKeywordXpath, contentNextKeywords);
+            }
         }
         HtmlParser::instance().parseHtmlEnd(ctx);
 
@@ -683,11 +691,13 @@ bool BookOnline::parseContent(int chapterIdx, AsyncCallback cb)
 
         if (this_->m_bs && this_->m_bs->enableContentNext)
         {
-            if (!contentNextUrls.empty() && !contentNextKeywords.empty() && contentNextUrls.size() == contentNextKeywords.size())
+            bool hasKeyword = !this_->m_bs->contentNextKeywordXpath.empty();
+            if (!hasKeyword || (!contentNextKeywords.empty() && contentNextUrls.size() == contentNextKeywords.size()))
             {
+                std::string contentNextKeyword = Utils::trim(this_->m_bs->contentNextKeyword);
                 for (size_t i = 0; i < contentNextUrls.size(); i++)
                 {
-                    if (std::string::npos != contentNextKeywords[i].find(this_->m_bs->contentNextKeyword))
+                    if (!hasKeyword || std::string::npos != contentNextKeywords[i].find(contentNextKeyword))
                     {
                         if (Utils::isValidHref(contentNextUrls[i]))
                         {

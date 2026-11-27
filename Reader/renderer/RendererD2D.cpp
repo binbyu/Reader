@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RendererD2D.h"
 #include "Settings.h"
 
@@ -272,40 +272,17 @@ IWICBitmap* ImageD2D::decodeFrame(IWICBitmapFrameDecode * pFrame)
 *  MeasurerD2D                                                      *
 ********************************************************************/
 MeasurerD2D::MeasurerD2D(RendererD2D * r)
-    : m_renderer(r)
+    : MeasurerBase(r)
 {
 }
 
-MeasurerD2D::~MeasurerD2D()
+TextMetrics MeasurerD2D::measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
 {
-}
-
-TextMetrics MeasurerD2D::measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
-{
-#if 1
     TextMetrics metrics = { 0, 0, 0 };
+    if (!text || length <= 0) return metrics;
 
-    if (!text)
-    {
-        return metrics;
-    }
-    if (length <= 0)
-    {
-        length = 0;
-        const wchar_t* p = text;
-        while (*p++)
-            length++;
-    }
-    if (length == 0)
-    {
-        return metrics;
-    }
-
-    RendererD2D::TextResource* tr = m_renderer->textResource(textStyleIndex);
-    if (!tr || !tr->textFormat)
-    {
-        return metrics;
-    }
+    RendererD2D::TextResource* tr = static_cast<RendererD2D*>(m_renderer)->textResource(textStyleIndex);
+    if (!tr || !tr->textFormat) return metrics;
 
     IDWriteTextLayout* textLayout = nullptr;
     FLOAT layoutWidth = maxWidth > 0 ? static_cast<FLOAT>(maxWidth) : 10000.0f;
@@ -337,92 +314,6 @@ TextMetrics MeasurerD2D::measureText(const wchar_t* text, int length, int maxWid
         textLayout->Release();
     }
     return metrics;
-#else // GetGdiCompatibleGlyphMetrics
-    TextMetrics metrics = { 0, 0, 0 };
-
-    if (!text) return metrics;
-    if (length <= 0) length = static_cast<int>(wcslen(text));
-    if (length == 0) return metrics;
-
-    RendererD2D::TextResource* tr = m_renderer->textResource(textStyleIndex);
-    if (!tr || !tr->textFormat || !tr->fontFace)
-    {
-        return metrics;
-    }
-
-    IDWriteFontFace* fontFace = tr->fontFace;
-
-    DWRITE_FONT_METRICS fontMetrics;
-    fontFace->GetMetrics(&fontMetrics);
-
-    FLOAT fontSize = tr->textFormat->GetFontSize();
-    FLOAT scale = fontSize / fontMetrics.designUnitsPerEm;
-
-    std::vector<UINT32> codePoints(length);
-    for (int i = 0; i < length; ++i)
-    {
-        codePoints[i] = static_cast<UINT32>(text[i]);
-    }
-
-    std::vector<UINT16> glyphIndices(length);
-    if (FAILED(fontFace->GetGlyphIndices(codePoints.data(), length, glyphIndices.data())))
-    {
-        return metrics;
-    }
-
-    std::vector<DWRITE_GLYPH_METRICS> glyphMetrics(length);
-    HRESULT hr = fontFace->GetGdiCompatibleGlyphMetrics(
-        fontSize,
-        1.0f, // pixelsPerDip
-        nullptr,
-        FALSE,
-        glyphIndices.data(),
-        static_cast<UINT32>(length),
-        glyphMetrics.data(),
-        FALSE
-    );
-
-    if (SUCCEEDED(hr))
-    {
-        FLOAT maxLineWidth = 0.0f;
-        FLOAT currentLineWidth = 0.0f;
-        FLOAT singleLineHeight = static_cast<FLOAT>(fontMetrics.ascent + fontMetrics.descent + fontMetrics.lineGap) * scale;
-        int lineCount = 1;
-
-        for (int i = 0; i < length; ++i)
-        {
-            if (text[i] == L'\n')
-            {
-                maxLineWidth = (std::max)(maxLineWidth, currentLineWidth);
-                currentLineWidth = 0.0f;
-                lineCount++;
-                continue;
-            }
-            if (text[i] == L'\r') continue;
-
-            FLOAT charWidth = static_cast<FLOAT>(glyphMetrics[i].advanceWidth) * scale;
-
-            if (maxWidth > 0 && (currentLineWidth + charWidth) > maxWidth && currentLineWidth > 0)
-            {
-                maxLineWidth = (std::max)(maxLineWidth, currentLineWidth);
-                currentLineWidth = charWidth;
-                lineCount++;
-            }
-            else
-            {
-                currentLineWidth += charWidth;
-            }
-        }
-
-        maxLineWidth = (std::max)(maxLineWidth, currentLineWidth);
-
-        metrics.width = static_cast<int>(ceilf(maxLineWidth));
-        metrics.height = static_cast<int>(ceilf(lineCount * singleLineHeight));
-        metrics.count = length;
-    }
-
-    return metrics;
-#endif
 }
 
 
@@ -595,6 +486,7 @@ IWICImagingFactory* ContextD2D::WICFactory()
 RendererD2D::RendererD2D()
     : RendererBase()
 {
+    m_charShadowCache.setCleanup([](CharShadowD2D& v) { SAFE_RELEASE(v.bitmap); });
     ContextD2D::instance()->initialize();
 }
 
@@ -606,6 +498,8 @@ RendererD2D::~RendererD2D()
         m_measurer = nullptr;
     }
 
+    m_charShadowCache.clear();
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -639,16 +533,19 @@ bool RendererD2D::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyle
 
     if (m_hWnd != hWnd || m_clearType != clearType)
     {
+        releaseShadowResources();
         releaseTextResources();
         releaseDeviceResources();
     }
     else if (!isSameSize(rect))
     {
+        releaseShadowResources();
         releaseTextResources();
         releaseDeviceResources();
     }
     else if (m_styles != styles)
     {
+        releaseShadowResources();
         releaseTextResources();
     }
 
@@ -676,6 +573,7 @@ bool RendererD2D::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyle
     return true;
 
 FAILED:
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -733,6 +631,7 @@ void RendererD2D::endPaint()
         hr = m_pRenderTarget->EndDraw();
         if (hr == D2DERR_RECREATE_TARGET)
         {
+            releaseShadowResources();
             releaseTextResources();
             releaseDeviceResources();
             releaseLayeredDC();
@@ -740,6 +639,7 @@ void RendererD2D::endPaint()
         }
     }
 
+    //releaseShadowResources();
     //releaseTextResources();
     //releaseDeviceResources();
     releaseLayeredDC();
@@ -830,29 +730,18 @@ void RendererD2D::fillRect(const Image* image, const RECT& rect, WrapMode mode)
 
 void RendererD2D::drawText(const wchar_t* text, int length, const RECT& rect, int textStyleIndex)
 {
-    if (!text || !m_pRenderTarget)
-    {
-        return;
-    }
-
-    TextResource* tr = textResource(textStyleIndex);
-    if (!tr || !tr->textFormat || !tr->textBrush)
-    {
-        return;
-    }
+    if (!text || !m_pRenderTarget) return;
 
     if (length < 0)
     {
         length = 0;
         const wchar_t* p = text;
-        while (*p++)
-            length++;
+        while (*p++) length++;
     }
+    if (length == 0) return;
 
-    if (length == 0)
-    {
-        return;
-    }
+    TextResource* tr = textResource(textStyleIndex);
+    if (!tr || !tr->textFormat || !tr->textBrush) return;
 
     D2D1_RECT_F bounds = D2D1::RectF(
         static_cast<FLOAT>(rect.left),
@@ -866,43 +755,142 @@ void RendererD2D::drawText(const wchar_t* text, int length, const RECT& rect, in
         m_pRenderTarget->FillRectangle(bounds, tr->bgBrush);
     }
 
-    IDWriteTextLayout* textLayout = nullptr;
-    FLOAT layoutWidth = bounds.right - bounds.left;
-    FLOAT layoutHeight = bounds.bottom - bounds.top;
-
-    HRESULT hr = ContextD2D::instance()->DWriteFactory()->CreateTextLayout(
-        text,
-        static_cast<UINT32>(length),
-        tr->textFormat,
-        layoutWidth,
-        layoutHeight,
-        &textLayout
-    );
-    if (SUCCEEDED(hr))
+    if (tr->shadow.enable)
     {
-        // Draw the 8-direction shadow ring first, using a translucent brush so
-        // overlapping layers build up a soft edge. blur=0 is skipped entirely.
-        if (shadowEnabled(tr->shadowBlur) && tr->shadowBrush)
+        int textW = rect.right - rect.left;
+        int textH = rect.bottom - rect.top;
+
+        bool drawnFromCache = false;
+        if (length == 1)
         {
-            float offsets[SHADOW_RING_SAMPLES][2];
-            shadowOffsets(tr->shadowBlur, offsets);
-            for (int i = 0; i < SHADOW_RING_SAMPLES; ++i)
+            CharShadowD2D* val = m_charShadowCache.find({ text[0], textStyleIndex, textW, textH });
+            if (val)
             {
-                m_pRenderTarget->DrawTextLayout(
-                    D2D1::Point2F(bounds.left + offsets[i][0], bounds.top + offsets[i][1]),
-                    textLayout,
-                    tr->shadowBrush
-                );
+                if (val->bitmap)
+                {
+                    D2D1_RECT_F srcRect = D2D1::RectF(0.0f, 0.0f, static_cast<FLOAT>(val->sw), static_cast<FLOAT>(val->sh));
+                    D2D1_RECT_F dstRect = D2D1::RectF(
+                        bounds.left - val->pad + tr->shadow.offsetX,
+                        bounds.top  - val->pad + tr->shadow.offsetY,
+                        bounds.left - val->pad + tr->shadow.offsetX + val->sw,
+                        bounds.top  - val->pad + tr->shadow.offsetY + val->sh
+                    );
+                    m_pRenderTarget->DrawBitmap(val->bitmap, dstRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
+                }
+                drawnFromCache = true;
             }
         }
 
-        m_pRenderTarget->DrawTextLayout(
-            D2D1::Point2F(bounds.left, bounds.top),
-            textLayout,
-            tr->textBrush
-        );
+        if (!drawnFromCache)
+        {
+            int pad = shadowPadding(tr->shadow.blur, tr->shadow.offsetX, tr->shadow.offsetY);
+            int sw = textW + pad * 2;
+            int sh = textH + pad * 2;
+
+            if (createShadowResources(sw, sh))
+            {
+                m_pShadowRT->BeginDraw();
+                m_pShadowRT->Clear(D2D1::ColorF(0, 0, 0, 0));
+                m_pShadowRT->DrawText(
+                    text,
+                    static_cast<UINT32>(length),
+                    tr->textFormat,
+                    D2D1::RectF((FLOAT)pad, (FLOAT)pad, (FLOAT)sw, (FLOAT)sh),
+                    m_pShadowWhiteBrush,
+                    D2D1_DRAW_TEXT_OPTIONS_NONE,
+                    DWRITE_MEASURING_MODE_NATURAL
+                );
+
+                if (SUCCEEDED(m_pShadowRT->EndDraw()))
+                {
+                    WICRect lockRc = { 0, 0, sw, sh };
+                    IWICBitmapLock* pLock = nullptr;
+                    if (SUCCEEDED(m_pShadowWicBitmap->Lock(&lockRc, WICBitmapLockRead, &pLock)))
+                    {
+                        UINT bufSize = 0, stride = 0;
+                        BYTE* pData = nullptr;
+                        if (SUCCEEDED(pLock->GetDataPointer(&bufSize, &pData)) && SUCCEEDED(pLock->GetStride(&stride)) && pData)
+                        {
+                            size_t total = static_cast<size_t>(sw) * sh;
+                            if (m_shadowMaskBuf.size() < total) m_shadowMaskBuf.resize(total);
+                            if (m_shadowTempBuf.size() < total) m_shadowTempBuf.resize(total);
+                            if (m_shadowPixelBuf.size() < total) m_shadowPixelBuf.resize(total);
+
+                            bool hasAlpha = false;
+                            for (int y = 0; y < sh; ++y)
+                            {
+                                const DWORD* srcRow = reinterpret_cast<const DWORD*>(pData + y * stride);
+                                BYTE* dstRow = m_shadowMaskBuf.data() + y * sw;
+                                for (int x = 0; x < sw; ++x)
+                                {
+                                    BYTE a = static_cast<BYTE>(srcRow[x] >> 24);
+                                    dstRow[x] = a;
+                                    if (a > 0) hasAlpha = true;
+                                }
+                            }
+
+                            if (hasAlpha)
+                            {
+                                blurShadowMask(m_shadowMaskBuf.data(), m_shadowTempBuf.data(), sw, sh, tr->shadow.blur);
+                                colorizeShadowMask(m_shadowMaskBuf.data(), m_shadowPixelBuf.data(), sw, sh, tr->shadow.color);
+
+                                D2D1_RECT_F srcRect = D2D1::RectF(0.0f, 0.0f, static_cast<FLOAT>(sw), static_cast<FLOAT>(sh));
+                                D2D1_RECT_F dstRect = D2D1::RectF(
+                                    bounds.left - pad + tr->shadow.offsetX,
+                                    bounds.top  - pad + tr->shadow.offsetY,
+                                    bounds.left - pad + tr->shadow.offsetX + sw,
+                                    bounds.top  - pad + tr->shadow.offsetY + sh
+                                );
+
+                                if (length == 1)
+                                {
+                                    ID2D1Bitmap* charBitmap = nullptr;
+                                    D2D1_BITMAP_PROPERTIES bmpProps = D2D1::BitmapProperties(
+                                        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+                                    );
+                                    HRESULT hrBmp = m_pRenderTarget->CreateBitmap(
+                                        D2D1::SizeU(sw, sh),
+                                        m_shadowPixelBuf.data(),
+                                        sw * sizeof(DWORD),
+                                        bmpProps,
+                                        &charBitmap
+                                    );
+                                    if (SUCCEEDED(hrBmp) && charBitmap)
+                                    {
+                                        m_pRenderTarget->DrawBitmap(charBitmap, dstRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
+                                        m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { charBitmap, pad, sw, sh });
+                                    }
+                                }
+                                else
+                                {
+                                    D2D1_RECT_U dstRectU = D2D1::RectU(0, 0, static_cast<UINT32>(sw), static_cast<UINT32>(sh));
+                                    if (SUCCEEDED(m_pShadowBmp->CopyFromMemory(&dstRectU, m_shadowPixelBuf.data(), sw * sizeof(DWORD))))
+                                    {
+                                        m_pRenderTarget->DrawBitmap(m_pShadowBmp, dstRect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, srcRect);
+                                    }
+                                }
+                            }
+                            else if (length == 1)
+                            {
+                                m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { nullptr, pad, sw, sh });
+                            }
+                        }
+                        SAFE_RELEASE(pLock);
+                    }
+                }
+            }
+        }
     }
-    SAFE_RELEASE(textLayout);
+
+    m_pRenderTarget->DrawText(
+        text,
+        static_cast<UINT32>(length),
+        tr->textFormat,
+        bounds,
+        tr->textBrush,
+        D2D1_DRAW_TEXT_OPTIONS_NONE,
+        DWRITE_MEASURING_MODE_NATURAL
+    );
 }
 
 void RendererD2D::drawImage(const Image* image, const RECT& rect, bool keepRatio)
@@ -1272,7 +1260,6 @@ bool RendererD2D::createTextResources()
                     }
                 }
             }
-            if (SUCCEEDED(hr)) font->CreateFontFace(&tr.fontFace);
 
             SAFE_RELEASE(collection);
             SAFE_RELEASE(familyNames);
@@ -1294,16 +1281,15 @@ bool RendererD2D::createTextResources()
                 return false;
             }
 
-            // create translucent shadow brush only when shadow is enabled
-            tr.shadowBlur = s.shadowBlur;
-            if (shadowEnabled(s.shadowBlur))
+            // shadow
+            tr.shadow = s.shadow;
+            if (s.shadow.enable)
             {
-                D2D1_COLOR_F shadowColor = colorRefToD2D(s.shadowColor, shadowLayerAlpha(s.shadowBlur));
+                D2D1_COLOR_F shadowColor = colorRefToD2D(s.shadow.color, GetAValue(s.shadow.color));
                 hr = m_pRenderTarget->CreateSolidColorBrush(shadowColor, &tr.shadowBrush);
-                if (FAILED(hr) || !tr.shadowBrush)
+                if (FAILED(hr))
                 {
-                    endPaint();
-                    return false;
+                    tr.shadowBrush = nullptr;
                 }
             }
 
@@ -1326,28 +1312,82 @@ void RendererD2D::releaseTextResources()
 {
     for (auto& tr : m_trs)
     {
-        if (tr.textFormat)
-        {
-            tr.textFormat->Release();
-        }
-        if (tr.textBrush)
-        {
-            tr.textBrush->Release();
-        }
-        if (tr.bgBrush)
-        {
-            tr.bgBrush->Release();
-        }
-        if (tr.shadowBrush)
-        {
-            tr.shadowBrush->Release();
-        }
-        if (tr.fontFace)
-        {
-            tr.fontFace->Release();
-        }
+        if (tr.textFormat) tr.textFormat->Release();
+        if (tr.textBrush) tr.textBrush->Release();
+        if (tr.bgBrush) tr.bgBrush->Release();
+        if (tr.shadowBrush) tr.shadowBrush->Release();
     }
     m_trs.clear();
+    m_charShadowCache.clear();
+    if (m_measurer) m_measurer->clearCache();
+}
+
+bool RendererD2D::createShadowResources(int needW, int needH)
+{
+    if (needW <= 0 || needH <= 0) return false;
+
+    if (m_pShadowWicBitmap && m_pShadowRT && m_pShadowWhiteBrush &&
+        needW <= m_shadowCapW && needH <= m_shadowCapH)
+    {
+        return true;
+    }
+
+    int targetW = max(needW, m_shadowCapW);
+    int targetH = max(needH, m_shadowCapH);
+
+    releaseShadowResources();
+
+    if (FAILED(ContextD2D::instance()->WICFactory()->CreateBitmap(
+        static_cast<UINT>(targetW),
+        static_cast<UINT>(targetH),
+        GUID_WICPixelFormat32bppPBGRA,
+        WICBitmapCacheOnLoad,
+        &m_pShadowWicBitmap)))
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+    );
+    if (FAILED(ContextD2D::instance()->D2DFactory()->CreateWicBitmapRenderTarget(
+        m_pShadowWicBitmap, props, &m_pShadowRT)))
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_pShadowRT->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+
+    if (FAILED(m_pShadowRT->CreateSolidColorBrush(
+        D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &m_pShadowWhiteBrush)))
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    if (FAILED(m_pRenderTarget->CreateBitmapFromWicBitmap(m_pShadowWicBitmap, nullptr, &m_pShadowBmp)))
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_shadowCapW = targetW;
+    m_shadowCapH = targetH;
+    return true;
+}
+
+void RendererD2D::releaseShadowResources()
+{
+    m_charShadowCache.clear();
+    SAFE_RELEASE(m_pShadowWhiteBrush);
+    SAFE_RELEASE(m_pShadowRT);
+    SAFE_RELEASE(m_pShadowBmp);
+    SAFE_RELEASE(m_pShadowWicBitmap);
+    m_shadowCapW = 0;
+    m_shadowCapH = 0;
 }
 
 bool RendererD2D::createLayeredDC()

@@ -4,23 +4,22 @@
 #include "framework.h"
 #include <string>
 #include <vector>
-#include <cstdint>
-#include <cmath>
 
 
 /////////////////////////////////////////////
 // renderer
-struct ShadowInfo
+struct ShadowInfo   // CSS-like [ text-shadow: offsetX offsetY blur color; ]
 {
-    float    blur;     // CSS-like blur radius in pixels, 0 means disabled
-    COLORREF color;    // shadow color (RGB only, alpha is derived from blur)
+    bool     enable;
+    float    offsetX;
+    float    offsetY;
+    float    blur;
+    COLORREF color;
 
-    ShadowInfo() : blur(0.0f), color(RGB(172, 172, 172)) {} // #ACACAC
-    ShadowInfo(float b, COLORREF c) : blur(b), color(c) {}
-
+    ShadowInfo() : enable(false), offsetX(1.0f), offsetY(1.0f), blur(2.5f), color(RGB(172, 172, 172)) {} // #ACACAC
     bool operator==(const ShadowInfo& other) const
     {
-        return std::fabs(blur - other.blur) < 0.01f && color == other.color;
+        return enable == other.enable && offsetX == other.offsetX && offsetY == other.offsetY && blur == other.blur && color == other.color;
     }
     bool operator!=(const ShadowInfo& other) const
     {
@@ -48,25 +47,16 @@ struct TextStyle
     COLORREF textColor;
     COLORREF backgroundColor;
     bool haveBackgroundColor;
-    float    shadowBlur;    // text shadow blur radius, 0 means disabled
-    COLORREF shadowColor;   // text shadow color
+    ShadowInfo shadow;
 
-    TextStyle() : textColor(0), backgroundColor(0), haveBackgroundColor(false),
-                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172)) {}
-    TextStyle(const LOGFONTW& f, COLORREF c) : textColor(c), backgroundColor(0), haveBackgroundColor(false),
-                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172))
+    TextStyle() : textColor(0), backgroundColor(0), haveBackgroundColor(false){}
+    TextStyle(const LOGFONTW& f, COLORREF c) : textColor(c), backgroundColor(0), haveBackgroundColor(false)
     {
         memcpy(&font, &f, sizeof(LOGFONTW));
     }
-    TextStyle(const LOGFONTW& f, COLORREF c, COLORREF b) : textColor(c), backgroundColor(b), haveBackgroundColor(true),
-                  shadowBlur(0.0f), shadowColor(RGB(172, 172, 172))
+    TextStyle(const LOGFONTW& f, COLORREF c, COLORREF b) : textColor(c), backgroundColor(b), haveBackgroundColor(true)
     {
         memcpy(&font, &f, sizeof(LOGFONTW));
-    }
-    void setShadow(const ShadowInfo& shadow)
-    {
-        shadowBlur = shadow.blur;
-        shadowColor = shadow.color;
     }
     bool operator==(const TextStyle& other) const
     {
@@ -74,8 +64,7 @@ struct TextStyle
             textColor == other.textColor &&
             backgroundColor == other.backgroundColor &&
             haveBackgroundColor == other.haveBackgroundColor &&
-            std::fabs(shadowBlur - other.shadowBlur) < 0.01f &&
-            shadowColor == other.shadowColor;
+            shadow == other.shadow;
     }
     bool operator!=(const TextStyle& other) const
     {

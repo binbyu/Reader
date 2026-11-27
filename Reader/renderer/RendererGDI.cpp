@@ -6,35 +6,25 @@
 *  MeasurerGDI                                                      *
 ********************************************************************/
 MeasurerGDI::MeasurerGDI(RendererGDI* r)
-    : m_renderer(r)
+    : MeasurerBase(r)
 {
 }
 
-MeasurerGDI::~MeasurerGDI()
-{
-}
-
-TextMetrics MeasurerGDI::measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
+TextMetrics MeasurerGDI::measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
 {
     TextMetrics metrics = { 0, 0, 0 };
-    if (!text || !m_renderer || !m_renderer->m_textDC)
-    {
-        return metrics;
-    }
+    if (!text || length <= 0) return metrics;
 
-    RendererGDI::TextResource* tr = m_renderer->textResource(textStyleIndex);
-    if (!tr || !tr->hFont)
-    {
-        return metrics;
-    }
-    if (length == -1) length = (int)wcslen(text);
+    RendererGDI* rnd = static_cast<RendererGDI*>(m_renderer);
+    if (!rnd || !rnd->m_textDC) return metrics;
 
-    HFONT hOldFont = (HFONT)SelectObject(m_renderer->m_textDC, tr->hFont);
+    RendererGDI::TextResource* tr = rnd->textResource(textStyleIndex);
+    if (!tr || !tr->hFont) return metrics;
 
+    HFONT hOldFont = (HFONT)SelectObject(rnd->m_textDC, tr->hFont);
     SIZE size = { 0 };
-    GetTextExtentPoint32W(m_renderer->m_textDC, text, length, &size);
-
-    SelectObject(m_renderer->m_textDC, hOldFont);
+    GetTextExtentPoint32W(rnd->m_textDC, text, length, &size);
+    SelectObject(rnd->m_textDC, hOldFont);
 
     metrics.width = size.cx;
     metrics.height = size.cy;
@@ -59,6 +49,8 @@ RendererGDI::~RendererGDI()
         m_measurer = nullptr;
     }
 
+    m_charShadowCache.clear();
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -92,6 +84,7 @@ bool RendererGDI::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyle
 
     if (m_styles != styles || m_clearType != clearType)
     {
+        releaseShadowResources();
         releaseTextResources();
     }
     if (!isSameSize(rect))
@@ -124,6 +117,7 @@ bool RendererGDI::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextStyle
     return true;
 
 FAILED:
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -190,6 +184,7 @@ void RendererGDI::endPaint()
         }
     }
 
+    //releaseShadowResources();
     //releaseTextResources();
     //releaseDeviceResources();
     releaseLayeredDC();
@@ -345,28 +340,21 @@ void RendererGDI::fillRect(const Image* image, const RECT& rect, WrapMode mode)
 
 void RendererGDI::drawText(const wchar_t* text, int length, const RECT& rect, int textStyleIndex)
 {
-    if (!text || !m_memDC || !m_textDC || !m_textBits)
-    {
-        return;
-    }
+    if (!text || !m_memDC || !m_textDC || !m_textBits) return;
 
     if (length < 0)
     {
-        length = static_cast<int>(wcslen(text));
+        length = 0;
+        const wchar_t* p = text;
+        while (*p++) length++;
     }
-    if (length == 0)
-    {
-        return;
-    }
+    if (length == 0) return;
 
     TextResource* tr = textResource(textStyleIndex);
-    if (!tr || !tr->hFont)
-    {
-        return;
-    }
+    if (!tr || !tr->hFont) return;
 
 #if !ALWAYS_BLEND
-    if (m_isLayered || m_isBlend || (tr->haveBgColor && GetAValue(tr->bgColor) < 0xff) || GetAValue(tr->textColor) < 0xff)
+    if (m_isLayered || m_isBlend || (tr->haveBgColor && GetAValue(tr->bgColor) < 0xff) || GetAValue(tr->textColor) < 0xff || tr->shadow.enable)
     {
 #endif
         int width = m_rect.right - m_rect.left;
@@ -384,6 +372,159 @@ void RendererGDI::drawText(const wchar_t* text, int length, const RECT& rect, in
             fillRect(tr->bgColor, rect);
         }
 
+        for (int y = y0; y < y1; ++y)
+        {
+            DWORD* row = (DWORD*)(m_textBits + y * width * 4);
+            for (int x = x0; x < x1; ++x)
+            {
+                row[x] = 0;
+            }
+        }
+
+        if (tr->shadow.enable)
+        {
+            const int textW = rect.right - rect.left;
+            const int textH = rect.bottom - rect.top;
+            const int pad = shadowPadding(tr->shadow.blur, tr->shadow.offsetX, tr->shadow.offsetY);
+            const int shadowW = textW + pad * 2;
+            const int shadowH = textH + pad * 2;
+
+            bool drawnFromCache = false;
+            if (length == 1)
+            {
+                CharShadowGDI* val = m_charShadowCache.find({ text[0], textStyleIndex, textW, textH });
+                if (val)
+                {
+                    if (!val->pixels.empty() && createShadowResources(val->sw, val->sh))
+                    {
+                        DWORD* shadowPixels = reinterpret_cast<DWORD*>(m_shadowBits);
+                        for (int y = 0; y < val->sh; ++y)
+                        {
+                            memcpy(shadowPixels + y * m_shadowCapW, val->pixels.data() + y * val->sw, val->sw * sizeof(DWORD));
+                        }
+                        BLENDFUNCTION shadowBlend = { 0 };
+                        shadowBlend.BlendOp = AC_SRC_OVER;
+                        shadowBlend.SourceConstantAlpha = 0xFF;
+                        shadowBlend.AlphaFormat = AC_SRC_ALPHA;
+                        AlphaBlend(m_textDC,
+                            rect.left - val->pad + static_cast<int>(tr->shadow.offsetX),
+                            rect.top  - val->pad + static_cast<int>(tr->shadow.offsetY),
+                            val->sw, val->sh,
+                            m_shadowDC, 0, 0, val->sw, val->sh, shadowBlend);
+                    }
+                    drawnFromCache = true;
+                }
+            }
+
+            if (!drawnFromCache)
+            {
+                if (shadowW > 0 && shadowH > 0 && createShadowResources(shadowW, shadowH))
+                {
+                    const size_t total = static_cast<size_t>(shadowW) * shadowH;
+                    DWORD* shadowPixels = reinterpret_cast<DWORD*>(m_shadowBits);
+                    for (int y = 0; y < shadowH; ++y)
+                    {
+                        DWORD* row = shadowPixels + y * m_shadowCapW;
+                        for (int x = 0; x < shadowW; ++x) row[x] = 0x00FFFFFF;
+                    }
+
+                    HFONT hOldShadowFont = (HFONT)SelectObject(m_shadowDC, tr->hFont);
+                    SetTextColor(m_shadowDC, RGB(0, 0, 0));
+                    SetBkMode(m_shadowDC, TRANSPARENT);
+                    TextOutW(m_shadowDC, pad, pad, text, length);
+                    SelectObject(m_shadowDC, hOldShadowFont);
+
+                    if (m_shadowMaskBuf.size() < total) m_shadowMaskBuf.resize(total);
+                    if (m_shadowTempBuf.size() < total) m_shadowTempBuf.resize(total);
+                    bool hasAlpha = false;
+                    for (int y = 0; y < shadowH; ++y)
+                    {
+                        const DWORD* srcRow = shadowPixels + y * m_shadowCapW;
+                        BYTE* dstRow = m_shadowMaskBuf.data() + y * shadowW;
+                        for (int x = 0; x < shadowW; ++x)
+                        {
+                            BYTE cov = textCoverage(srcRow[x]);
+                            dstRow[x] = cov;
+                            if (cov > 0) hasAlpha = true;
+                        }
+                    }
+
+                    if (hasAlpha)
+                    {
+                        blurShadowMask(m_shadowMaskBuf.data(), m_shadowTempBuf.data(), shadowW, shadowH, tr->shadow.blur);
+                        for (int y = 0; y < shadowH; ++y)
+                        {
+                            colorizeShadowMask(m_shadowMaskBuf.data() + y * shadowW, shadowPixels + y * m_shadowCapW, shadowW, 1, tr->shadow.color);
+                        }
+
+                        if (length == 1)
+                        {
+                            std::vector<DWORD> cachedPix(total);
+                            for (int y = 0; y < shadowH; ++y)
+                            {
+                                memcpy(cachedPix.data() + y * shadowW, shadowPixels + y * m_shadowCapW, shadowW * sizeof(DWORD));
+                            }
+                            m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { std::move(cachedPix), pad, shadowW, shadowH });
+                        }
+
+                        BLENDFUNCTION shadowBlend = { 0 };
+                        shadowBlend.BlendOp = AC_SRC_OVER;
+                        shadowBlend.SourceConstantAlpha = 0xFF;
+                        shadowBlend.AlphaFormat = AC_SRC_ALPHA;
+                        AlphaBlend(m_textDC,
+                            rect.left - pad + static_cast<int>(tr->shadow.offsetX),
+                            rect.top  - pad + static_cast<int>(tr->shadow.offsetY),
+                            shadowW, shadowH,
+                            m_shadowDC, 0, 0, shadowW, shadowH, shadowBlend);
+                    }
+                    else if (length == 1)
+                    {
+                        m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { {}, pad, shadowW, shadowH });
+                    }
+                }
+            }
+
+            if (shadowW > 0 && shadowH > 0 && createShadowResources(shadowW, shadowH))
+            {
+                DWORD* shadowPixels = reinterpret_cast<DWORD*>(m_shadowBits);
+                for (int y = 0; y < shadowH; ++y)
+                {
+                    DWORD* row = shadowPixels + y * m_shadowCapW;
+                    for (int x = 0; x < shadowW; ++x)
+                    {
+                        row[x] = 0x00FFFFFF;
+                    }
+                }
+                HFONT hOldShadowFont = (HFONT)SelectObject(m_shadowDC, tr->hFont);
+                SetTextColor(m_shadowDC, RGB(0, 0, 0));
+                SetBkMode(m_shadowDC, TRANSPARENT);
+                TextOutW(m_shadowDC, pad, pad, text, length);
+                SelectObject(m_shadowDC, hOldShadowFont);
+
+                BYTE a = GetAValue(tr->textColor);
+                BYTE r = GetRValue(tr->textColor);
+                BYTE g = GetGValue(tr->textColor);
+                BYTE b = GetBValue(tr->textColor);
+                if (a == 0) a = 0xff;
+                for (int y = y0; y < y1; ++y)
+                {
+                    DWORD* dstRow = reinterpret_cast<DWORD*>(m_textBits + y * width * 4);
+                    const DWORD* maskRow = shadowPixels + (y - rect.top + pad) * m_shadowCapW;
+                    for (int x = x0; x < x1; ++x)
+                    {
+                        BYTE coverage = textCoverage(maskRow[x - rect.left + pad]);
+                        BYTE alpha = static_cast<BYTE>((coverage * a + 127) / 255);
+                        blendPremultipliedPixel(dstRow[x], premultiplyPixel(r, g, b, alpha));
+                    }
+                }
+#if !ALWAYS_BLEND
+                m_textDCUsed = true;
+#endif
+                return;
+            }
+        }
+
+        // The regular text path uses white as the no-coverage value.
         for (int y = y0; y < y1; ++y)
         {
             DWORD* row = (DWORD*)(m_textBits + y * width * 4);
@@ -617,6 +758,7 @@ bool RendererGDI::createTextResources()
             tr.textColor = s.textColor;
             tr.haveBgColor = s.haveBackgroundColor;
             tr.bgColor = s.backgroundColor;
+            tr.shadow = s.shadow;
         }
     }
     return true;
@@ -633,6 +775,83 @@ void RendererGDI::releaseTextResources()
         }
     }
     m_trs.clear();
+    m_charShadowCache.clear();
+    if (m_measurer) m_measurer->clearCache();
+}
+
+bool RendererGDI::createShadowResources(int needW, int needH)
+{
+    if (needW <= 0 || needH <= 0)
+    {
+        return false;
+    }
+
+    if (m_shadowDC && m_shadowBitmap && m_shadowBits &&
+        needW <= m_shadowCapW && needH <= m_shadowCapH)
+    {
+        return true;
+    }
+
+    const int targetW = (std::max)(needW, m_shadowCapW);
+    const int targetH = (std::max)(needH, m_shadowCapH);
+    releaseShadowResources();
+
+    m_shadowDC = CreateCompatibleDC(m_hdc);
+    if (!m_shadowDC)
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = targetW;
+    bmi.bmiHeader.biHeight = -targetH;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    m_shadowBitmap = CreateDIBSection(m_shadowDC, &bmi, DIB_RGB_COLORS,
+        reinterpret_cast<void**>(&m_shadowBits), nullptr, 0);
+    if (!m_shadowBitmap || !m_shadowBits)
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_oldShadowBitmap = (HBITMAP)SelectObject(m_shadowDC, m_shadowBitmap);
+    if (!m_oldShadowBitmap)
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_shadowCapW = targetW;
+    m_shadowCapH = targetH;
+    return true;
+}
+
+void RendererGDI::releaseShadowResources()
+{
+    m_charShadowCache.clear();
+    if (m_shadowDC && m_oldShadowBitmap)
+    {
+        SelectObject(m_shadowDC, m_oldShadowBitmap);
+        m_oldShadowBitmap = nullptr;
+    }
+    if (m_shadowBitmap)
+    {
+        DeleteObject(m_shadowBitmap);
+        m_shadowBitmap = nullptr;
+    }
+    if (m_shadowDC)
+    {
+        DeleteDC(m_shadowDC);
+        m_shadowDC = nullptr;
+    }
+    m_shadowBits = nullptr;
+    m_shadowCapW = 0;
+    m_shadowCapH = 0;
 }
 
 bool RendererGDI::createLayeredDC()

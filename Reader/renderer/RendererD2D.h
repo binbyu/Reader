@@ -8,6 +8,8 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <unordered_map>
+#include <list>
 
 /********************************************************************
 *  ImageD2D                                                         *
@@ -46,14 +48,13 @@ public:
 *  MeasurerD2D                                                      *
 ********************************************************************/
 class RendererD2D;
-class MeasurerD2D : public IMeasurer
+class MeasurerD2D : public MeasurerBase
 {
 public:
     MeasurerD2D(RendererD2D* r);
-    ~MeasurerD2D();
-    virtual TextMetrics measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex);
-private:
-    RendererD2D* m_renderer;
+    virtual ~MeasurerD2D() = default;
+protected:
+    virtual TextMetrics measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex) override;
 };
 
 /********************************************************************
@@ -113,6 +114,8 @@ protected:
     virtual void releaseDeviceResources();
     virtual bool createTextResources();
     virtual void releaseTextResources();
+    virtual bool createShadowResources(int needW, int needH);
+    virtual void releaseShadowResources();
 
 protected:
     bool createLayeredDC();
@@ -124,13 +127,19 @@ private:
         IDWriteTextFormat* textFormat = nullptr;
         ID2D1SolidColorBrush* textBrush = nullptr;
         ID2D1SolidColorBrush* bgBrush = nullptr;
-        ID2D1SolidColorBrush* shadowBrush = nullptr; // translucent brush for the shadow ring
-        float shadowBlur = 0.0f;
-
-        // for fast text measure
-        IDWriteFontFace* fontFace = nullptr;
+        ID2D1SolidColorBrush* shadowBrush = nullptr;
+        ShadowInfo shadow;
     };
     TextResource* textResource(int index);
+
+private:
+    struct CharShadowD2D
+    {
+        ID2D1Bitmap* bitmap = nullptr;
+        int pad = 0;
+        int sw = 0;
+        int sh = 0;
+    };
 
 private:
     D2D1_COLOR_F colorRefToD2D(COLORREF color, BYTE alpha = 255);
@@ -141,4 +150,13 @@ private:
     unsigned int m_generationID = 0;
     std::vector<TextResource> m_trs;
     MeasurerD2D* m_measurer = nullptr;
+
+    // for shadow
+    IWICBitmap* m_pShadowWicBitmap = nullptr;
+    ID2D1Bitmap* m_pShadowBmp = nullptr;
+    ID2D1RenderTarget* m_pShadowRT = nullptr;
+    ID2D1SolidColorBrush* m_pShadowWhiteBrush = nullptr;
+    int m_shadowCapW = 0;
+    int m_shadowCapH = 0;
+    LRUCache<CharShadowKey, CharShadowD2D, CharShadowKeyHash> m_charShadowCache;
 };

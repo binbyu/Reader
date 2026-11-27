@@ -6,95 +6,27 @@
 *  MeasurerGDIPlus                                                  *
 ********************************************************************/
 MeasurerGDIPlus::MeasurerGDIPlus(RendererGDIPlus* r)
-    : m_renderer(r)
+    : MeasurerBase(r)
 {
 }
 
-MeasurerGDIPlus::~MeasurerGDIPlus()
+TextMetrics MeasurerGDIPlus::measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
 {
-}
-
-TextMetrics MeasurerGDIPlus::measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex)
-{
-#if 1
     TextMetrics metrics = { 0, 0, 0 };
-    if (!text || !m_renderer || !m_renderer->m_graphics)
-    {
-        return metrics;
-    }
+    if (!text || length <= 0) return metrics;
 
-    RendererGDIPlus::TextResource* tr = m_renderer->textResource(textStyleIndex);
-    if (!tr || !tr->font || !tr->stringFormat)
-    {
-        return metrics;
-    }
+    RendererGDIPlus* rnd = static_cast<RendererGDIPlus*>(m_renderer);
+    if (!rnd || !rnd->m_graphics) return metrics;
+
+    RendererGDIPlus::TextResource* tr = rnd->textResource(textStyleIndex);
+    if (!tr || !tr->font || !tr->stringFormat) return metrics;
 
     Gdiplus::RectF rc;
-    m_renderer->m_graphics->MeasureString(text, length, tr->font, Gdiplus::PointF(0, 0), tr->stringFormat, &rc);
-    metrics.width = static_cast<int>(rc.Width);
-    metrics.height = static_cast<int>(rc.Height);
+    rnd->m_graphics->MeasureString(text, length, tr->font, Gdiplus::PointF(0, 0), tr->stringFormat, &rc);
+    metrics.width = static_cast<int>(ceilf(rc.Width));
+    metrics.height = static_cast<int>(ceilf(rc.Height));
     metrics.count = length;
     return metrics;
-#else
-    TextMetrics metrics = { 0, 0, 0 };
-    if (!text || !m_renderer)
-    {
-        return metrics;
-    }
-
-    if (length <= 0)
-    {
-        length = static_cast<int>(wcslen(text));
-    }
-    if (length == 0)
-    {
-        return metrics;
-    }
-
-    RendererGDIPlus::TextResource* tr = m_renderer->textResource(textStyleIndex);
-    if (!tr || !tr->font || !tr->stringFormat)
-    {
-        return metrics;
-    }
-
-    Gdiplus::Graphics* g = m_renderer->m_graphics;
-    HDC tempDC = NULL;
-    Gdiplus::Graphics* tempG = nullptr;
-
-    if (!g)
-    {
-        tempDC = ::GetDC(NULL);
-        tempG = new Gdiplus::Graphics(tempDC);
-        g = tempG;
-    }
-
-    Gdiplus::REAL layoutW = (maxWidth > 0) ? static_cast<Gdiplus::REAL>(maxWidth) : 999999.0f;
-    Gdiplus::RectF layoutRect(0.0f, 0.0f, layoutW, 999999.0f);
-
-    Gdiplus::CharacterRange cr(0, length);
-    
-    Gdiplus::StringFormat format;
-    format.SetFormatFlags(tr->stringFormat->GetFormatFlags() | Gdiplus::StringFormatFlagsNoClip);
-    format.SetMeasurableCharacterRanges(1, &cr);
-
-    Gdiplus::Region region;
-    if (g->MeasureCharacterRanges(text, length, tr->font, layoutRect, &format, 1, &region) == Gdiplus::Ok)
-    {
-        Gdiplus::RectF boundRect;
-        region.GetBounds(&boundRect, g);
-
-        metrics.width = static_cast<int>(ceilf(boundRect.Width));
-        metrics.height = static_cast<int>(ceilf(boundRect.Height));
-        metrics.count = length;
-    }
-    if (tempG)
-    {
-        delete tempG;
-        ::ReleaseDC(NULL, tempDC);
-    }
-
-    return metrics;
-#endif
 }
 
 
@@ -104,6 +36,7 @@ TextMetrics MeasurerGDIPlus::measureText(const wchar_t* text, int length, int ma
 RendererGDIPlus::RendererGDIPlus()
     : RendererGDIPlusBase()
 {
+    m_charShadowCache.setCleanup([](CharShadowGDIPlus& v) { if (v.bitmap) { delete v.bitmap; v.bitmap = nullptr; }});
 }
 
 RendererGDIPlus::~RendererGDIPlus()
@@ -114,6 +47,8 @@ RendererGDIPlus::~RendererGDIPlus()
         m_measurer = nullptr;
     }
 
+    m_charShadowCache.clear();
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -147,6 +82,7 @@ bool RendererGDIPlus::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextS
 
     if (m_styles != styles)
     {
+        releaseShadowResources();
         releaseTextResources();
     }
     if (!isSameSize(rect) || m_clearType != clearType)
@@ -176,6 +112,7 @@ bool RendererGDIPlus::beginPaint(HWND hWnd, HDC hdc, const RECT& rc, const TextS
     return true;
 
 FAILED:
+    releaseShadowResources();
     releaseTextResources();
     releaseDeviceResources();
     releaseLayeredDC();
@@ -232,6 +169,7 @@ void RendererGDIPlus::endPaint()
         DeleteDC(memdc);
     }
 
+    //releaseShadowResources();
     //releaseTextResources();
     //releaseDeviceResources();
     releaseLayeredDC();
@@ -307,16 +245,18 @@ void RendererGDIPlus::fillRect(const Image* image, const RECT& rect, WrapMode mo
 
 void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect, int textStyleIndex)
 {
-    if (!text || !m_graphics)
+    if (!text || !m_graphics) return;
+
+    if (length < 0)
     {
-        return;
+        length = 0;
+        const wchar_t* p = text;
+        while (*p++) length++;
     }
+    if (length == 0) return;
 
     TextResource* tr = textResource(textStyleIndex);
-    if (!tr || !tr->font || !tr->stringFormat || !tr->textBrush)
-    {
-        return;
-    }
+    if (!tr || !tr->font || !tr->stringFormat || !tr->textBrush) return;
 
     Gdiplus::RectF bounds(
         static_cast<Gdiplus::REAL>(rect.left),
@@ -330,16 +270,111 @@ void RendererGDIPlus::drawText(const wchar_t* text, int length, const RECT& rect
         m_graphics->FillRectangle(tr->bgBrush, bounds);
     }
 
-    // Draw the 8-direction shadow ring with a separate translucent brush,
-    // then the solid text on top. blur=0 is skipped entirely (zero overhead).
-    if (shadowEnabled(tr->shadowBlur) && tr->shadowBrush)
+    if (tr->shadow.enable)
     {
-        float offsets[SHADOW_RING_SAMPLES][2];
-        shadowOffsets(tr->shadowBlur, offsets);
-        for (int i = 0; i < SHADOW_RING_SAMPLES; ++i)
+        int textW = rect.right - rect.left;
+        int textH = rect.bottom - rect.top;
+        bool drawnFromCache = false;
+
+        if (length == 1)
         {
-            Gdiplus::PointF shadowOrigin(bounds.X + offsets[i][0], bounds.Y + offsets[i][1]);
-            m_graphics->DrawString(text, length, tr->font, shadowOrigin, tr->stringFormat, tr->shadowBrush);
+            CharShadowGDIPlus* val = m_charShadowCache.find({ text[0], textStyleIndex, textW, textH });
+            if (val)
+            {
+                if (val->bitmap)
+                {
+                    Gdiplus::RectF dstRect(bounds.X - val->pad + tr->shadow.offsetX, bounds.Y - val->pad + tr->shadow.offsetY, static_cast<Gdiplus::REAL>(val->sw), static_cast<Gdiplus::REAL>(val->sh));
+                    m_graphics->DrawImage(val->bitmap, dstRect, 0.0f, 0.0f, static_cast<Gdiplus::REAL>(val->sw), static_cast<Gdiplus::REAL>(val->sh), Gdiplus::UnitPixel);
+                }
+                drawnFromCache = true;
+            }
+        }
+
+        if (!drawnFromCache)
+        {
+            int pad = shadowPadding(tr->shadow.blur, tr->shadow.offsetX, tr->shadow.offsetY);
+            int sw = textW + pad * 2;
+            int sh = textH + pad * 2;
+
+            if (createShadowResources(sw, sh))
+            {
+                Gdiplus::Graphics g(m_pShadowBitmap);
+                g.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
+                g.Clear(Gdiplus::Color(0, 0, 0, 0));
+                g.DrawString(text, length, tr->font, Gdiplus::PointF(static_cast<Gdiplus::REAL>(pad), static_cast<Gdiplus::REAL>(pad)), tr->stringFormat, m_pShadowWhiteBrush);
+
+                Gdiplus::Rect lockRc(0, 0, sw, sh);
+                Gdiplus::BitmapData bmpData;
+                if (m_pShadowBitmap->LockBits(&lockRc, Gdiplus::ImageLockModeRead | Gdiplus::ImageLockModeWrite, PixelFormat32bppPARGB, &bmpData) == Gdiplus::Ok)
+                {
+                    size_t total = static_cast<size_t>(sw) * sh;
+                    if (m_shadowMaskBuf.size() < total) m_shadowMaskBuf.resize(total);
+                    if (m_shadowTempBuf.size() < total) m_shadowTempBuf.resize(total);
+                    if (m_shadowPixelBuf.size() < total) m_shadowPixelBuf.resize(total);
+
+                    BYTE* base = static_cast<BYTE*>(bmpData.Scan0);
+                    bool hasAlpha = false;
+                    for (int y = 0; y < sh; ++y)
+                    {
+                        const DWORD* srcRow = reinterpret_cast<const DWORD*>(base + y * bmpData.Stride);
+                        BYTE* dstRow = m_shadowMaskBuf.data() + y * sw;
+                        for (int x = 0; x < sw; ++x)
+                        {
+                            BYTE a = static_cast<BYTE>(srcRow[x] >> 24);
+                            dstRow[x] = a;
+                            if (a > 0) hasAlpha = true;
+                        }
+                    }
+
+                    if (hasAlpha)
+                    {
+                        blurShadowMask(m_shadowMaskBuf.data(), m_shadowTempBuf.data(), sw, sh, tr->shadow.blur);
+                        colorizeShadowMask(m_shadowMaskBuf.data(), m_shadowPixelBuf.data(), sw, sh, tr->shadow.color);
+
+                        Gdiplus::RectF dstRect(bounds.X - pad + tr->shadow.offsetX, bounds.Y - pad + tr->shadow.offsetY, static_cast<Gdiplus::REAL>(sw), static_cast<Gdiplus::REAL>(sh));
+
+                        if (length == 1)
+                        {
+                            m_pShadowBitmap->UnlockBits(&bmpData);
+                            Gdiplus::Bitmap* charBmp = new Gdiplus::Bitmap(sw, sh, PixelFormat32bppPARGB);
+                            Gdiplus::Rect charRc(0, 0, sw, sh);
+                            Gdiplus::BitmapData charData;
+                            if (charBmp->LockBits(&charRc, Gdiplus::ImageLockModeWrite, PixelFormat32bppPARGB, &charData) == Gdiplus::Ok)
+                            {
+                                for (int y = 0; y < sh; ++y)
+                                {
+                                    memcpy(reinterpret_cast<BYTE*>(charData.Scan0) + y * charData.Stride,
+                                            m_shadowPixelBuf.data() + y * sw, sw * sizeof(DWORD));
+                                }
+                                charBmp->UnlockBits(&charData);
+                                m_graphics->DrawImage(charBmp, dstRect, 0.0f, 0.0f, static_cast<Gdiplus::REAL>(sw), static_cast<Gdiplus::REAL>(sh), Gdiplus::UnitPixel);
+                                m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { charBmp, pad, sw, sh });
+                            }
+                            else
+                            {
+                                delete charBmp;
+                            }
+                        }
+                        else
+                        {
+                            for (int y = 0; y < sh; ++y)
+                            {
+                                memcpy(base + y * bmpData.Stride, m_shadowPixelBuf.data() + y * sw, sw * sizeof(DWORD));
+                            }
+                            m_pShadowBitmap->UnlockBits(&bmpData);
+                            m_graphics->DrawImage(m_pShadowBitmap, dstRect, 0.0f, 0.0f, static_cast<Gdiplus::REAL>(sw), static_cast<Gdiplus::REAL>(sh), Gdiplus::UnitPixel);
+                        }
+                    }
+                    else
+                    {
+                        m_pShadowBitmap->UnlockBits(&bmpData);
+                        if (length == 1)
+                        {
+                            m_charShadowCache.put({ text[0], textStyleIndex, textW, textH }, { nullptr, pad, sw, sh });
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -463,16 +498,13 @@ bool RendererGDIPlus::createTextResources()
                 return false;
             }
 
-            // create the translucent shadow brush only when shadow is enabled
-            tr.shadowBlur = s.shadowBlur;
-            if (shadowEnabled(s.shadowBlur))
+            // shadow
+            tr.shadow = s.shadow;
+            if (s.shadow.enable)
             {
-                BYTE a = shadowLayerAlpha(s.shadowBlur);
-                tr.shadowBrush = new Gdiplus::SolidBrush(Gdiplus::Color(a, GetRValue(s.shadowColor), GetGValue(s.shadowColor), GetBValue(s.shadowColor)));
-                if (!tr.shadowBrush || tr.shadowBrush->GetLastStatus() != Gdiplus::Ok)
-                {
-                    return false;
-                }
+                BYTE a = GetAValue(s.shadow.color);
+                if (a == 0) a = 255;
+                tr.shadowBrush = new Gdiplus::SolidBrush(Gdiplus::Color(a, GetRValue(s.shadow.color), GetGValue(s.shadow.color), GetBValue(s.shadow.color)));
             }
 
             if (s.haveBackgroundColor)
@@ -506,28 +538,66 @@ void RendererGDIPlus::releaseTextResources()
 {
     for (auto& tr : m_trs)
     {
-        if (tr.font)
-        {
-            delete tr.font;
-        }
-        if (tr.textBrush)
-        {
-            delete tr.textBrush;
-        }
-        if (tr.bgBrush)
-        {
-            delete tr.bgBrush;
-        }
-        if (tr.shadowBrush)
-        {
-            delete tr.shadowBrush;
-        }
-        if (tr.stringFormat)
-        {
-            delete tr.stringFormat;
-        }
+        if (tr.font) delete tr.font;
+        if (tr.textBrush) delete tr.textBrush;
+        if (tr.bgBrush) delete tr.bgBrush;
+        if (tr.shadowBrush) delete tr.shadowBrush;
+        if (tr.stringFormat) delete tr.stringFormat;
     }
     m_trs.clear();
+    m_charShadowCache.clear();
+    if (m_measurer) m_measurer->clearCache();
+}
+
+bool RendererGDIPlus::createShadowResources(int needW, int needH)
+{
+    if (needW <= 0 || needH <= 0) return false;
+
+    if (m_pShadowBitmap && m_pShadowWhiteBrush &&
+        needW <= m_shadowCapW && needH <= m_shadowCapH)
+    {
+        return true;
+    }
+
+    int targetW = (std::max)(needW, m_shadowCapW);
+    int targetH = (std::max)(needH, m_shadowCapH);
+
+    releaseShadowResources();
+
+    m_pShadowBitmap = new Gdiplus::Bitmap(targetW, targetH, PixelFormat32bppPARGB);
+    if (!m_pShadowBitmap || m_pShadowBitmap->GetLastStatus() != Gdiplus::Ok)
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_pShadowWhiteBrush = new Gdiplus::SolidBrush(Gdiplus::Color(255, 255, 255, 255));
+    if (!m_pShadowWhiteBrush || m_pShadowWhiteBrush->GetLastStatus() != Gdiplus::Ok)
+    {
+        releaseShadowResources();
+        return false;
+    }
+
+    m_shadowCapW = targetW;
+    m_shadowCapH = targetH;
+    return true;
+}
+
+void RendererGDIPlus::releaseShadowResources()
+{
+    m_charShadowCache.clear();
+    if (m_pShadowWhiteBrush)
+    {
+        delete m_pShadowWhiteBrush;
+        m_pShadowWhiteBrush = nullptr;
+    }
+    if (m_pShadowBitmap)
+    {
+        delete m_pShadowBitmap;
+        m_pShadowBitmap = nullptr;
+    }
+    m_shadowCapW = 0;
+    m_shadowCapH = 0;
 }
 
 bool RendererGDIPlus::createLayeredDC()

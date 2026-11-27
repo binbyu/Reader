@@ -4,14 +4,13 @@
 #define ALWAYS_BLEND    (0)
 
 class RendererGDI;
-class MeasurerGDI : public IMeasurer
+class MeasurerGDI : public MeasurerBase
 {
 public:
     MeasurerGDI(RendererGDI* r);
-    ~MeasurerGDI();
-    virtual TextMetrics measureText(const wchar_t* text, int length, int maxWidth, int textStyleIndex);
-private:
-    RendererGDI* m_renderer;
+    virtual ~MeasurerGDI() = default;
+protected:
+    virtual TextMetrics measureTextImpl(const wchar_t* text, int length, int maxWidth, int textStyleIndex) override;
 };
 
 class RendererGDI : public RendererGDIPlusBase
@@ -37,6 +36,8 @@ protected:
     virtual void releaseDeviceResources();
     virtual bool createTextResources();
     virtual void releaseTextResources();
+    virtual bool createShadowResources(int needW, int needH);
+    virtual void releaseShadowResources();
 
 protected:
     bool createLayeredDC();
@@ -52,6 +53,7 @@ private:
         COLORREF textColor = 0;
         COLORREF bgColor = 0;
         bool     haveBgColor = false;
+        ShadowInfo shadow;
     };
     TextResource* textResource(int index);
 
@@ -71,4 +73,21 @@ private:
 
     std::vector<TextResource> m_trs;
     MeasurerGDI* m_measurer = nullptr;
+
+    // for shadow
+    struct CharShadowGDI
+    {
+        std::vector<DWORD> pixels;
+        int pad = 0;
+        int sw = 0;
+        int sh = 0;
+    };
+
+    HDC     m_shadowDC = nullptr;
+    HBITMAP m_shadowBitmap = nullptr;
+    HBITMAP m_oldShadowBitmap = nullptr;
+    BYTE*   m_shadowBits = nullptr;
+    int     m_shadowCapW = 0;
+    int     m_shadowCapH = 0;
+    LRUCache<CharShadowKey, CharShadowGDI, CharShadowKeyHash> m_charShadowCache;
 };

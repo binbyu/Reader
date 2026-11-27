@@ -20,6 +20,7 @@ public:
 
     bool isRunning() const;
     void activate();
+    static std::wstring cmdFile();
 
 private:
     std::wstring mutexName();

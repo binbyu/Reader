@@ -34,6 +34,24 @@ bool SingleApp::isRunning() const
     return m_isRunning;
 }
 
+std::wstring SingleApp::cmdFile()
+{
+    std::wstring result;
+    int argc = 0;
+    LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (argv)
+    {
+        if (argc > 1)
+        {
+            wchar_t fullPath[MAX_PATH] = { 0 };
+            GetFullPathNameW(argv[1], MAX_PATH, fullPath, NULL);
+            result = fullPath;
+        }
+        LocalFree(argv);
+    }
+    return result;
+}
+
 void SingleApp::activate()
 {
     HWND hWnd = NULL;
@@ -42,19 +60,14 @@ void SingleApp::activate()
 
     if (hWnd)
     {
-        int argc = 0;
-        LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-        if (argv)
+        std::wstring fileName = cmdFile();
+        if (!fileName.empty())
         {
-            if (argc > 1)
-            {
-                COPYDATASTRUCT copyData = {0};
-                copyData.dwData = 0;
-                copyData.cbData = (DWORD)((wcslen(argv[1]) + 1) * sizeof(wchar_t));
-                copyData.lpData = argv[1];
-                SendMessageW(hWnd, WM_COPYDATA, 0, (LPARAM)&copyData);
-            }
-            LocalFree(argv);
+            COPYDATASTRUCT copyData = {0};
+            copyData.dwData = 0;
+            copyData.cbData = (DWORD)((fileName.size() + 1) * sizeof(wchar_t));
+            copyData.lpData = (PVOID)fileName.c_str();
+            SendMessageW(hWnd, WM_COPYDATA, 0, (LPARAM)&copyData);
         }
     }
 }

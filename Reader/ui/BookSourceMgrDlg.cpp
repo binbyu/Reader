@@ -422,6 +422,7 @@ LRESULT BookSourceMgrDlg::onListClear()
     onListSelected(-1, FALSE);
     Settings::instance().data().sources.clear();
     Settings::instance().save();
+    clearUI();
     m_currentIndex = -1;
     return (INT_PTR)TRUE;
 }
@@ -695,9 +696,9 @@ bool BookSourceMgrDlg::isBookSourceEmpty(const BookSource& source)
         || (source.enableChapterPage && source.chapterPageXpath.empty())
         || source.chapterTitleXpath.empty()
         || source.chapterUrlXpath.empty()
-        || (source.enableChapterNext && (source.chapterNextUrlXpath.empty() || source.chapterNextKeywordXpath.empty() || source.chapterNextKeyword.empty()))
+        || (source.enableChapterNext && (source.chapterNextUrlXpath.empty() || (!source.chapterNextKeywordXpath.empty() && source.chapterNextKeyword.empty())))
         || source.contentXpath.empty()
-        || (source.enableContentNext && (source.contentNextUrlXpath.empty() || source.contentNextKeywordXpath.empty() || source.contentNextKeyword.empty()))
+        || (source.enableContentNext && (source.contentNextUrlXpath.empty() || (!source.contentNextKeywordXpath.empty() && source.contentNextKeyword.empty())))
         || (source.contentFilterType != 0 && source.contentFilterKeyword.empty())
         );
 }

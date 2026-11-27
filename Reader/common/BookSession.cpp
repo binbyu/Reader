@@ -33,24 +33,31 @@ BookSession::~BookSession()
     uninit();
 }
 
-void BookSession::init()
+void BookSession::init(const std::wstring& defaultFile)
 {
-    std::wstring fileName;
+    std::wstring fileName = defaultFile;
+
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         auto& books = Settings::instance().data().books;
-        while (!books.empty())
+
+        // clear not exist files
+        for (auto it = books.begin(); it != books.end();)
         {
-            auto& item = books.front();
-            if (!Utils::isFileExist(item.fileName))
+            if (!Utils::isFileExist(it->fileName))
             {
-                books.erase(books.begin());
-                continue;
+                it = books.erase(it);
             }
-            fileName = item.fileName;
-            break;
+            else  it++;
+        }
+
+        // open lasest file
+        if (fileName.empty() && !books.empty())
+        {
+            fileName = books.front().fileName;
         }
     }
+
     if (!fileName.empty())
     {
         open(fileName);
@@ -619,6 +626,7 @@ const PageInfo& BookSession::pageInfo() const
 void BookSession::drawPage(HDC hdc, const RECT& rect)
 {
     if (!m_book || isLoading()) return;
+    auto* renderer = IRenderer::instance();
 
     m_width = rect.right - rect.left;
     m_height = rect.bottom - rect.top;
@@ -629,10 +637,10 @@ void BookSession::drawPage(HDC hdc, const RECT& rect)
         auto* cover = m_book->cover();
         if (cover)
         {
-            auto image = IRenderer::instance()->loadImageFromStream((BYTE*)cover->data, cover->size);
+            auto image = renderer->loadImageFromStream((BYTE*)cover->data, cover->size);
             if (image)
             {
-                IRenderer::instance()->drawImage(image, rect, true);
+                renderer->drawImage(image, rect, true);
                 delete image;
                 return;
             }
@@ -658,7 +666,7 @@ void BookSession::drawPage(HDC hdc, const RECT& rect)
                 rc.right += m_pageInfo.cGap;
             }
             rc.bottom = rc.top + c.h;
-            IRenderer::instance()->drawText(m_book->text() + c.index, 1, rc, c.tsIdx);
+            renderer->drawText(m_book->text() + c.index, 1, rc, c.tsIdx);
             x += c.w + m_pageInfo.cGap;
         }
         y += line.h + line.gap;
@@ -800,16 +808,16 @@ void BookSession::setTextStyles()
     BYTE textAlpha = data.window.textAlpha;
     int idx = 0;
     m_styles[idx] = TextStyle(data.styles.textFont, textAlpha << 24 | data.styles.textColor);
-    m_styles[idx++].setShadow(data.shadow);
+    m_styles[idx++].shadow = data.shadow;
     m_styles[idx] = TextStyle(data.styles.titleFont, textAlpha << 24 | data.styles.titleColor);
-    m_styles[idx++].setShadow(data.shadow);
+    m_styles[idx++].shadow = data.shadow;
 #if ENABLE_TAG
     for (auto& tag : data.tags)
     {
         BYTE tagBgAlpha = tag.backgroundColor >> 24;
         if (tagBgAlpha == 0) tagBgAlpha = 0xff;
         m_styles[idx] = TextStyle(tag.font, textAlpha << 24 | tag.textColor, tagBgAlpha << 24 | tag.backgroundColor);
-        m_styles[idx++].setShadow(data.shadow);
+        m_styles[idx++].shadow = data.shadow;
     }
 #endif
 

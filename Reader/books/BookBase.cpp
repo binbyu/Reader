@@ -277,7 +277,8 @@ bool BookBase::decodeText(const char* src, int slen, wchar_t** dst, int* dlen)
 
 bool BookBase::formatText(wchar_t* p_data, int* p_len)
 {
-    if (!p_data || !p_len || *p_len <= 0) return false;
+    if (!p_data || !p_len || *p_len < 0) return false;
+    if (*p_len == 0) return true;
 
     wchar_t* p_src_text = p_data;
     int src_len = *p_len;

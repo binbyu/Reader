@@ -235,7 +235,7 @@ bool BookEpub::parseOpf(Files& files)
     {
     }
 
-    // EPUB 2：toc.ncx. parse ncx, ncx is not a required file for EPUB 3
+    // EPUB 2: toc.ncx. parse ncx, ncx is not a required file for EPUB 3
     if (m_abort) return false;
     for (auto& i : valueToc)
     {
